@@ -1,0 +1,59 @@
+---
+description: SEO, accessibility and inclusive UX requirements
+alwaysApply: true
+---
+
+# SEO
+
+Treat Google discoverability as an architectural requirement.
+
+For public pages:
+- semantic URLs;
+- unique title;
+- unique meta description;
+- canonical where appropriate;
+- Open Graph metadata;
+- sitemap;
+- robots;
+- structured data when justified;
+- semantic HTML;
+- crawlable primary content;
+- optimized images and meaningful alt text;
+- good performance/Core Web Vitals;
+- no accidental duplicate pages.
+
+Private application routes must not be indexed.
+
+Do not expose student/teacher private data through public metadata.
+
+# Accessibility
+
+Target WCAG 2.2 AA.
+
+Required:
+- keyboard navigation;
+- visible focus;
+- semantic buttons/links;
+- associated form labels;
+- accessible validation/error messages;
+- sufficient contrast;
+- do not communicate meaning by color alone;
+- heading hierarchy;
+- landmarks;
+- accessible tables;
+- screen-reader-friendly state changes;
+- sensible touch targets;
+- `prefers-reduced-motion`;
+- avoid unnecessary ARIA;
+- dialogs/modals must manage focus correctly.
+
+Every new UI feature must be checked for keyboard, focus, contrast, labels and error states.
+
+# UX
+
+Minimalist, professional, adult education experience.
+
+Use existing Omegon visual tokens/components first.
+If the project has no established palette, centralize the new palette as tokens rather than hardcoding colors across components.
+
+Do not make the interface look like a children's gamification app.

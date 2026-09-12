@@ -1,0 +1,87 @@
+---
+description: Product vision, roles, MVP scope and non-negotiable business rules for the Spanish academy
+alwaysApply: true
+---
+
+# Academia — Product Rule
+
+## North Star
+
+Build the operational platform for a Spanish-language academy that can scale from one director/teacher into a managed network of trained teachers.
+
+The platform is the academy. Zoom/Google Meet is the external classroom.
+
+## Educational models
+
+### 1:1
+- One student and one teacher.
+- 60 or 90 minutes.
+- Any student level.
+
+### Group
+- One teacher, maximum 15 students.
+- 120 minutes.
+- Once per week.
+- Initially focused on native speakers training to become Spanish teachers.
+
+## Revenue split
+
+For each student/service:
+- Academy: 15%
+- Assigned teacher: 85%
+
+The MVP may record the calculation and settlement status without automatically transferring money.
+
+## Roles
+
+- SUPER_ADMIN: technical/Omegon control.
+- DIRECTOR: academy owner/operator.
+- ADMINISTRATIVE: operational staff controlled by Director permissions.
+- TEACHER: assigned teaching staff.
+- STUDENT: learner.
+
+## Authorization
+
+Authorization must be enforced in the backend, not only hidden in the UI.
+
+Director controls Administrative permissions.
+
+Teacher cannot assign students to themselves.
+
+Students can only access their own private data.
+
+## MVP boundary
+
+Build:
+- real auth;
+- role-based authorization;
+- Director/Admin dashboards;
+- students;
+- teachers;
+- assignments;
+- courses/groups;
+- classes/calendar;
+- meeting links;
+- materials;
+- attendance/notes;
+- basic finance;
+- administrative permissions.
+
+Do not build yet:
+- native video calls;
+- mobile app;
+- AI;
+- gamification;
+- marketplace;
+- internal chat;
+- automated teacher payouts;
+- advanced CRM;
+- advanced certification.
+
+Future buttons must visibly say `Próximamente`.
+
+## Production principle
+
+Prefer a small real feature over a broad fake feature.
+Do not mock business-critical behavior.
+Do not duplicate existing infrastructure.

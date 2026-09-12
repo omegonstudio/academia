@@ -1,0 +1,68 @@
+---
+description: Mandatory roadmap, route map and PR synchronization workflow
+alwaysApply: true
+---
+
+# Roadmap Contract
+
+The project is developed in explicit stages.
+
+Before coding:
+1. Read `ROUTE-MAP.md`.
+2. Read `TODO.md`.
+3. Determine the current stage.
+4. Inspect existing implementation.
+5. Define the smallest shippable increment.
+
+After coding:
+1. Validate the implementation.
+2. Update `ROUTE-MAP.md`.
+3. Update `TODO.md`.
+4. Add TODOs for later-stage dependencies discovered during implementation.
+5. Record relevant architecture decisions.
+
+## Route map requirements
+
+`ROUTE-MAP.md` is the source of truth for:
+- public routes;
+- private routes;
+- role access;
+- route status;
+- planned routes;
+- stage;
+- dependencies;
+- future functionality.
+
+Every route entry must have a status:
+- `[x]` implemented and validated;
+- `[~]` partially implemented;
+- `[ ]` planned;
+- `[!]` blocked/needs decision.
+
+When a route is planned but not implemented, document its purpose and future stage.
+
+## TODO requirements
+
+`TODO.md` must be organized by stage.
+
+Each stage includes:
+- objective;
+- deliverables;
+- TODOs;
+- acceptance criteria;
+- dependencies.
+
+Do not delete future TODOs merely because they are not part of the current stage.
+
+## PR requirements
+
+Every PR must:
+- keep `ROUTE-MAP.md` current;
+- keep `TODO.md` current;
+- identify completed items;
+- identify newly discovered work;
+- mention permission/security changes;
+- mention DB migrations;
+- mention SEO/accessibility impact where relevant.
+
+Never claim a stage is complete if its acceptance criteria are not met.
