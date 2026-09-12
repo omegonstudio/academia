@@ -1,0 +1,112 @@
+name: Production
+
+# Deployment happens only from main, and only after CI has passed.
+#
+#   feature/* -> Pull Request -> CI -> review -> main -> this workflow
+#
+# No other branch can reach production: the trigger is restricted to main and
+# to a manual dispatch, which GitHub only allows on branches it is offered for.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Never run two deployments at once, and never cancel one midway: an
+# interrupted migration is worse than a queued deploy.
+concurrency:
+  group: production-deploy
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # The deployment gate. Reuses ci.yml verbatim.
+  # ---------------------------------------------------------------------------
+  ci:
+    name: CI gate
+    uses: ./.github/workflows/ci.yml
+
+  # ---------------------------------------------------------------------------
+  # Deploy: build on the server, migrate, start, verify.
+  # ---------------------------------------------------------------------------
+  deploy:
+    name: Deploy to production
+    needs: ci
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    # Bind to a GitHub Environment so required reviewers, wait timers and
+    # environment-scoped secrets can gate this job.
+    environment:
+      name: production
+      url: ${{ vars.PRODUCTION_URL }}
+
+    steps:
+      - name: Check out the deployed commit
+        uses: actions/checkout@v5
+
+      # Application secrets are NOT passed through CI. They live in the .env
+      # file on the server, managed out of band, so a compromised workflow log
+      # can never leak a database or payment credential. The only secrets here
+      # are the ones needed to reach the host.
+      - name: Start the SSH agent
+        uses: webfactory/ssh-agent@v0.9.1
+        with:
+          ssh-private-key: ${{ secrets.DEPLOY_SSH_KEY }}
+
+      - name: Pin the host key
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          ssh-keyscan -H "${{ secrets.DEPLOY_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null
+          chmod 600 ~/.ssh/known_hosts
+
+      - name: Deploy
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+          COMMIT_SHA: ${{ github.sha }}
+        run: |
+          # `set -e` inside the remote shell makes any failed step abort the
+          # deployment rather than continue against a half-updated checkout.
+          ssh -o StrictHostKeyChecking=yes "${DEPLOY_USER}@${DEPLOY_HOST}" bash -se <<REMOTE
+          set -euo pipefail
+
+          cd "${DEPLOY_PATH}"
+
+          echo "==> Fetching ${COMMIT_SHA}"
+          git fetch --prune origin
+          git reset --hard "${COMMIT_SHA}"
+
+          # The stack refuses to start without it; failing here is clearer.
+          test -f .env || { echo '.env is missing on the server' >&2; exit 1; }
+
+          echo "==> Building and starting (migrations run in the API entrypoint)"
+          ./scripts/prod-up.sh
+          REMOTE
+
+      - name: Verify health from outside the host
+        if: ${{ vars.PRODUCTION_URL != '' }}
+        run: |
+          # An internal check already ran in prod-up.sh; this confirms the
+          # service is reachable through its public URL too.
+          for attempt in $(seq 1 20); do
+            if curl -fsS --max-time 10 "${{ vars.PRODUCTION_URL }}" >/dev/null; then
+              echo "Public URL is responding."
+              exit 0
+            fi
+            echo "Attempt ${attempt}: not ready yet."
+            sleep 6
+          done
+          echo "Public URL did not respond after the deployment." >&2
+          exit 1
+
+      - name: Report failure
+        if: failure()
+        run: |
+          echo "::error::Production deployment failed. The previous containers may still be serving traffic."
+          echo "Roll back by resetting the server checkout to the last good commit and re-running ./scripts/prod-up.sh."
+          echo "See docs/INFRASTRUCTURE.md for the rollback procedure."

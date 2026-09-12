@@ -1,0 +1,207 @@
+name: CI
+
+# Validates every pull request and every push to a long-lived branch.
+# Deployment lives in production.yml and is deliberately not triggered here.
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+  # Lets production.yml reuse these exact checks as its deployment gate instead
+  # of duplicating them.
+  workflow_call:
+
+# A new push supersedes the previous run for the same ref.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  NODE_VERSION: '22'
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Static analysis and the database-free suite.
+  # ---------------------------------------------------------------------------
+  verify:
+    name: Lint, typecheck, unit tests, build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Set up Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # The shared contracts package is consumed from dist/, and the Prisma
+      # client is generated code; both must exist before anything is typechecked.
+      - name: Build shared contracts
+        run: npm run build -w @academia/shared
+
+      - name: Generate Prisma client
+        run: npm run prisma:generate -w @academia/api
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Unit tests
+        run: npm run test
+
+      - name: Build
+        run: npm run build
+        env:
+          NEXT_PUBLIC_APP_URL: http://localhost:3000
+
+  # ---------------------------------------------------------------------------
+  # Integration suite against a real PostgreSQL, with real migrations.
+  # This is what proves the migrations are reproducible from an empty database.
+  # ---------------------------------------------------------------------------
+  integration:
+    name: Integration tests (PostgreSQL)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: academia_test
+          POSTGRES_USER: academia
+          # Ephemeral credential for a throwaway service container; it never
+          # leaves the runner and guards no real data.
+          POSTGRES_PASSWORD: academia_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U academia -d academia_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgresql://academia:academia_ci@localhost:5432/academia_test?schema=public
+      AUTH_SECRET: ci-only-secret-value-at-least-32-chars
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Set up Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build shared contracts
+        run: npm run build -w @academia/shared
+
+      - name: Generate Prisma client
+        run: npm run prisma:generate -w @academia/api
+
+      # `migrate deploy` on an empty database: fails loudly if a migration is
+      # missing, out of order or not reproducible.
+      - name: Apply migrations
+        run: npm run db:deploy -w @academia/api
+
+      - name: Integration tests
+        run: npm run test:integration -w @academia/api
+
+  # ---------------------------------------------------------------------------
+  # The production images must build from a clean context.
+  # ---------------------------------------------------------------------------
+  docker:
+    name: Production images build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build the API image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/api.Dockerfile
+          push: false
+          cache-from: type=gha,scope=api
+          cache-to: type=gha,scope=api,mode=max
+
+      - name: Build the web image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/web.Dockerfile
+          push: false
+          # Same build-time vars Compose production uses. CI has no public
+          # origin, so a placeholder is enough to prove the bake path works.
+          build-args: |
+            API_INTERNAL_URL=http://api:4000
+            NEXT_PUBLIC_APP_URL=http://localhost:3000
+          cache-from: type=gha,scope=web
+          cache-to: type=gha,scope=web,mode=max
+
+  # ---------------------------------------------------------------------------
+  # Guards the rule that no real secret is ever committed.
+  # ---------------------------------------------------------------------------
+  secrets-hygiene:
+    name: No committed secrets
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Assert no environment file is tracked
+        run: |
+          tracked="$(git ls-files | grep -E '(^|/)\.env($|\.)' | grep -v '\.env\.example$' || true)"
+          if [ -n "$tracked" ]; then
+            echo "Tracked environment files detected:" >&2
+            echo "$tracked" >&2
+            exit 1
+          fi
+          echo "No tracked .env files."
+
+      - name: Assert .env.example carries no filled-in secret
+        run: |
+          # Every secret-ish key must be empty or an obvious placeholder.
+          violations="$(grep -nE '^(AUTH_SECRET|POSTGRES_PASSWORD|SUPERADMIN_PASSWORD|STRIPE_SECRET_KEY|STRIPE_WEBHOOK_SECRET|MERCADOPAGO_ACCESS_TOKEN|MERCADOPAGO_WEBHOOK_SECRET)=.+' .env.example \
+            | grep -viE '=(change-me|development-only|your-|placeholder|<)' || true)"
+          if [ -n "$violations" ]; then
+            echo "Suspicious values in .env.example:" >&2
+            echo "$violations" >&2
+            exit 1
+          fi
+          echo ".env.example contains no real secrets."
+
+      - name: Assert no private key material is tracked
+        run: |
+          tracked="$(git ls-files | grep -E '\.(pem|key|p12|pfx)$' || true)"
+          if [ -n "$tracked" ]; then
+            echo "Tracked key material detected:" >&2
+            echo "$tracked" >&2
+            exit 1
+          fi
+          echo "No tracked key material."

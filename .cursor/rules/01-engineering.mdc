@@ -6,22 +6,24 @@ alwaysApply: true
 # Engineering Rules
 
 1. Inspect the existing repository before creating architecture.
-2. Reuse existing auth, API, DB, ORM, components and design tokens.
+2. Reuse existing auth, API, DB, ORM, components and design tokens; prefer minimal reusable code and SOLID boundaries.
 3. Do not replace working infrastructure without documenting why.
 4. Business rules must be enforced server-side.
 5. Validate all input at API boundaries.
 6. Never trust role/permission information supplied by the client.
 7. Keep domain logic out of presentation components when practical.
 8. Use typed contracts between frontend and backend where the existing architecture supports them.
-9. Never hardcode secrets.
+9. Never hardcode secrets; use env vars / GitHub Secrets only.
 10. `omegon.info@gmail.com` is the development SuperAdmin identity; bootstrap it through safe configuration/seed logic, never a hardcoded password.
 11. Preserve data ownership boundaries between Director, Administrative, Teacher and Student.
-12. Prefer idempotent migrations/seeds.
+12. Prefer idempotent migrations/seeds; PostgreSQL only; no destructive auto-migrations in production.
 13. Add loading, empty, error and success states for real async operations.
 14. Never display success unless the backend operation succeeded.
 15. Avoid premature abstraction, but keep domain entities extensible.
-16. Add tests around authorization and the 15/85 financial rule.
+16. Add tests around authorization and the 15/85 financial rule (backend domain, not frontend-only).
 17. Every new route must be reflected in `ROUTE-MAP.md`.
 18. Every completed/discovered task must be reflected in `TODO.md`.
 19. Every PR must keep roadmap and implementation state synchronized.
 20. Run the narrowest useful validation first, then broader checks before merging.
+21. Stage 0 is Foundation + Infrastructure (Docker, env isolation, CI/CD, health, backups docs) before academy feature work — see `04-infrastructure.mdc`.
+22. LaQQ is an architectural reference only; Academia must not depend on LaQQ to run.

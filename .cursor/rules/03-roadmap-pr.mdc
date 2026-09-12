@@ -7,6 +7,8 @@ alwaysApply: true
 
 The project is developed in explicit stages.
 
+**Stage 0 is Foundation + Infrastructure.** Do not claim academy feature stages are in progress until Stage 0 acceptance criteria are met (see `TODO.md` and `04-infrastructure.mdc`).
+
 Before coding:
 1. Read `ROUTE-MAP.md`.
 2. Read `TODO.md`.

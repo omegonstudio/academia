@@ -1,0 +1,44 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+build/
+.next/
+out/
+*.tsbuildinfo
+
+# Prisma generated client (regenerated from schema)
+apps/api/src/generated/
+
+# Environment / secrets — never commit real values
+.env
+.env.*
+!.env.example
+
+# Docker local overrides
+docker-compose.override.yml
+
+# Database dumps and backups
+backups/
+*.sql.gz
+*.dump
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# Test / coverage
+coverage/
+
+# Editor / OS
+.DS_Store
+Thumbs.db
+.idea/
+*.swp
+
+# Certificates and keys — never commit
+*.pem
+*.key
+!**/*.example.key
