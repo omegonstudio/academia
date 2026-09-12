@@ -38,9 +38,9 @@ services:
       LOG_LEVEL: ${LOG_LEVEL:-info}
       API_PORT: 4000
       # Discrete parameters, not a pre-built URL. The entrypoint assembles
-      # DATABASE_URL with percent-encoding, so a password containing / + = @ or :
-      # cannot corrupt or silently redirect the connection. The POSTGRES_*
-      # values remain the single source of truth for credentials.
+      # DATABASE_URL with percent-encoding so a "/" in the password cannot make
+      # the URL unparseable. The POSTGRES_* values remain the single source of
+      # truth for credentials.
       POSTGRES_HOST: db
       POSTGRES_PORT: 5432
       POSTGRES_DB: ${POSTGRES_DB}
@@ -80,7 +80,9 @@ services:
       NODE_ENV: ${NODE_ENV:-development}
       WEB_PORT: 3000
       NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
-      API_INTERNAL_URL: http://api:4000
+      # Same default as docker/web.Dockerfile and docker-compose.prod.yml
+      # build.args — one variable for rewrites (build) and getSession (runtime).
+      API_INTERNAL_URL: ${API_INTERNAL_URL:-http://api:4000}
     depends_on:
       api:
         condition: service_healthy

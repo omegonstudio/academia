@@ -26,16 +26,16 @@ WORKDIR /app
 
 ENV NEXT_TELEMETRY_DISABLED=1
 
-# Next.js serializes rewrite destinations into the build output, so the API
-# address must be present at BUILD time — setting it only at runtime leaves the
-# standalone server proxying /api to its own localhost.
+# Next.js serializes rewrite destinations and inlines NEXT_PUBLIC_* into the
+# build output. Setting either only at runtime leaves production serving
+# localhost canonicals / sitemap and proxying /api to its own localhost.
 #
-# The default is the Compose service name, which is stable across environments
-# because both stacks name the service `api`. Point the API somewhere else and
-# this image needs rebuilding, or a reverse proxy in front. See
-# docs/INFRASTRUCTURE.md.
+# Defaults match the Compose topology (service name `api`) and local SEO.
+# Pointing elsewhere requires rebuilding the image. See docs/INFRASTRUCTURE.md.
 ARG API_INTERNAL_URL=http://api:4000
 ENV API_INTERNAL_URL=${API_INTERNAL_URL}
+ARG NEXT_PUBLIC_APP_URL=http://localhost:3000
+ENV NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL}
 
 COPY tsconfig.base.json ./
 COPY packages/shared ./packages/shared
@@ -57,6 +57,12 @@ ENV NEXT_TELEMETRY_DISABLED=1
 # container never reports healthy. Binding all interfaces fixes both.
 ENV HOSTNAME=0.0.0.0
 ENV PORT=3000
+
+# Same source as the build stage: getSession() reads API_INTERNAL_URL at
+# runtime, while rewrites were baked above. Re-declare ARG so a single
+# --build-arg keeps both uses aligned when Compose does not override env.
+ARG API_INTERNAL_URL=http://api:4000
+ENV API_INTERNAL_URL=${API_INTERNAL_URL}
 
 WORKDIR /app
 

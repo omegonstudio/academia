@@ -154,6 +154,11 @@ jobs:
           context: .
           file: docker/web.Dockerfile
           push: false
+          # Same build-time vars Compose production uses. CI has no public
+          # origin, so a placeholder is enough to prove the bake path works.
+          build-args: |
+            API_INTERNAL_URL=http://api:4000
+            NEXT_PUBLIC_APP_URL=http://localhost:3000
           cache-from: type=gha,scope=web
           cache-to: type=gha,scope=web,mode=max
 

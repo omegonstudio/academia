@@ -1,10 +1,12 @@
 // Assembles a PostgreSQL connection URL from discrete parameters.
 //
 // Why this exists: building the URL by string interpolation in Compose is
-// unsafe. A password containing "/" makes the URL unparseable, and one
-// containing "+", "=" or "@" parses into the *wrong* host or credentials
-// silently — which is worse. Percent-encoding each component removes the whole
-// class of failure, so any generated password is safe.
+// unsafe. A password containing "/" makes the URL unparseable (and a literal
+// "%" must be written "%25" because the driver percent-decodes). Percent-
+// encoding each component removes that class of failure, so any generated
+// password is safe. Characters such as "+", "=", "@" and ":" round-trip
+// correctly even unencoded against pg-connection-string; encoding them is
+// still correct and keeps the builder uniform.
 //
 // Prints the URL on stdout. It contains a secret, so the caller must capture it
 // rather than log it.

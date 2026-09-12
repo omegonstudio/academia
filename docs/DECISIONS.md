@@ -133,8 +133,10 @@ API publishes no host port.
 from the internet. This mirrors LaQQ's Nginx-proxies-`/api` topology using the
 server we already run.
 
-**Consequence.** `CORS_ALLOWED_ORIGINS` exists and is tested but empty by
-default, for a future deployment that gives the API its own hostname.
+**Consequence.** `CORS_ALLOWED_ORIGINS` exists and is wired into the Express
+app, but is empty by default for the same-origin rewrite topology. Unit coverage
+for the CORS middleware itself is deferred until a deployment exposes the API on
+its own hostname.
 
 ---
 

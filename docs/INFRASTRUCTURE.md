@@ -68,11 +68,17 @@ port at all.
 serializes rewrite destinations into the build output, so a value supplied only at
 runtime leaves the standalone server proxying `/api` to its own localhost — which
 fails in production while working in development, because `next dev` re-evaluates
-the config at startup. `docker-compose.prod.yml` therefore passes it through
-`build.args`, defaulting to the Compose service name `http://api:4000`.
+the config at startup. `NEXT_PUBLIC_APP_URL` has the same constraint: canonicals,
+Open Graph URLs, `robots.txt` and `sitemap.xml` would otherwise ship as
+`http://localhost:3000`.
 
-Consequence: pointing the API at a different address means rebuilding the web
-image, or putting a reverse proxy in front of it.
+`docker-compose.prod.yml` therefore passes both through `build.args`. The same
+`API_INTERNAL_URL` Compose variable is also set on the web service at runtime so
+`getSession()` (which reads the env at request time) cannot diverge from the
+baked rewrite destination. Default for the API address is the Compose service
+name `http://api:4000`.
+
+Consequence: changing either value means rebuilding the web image.
 
 ## Configuration and secrets
 
@@ -93,6 +99,16 @@ Rules:
 - Production values live in the server's `.env` (managed out of band) or in
   GitHub Secrets. They never pass through a workflow log.
 - Generate secrets with `openssl rand -base64 48`.
+- Compose interpolates `$VAR` / `${VAR}` in `.env` values. Write a literal
+  `$` as `$$`. The recommended generator never emits `$`; pasting a password
+  that contains one without escaping rewrites the secret (silently when the
+  name exists in the host environment).
+
+`API_INTERNAL_URL` and `NEXT_PUBLIC_APP_URL` are build-time inputs for the web
+image. Next.js bakes rewrite destinations and inlines `NEXT_PUBLIC_*` into the
+standalone output, so both are passed as Docker `build.args` (and
+`API_INTERNAL_URL` is also set at runtime from the same Compose variable so
+`getSession()` cannot diverge from the rewrite target).
 
 ### `DATABASE_URL` has two forms
 
