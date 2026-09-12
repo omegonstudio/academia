@@ -220,7 +220,7 @@ via Tailwind's `@theme`. No component hardcodes a colour.
 **Why.** The repository contained no Omegon brand assets to reuse, and the rules
 require centralising tokens rather than scattering values. Every pair was
 contrast-checked against its intended background before being written down; the
-ratios are recorded in [ACCESSIBILITY.md](docs/ACCESSIBILITY.md).
+ratios are recorded in [ACCESSIBILITY.md](ACCESSIBILITY.md).
 
 **Explicitly provisional.** When official Omegon brand tokens exist they replace
 these values in that one file, and the contrast check is re-run.
