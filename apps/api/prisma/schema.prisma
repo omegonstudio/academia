@@ -1,0 +1,56 @@
+// Academia — database schema.
+//
+// Stage 0 models identity only. Student, Teacher, Course, ClassSession,
+// Material, Payment and Settlement belong to later stages and must not be
+// added here until their stage is being implemented.
+//
+// The connection URL is supplied by `prisma7.config.ts` from the environment.
+//
+// Naming convention: tables and columns are snake_case in the database via @map
+// and @@map, while the TypeScript client stays camelCase. PostgreSQL folds
+// unquoted identifiers to lowercase, so a camelCase column has to be quoted in
+// every hand-written query — during a restore, in psql, or from any reporting
+// tool. Later stages must follow this convention.
+
+generator client {
+  provider            = "prisma-client"
+  output              = "../src/generated/prisma"
+  moduleFormat        = "esm"
+  importFileExtension = "js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+/// Mirrors ROLES in @academia/shared. Both must change together.
+enum Role {
+  SUPER_ADMIN
+  DIRECTOR
+  ADMINISTRATIVE
+  TEACHER
+  STUDENT
+
+  @@map("user_role")
+}
+
+model User {
+  id String @id @default(uuid()) @db.Uuid
+
+  /// Always stored normalised (trimmed, lowercased) by the application layer.
+  email String @unique @db.VarChar(254)
+  name  String? @db.VarChar(120)
+
+  /// Derived key produced by src/lib/password.ts. Never a plaintext password.
+  passwordHash String @map("password_hash") @db.VarChar(255)
+
+  role     Role    @default(STUDENT)
+  isActive Boolean @default(true) @map("is_active")
+
+  lastLoginAt DateTime? @map("last_login_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  @@index([role])
+  @@map("users")
+}

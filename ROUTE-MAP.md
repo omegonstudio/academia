@@ -9,23 +9,54 @@ Legend:
 - `[ ]` Planned
 - `[!]` Blocked / decision required
 
-## Stage 0 — Repository & Product Foundation
+## Stage 0 — Foundation + Infrastructure — COMPLETE
 
-- [ ] `/` — public academy landing
-- [ ] `/about` — academy information
-- [ ] `/courses` — public educational offerings
-- [ ] `/teachers` — public teacher/academy information
-- [ ] `/contact` — contact
-- [ ] `/login` — real authentication
-- [ ] `/dashboard` — role-aware private entry
+### Public web routes (indexable)
 
-TODO:
-- Audit existing routes before creating duplicates.
-- Confirm existing auth implementation.
-- Confirm existing API/DB/ORM.
-- Establish Omegon design tokens from existing project assets.
-- Establish SEO metadata foundation.
-- Establish WCAG 2.2 AA baseline.
+| Status | Route       | Notes                                                              |
+| ------ | ----------- | ------------------------------------------------------------------ |
+| `[x]`  | `/`         | Landing. Static. Unique title/description, canonical, Open Graph.  |
+| `[x]`  | `/about`    | Academy information. Static.                                       |
+| `[x]`  | `/courses`  | 1:1, group and teacher-training offerings. Static.                 |
+| `[x]`  | `/teachers` | How the teacher network works. Static. No public directory yet.    |
+| `[x]`  | `/contact`  | `mailto` link — deliberately not a form, since no message store exists. |
+
+All public pages: `lang="es"`, one `<h1>`, skip link, landmarks, verified contrast.
+
+### Private web routes (never indexed)
+
+| Status | Route        | Access                                                                 |
+| ------ | ------------ | ---------------------------------------------------------------------- |
+| `[x]`  | `/login`     | Public. `noindex, nofollow`. Redirects to `/dashboard` if already authenticated. |
+| `[x]`  | `/dashboard` | Authenticated only. `noindex, nofollow`. Server-side redirect to `/login` (verified 307). Shows session identity and role; **no academy modules yet**. |
+
+### API routes
+
+| Status | Route              | Notes                                                                    |
+| ------ | ------------------ | ------------------------------------------------------------------------ |
+| `[x]`  | `GET /health`      | 200/`ok` or 503/`degraded`. Separates `configuration` from `database`. No secrets. |
+| `[x]`  | `POST /auth/login` | Zod-validated. Sets HttpOnly cookie. Throttled per IP. Identical 401 for every failure. |
+| `[x]`  | `POST /auth/logout`| 204, clears the cookie.                                                  |
+| `[x]`  | `GET /auth/me`     | Requires a valid session; reloads the user, so revocation is immediate.  |
+
+The browser reaches these as `/api/*`, rewritten by Next.js. In production the
+API publishes no host port.
+
+### Infrastructure surfaces
+
+| Status | Item                                     | Notes                                                       |
+| ------ | ---------------------------------------- | ----------------------------------------------------------- |
+| `[x]`  | `docker-compose.yml` + `dev`/`prod` overrides | Isolated by `COMPOSE_PROJECT_NAME`; separate volumes.   |
+| `[x]`  | `.github/workflows/ci.yml`               | Lint, typecheck, unit, integration (real PostgreSQL), build, images, secrets hygiene. |
+| `[x]`  | `.github/workflows/production.yml`       | `main` only; gated by CI; migrations then health verification. |
+| `[x]`  | `robots.txt`                             | Disallows `/dashboard/`, `/login/`, `/api/`.                |
+| `[x]`  | `sitemap.xml`                            | Public routes only.                                         |
+| `[x]`  | Migration `20260912215052_init_identity` | `users` table + `user_role` enum, snake_case. No destructive statements. |
+
+### Carried forward
+- Role-aware dashboard content → Stage 1.
+- Public teacher directory → later stage, once teacher data exists and privacy is decided.
+- Contact form with persistence → later stage; a form that discarded messages would be a fake feature.
 
 ## Stage 1 — Identity, Roles & Permissions
 

@@ -1,0 +1,75 @@
+---
+description: Production infrastructure — Docker, envs, CI/CD, payments, health, backups (LaQQ patterns as reference only)
+alwaysApply: true
+---
+
+# Academia — Infrastructure & Production
+
+## Priority
+
+Stage 0 is **Foundation + Infrastructure**. Do not expand academy product features until Stage 0 acceptance criteria in `TODO.md` / `MASTER-PROMPT.md` are met.
+
+Prefer minimal, reusable pieces. Do not over-architect the product; do establish reproducible, isolated, secure infrastructure that can grow without a rewrite.
+
+## LaQQ reference rule
+
+LaQQ is an **architectural reference** (Docker, env separation, CI/CD, healthchecks, migrations, config). It is **not** a product dependency.
+
+- Reuse proven patterns when appropriate.
+- Never copy LaQQ business logic or require LaQQ to run Academia.
+
+## Stack baseline
+
+- Next.js + TypeScript (frontend); Node.js + TypeScript (backend).
+- PostgreSQL with versioned migrations; seeds separate from production data.
+- Docker from the start; Compose strategies for **development** and **production**.
+- Mercado Pago (AR) + Stripe (international) behind a **Payment Domain → Payment Provider** boundary.
+- Secrets only via environment variables / GitHub Secrets — never real credentials in the repo.
+
+## Environments
+
+Strict separation of DEV and PRODUCTION. Never share DB, secrets, API keys, payment credentials, JWT/session secrets, storage credentials, internal URLs, or user data across environments.
+
+- Dev: sandbox/test credentials, Stripe test mode, Mercado Pago sandbox when applicable, synthetic data.
+- Prod: live credentials, real data, deploy only from `main` after CI + review.
+
+Maintain `.env.example` without secrets. Ignore `.env`, `.env.local`, `.env.development`, `.env.production`, and equivalents.
+
+## Payments (SOLID)
+
+```text
+Student → Payment Domain → Payment Provider → Mercado Pago | Stripe
+```
+
+- Do not call providers directly from student/UI flows.
+- Decouple Payments from Finance (15/85 lives in backend domain + tests).
+- Never store card PAN/CVV; use official tokenization/checkout/webhooks.
+- Webhooks: validate, idempotent, event-logged, safely reprocessable; never trust frontend-only payment confirmation.
+
+## CI/CD
+
+- PR workflow (minimum): install → lint → typecheck → unit → integration → build.
+- Production workflow: build → migrations → deploy → health check; separate from PR CI.
+- Explicit action versions; cache deps when useful; never print secrets; fail on errors.
+
+## Health, logs, backups
+
+- Health for frontend, backend, PostgreSQL. Backend `/health` must distinguish app healthy / DB unavailable / config invalid without leaking secrets.
+- Structured logs; never log passwords, tokens, or secrets. Leave room for later metrics/tracing/alerts.
+- Document PostgreSQL backup retention and restore; provider-managed backups are OK for MVP if documented.
+
+## Database safety
+
+Migrations must be versioned, reproducible, and fail loudly. Never auto-run `DROP DATABASE` / `DROP TABLE` / `TRUNCATE` in production pipelines unless an explicit, protected, documented procedure exists.
+
+## Security
+
+Admin and sensitive operations require authentication + authorization + server-side validation. Defend against IDOR, privilege escalation, and cross-student/teacher access; never trust client-supplied roles, permissions, or IDs alone.
+
+## Production readiness layers
+
+| Layer | Meaning |
+| --- | --- |
+| MVP | Features needed to operate the academy |
+| Production Infrastructure | What is required to run the MVP safely |
+| Future Product | Later features — do not implement early just because infra allows it |

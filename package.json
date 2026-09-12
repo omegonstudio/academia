@@ -1,0 +1,32 @@
+{
+  "name": "academia",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Omegon Academia — Spanish-language academy platform",
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "build": "npm run build -w @academia/shared && npm run build -w @academia/api && npm run build -w @academia/web",
+    "lint": "npm run lint --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "test:integration": "npm run test:integration -w @academia/api",
+    "dev": "./scripts/dev-up.sh",
+    "dev:down": "./scripts/dev-down.sh",
+    "dev:logs": "./scripts/dev-logs.sh",
+    "db:migrate": "npm run db:migrate -w @academia/api",
+    "db:deploy": "npm run db:deploy -w @academia/api",
+    "db:seed": "npm run db:seed -w @academia/api"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.0",
+    "eslint": "^10.0.0",
+    "typescript": "5.9.3",
+    "typescript-eslint": "^8.70.0"
+  }
+}

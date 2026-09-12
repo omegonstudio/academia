@@ -85,3 +85,12 @@ Future buttons must visibly say `Próximamente`.
 Prefer a small real feature over a broad fake feature.
 Do not mock business-critical behavior.
 Do not duplicate existing infrastructure.
+
+Distinguish clearly:
+- **MVP** — features needed to operate the academy.
+- **Production Infrastructure** — Docker, env isolation, PostgreSQL migrations, CI/CD, healthchecks, logging, backups (required before expanding product).
+- **Future Product** — later features; do not implement early just because infrastructure is ready.
+
+Payments (Mercado Pago AR / Stripe international) go through Payment Domain → Provider adapters; Finance (15/85) stays decoupled and server-side.
+
+LaQQ is an architectural reference for Omegon infra patterns — not a product dependency of Academia.

@@ -1,0 +1,72 @@
+@import 'tailwindcss';
+
+/**
+ * Design tokens — the single source of colour, spacing and type for Academia.
+ *
+ * No component may hardcode a colour. Every value below was contrast-checked
+ * against its intended background for WCAG 2.2 AA (see docs/ACCESSIBILITY.md);
+ * changing one requires re-checking it.
+ *
+ * This is a provisional neutral palette. When official Omegon brand tokens are
+ * available they replace these values here, and nowhere else.
+ */
+@theme {
+  /* Surfaces */
+  --color-surface: #ffffff;
+  --color-surface-muted: #f6f7f9;
+
+  /* Text — "ink on surface" 17.6:1, "ink-muted on surface" 6.5:1 */
+  --color-ink: #16191f;
+  --color-ink-muted: #565e6c;
+
+  /* Brand — "on-brand on brand" 8.6:1 */
+  --color-brand: #0c5460;
+  --color-brand-strong: #093f48;
+  --color-on-brand: #ffffff;
+
+  /* Lines and states */
+  --color-line: #d7dbe0;
+  --color-focus: #0b57d0;
+  --color-danger: #a4262c;
+  --color-success: #0f6d3f;
+
+  --font-sans:
+    ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica,
+    Arial, sans-serif;
+}
+
+@layer base {
+  :root {
+    color-scheme: light;
+  }
+
+  body {
+    background-color: var(--color-surface);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    /* Long-form Spanish copy reads better with a generous measure. */
+    line-height: 1.6;
+  }
+
+  /*
+   * A single visible focus indicator for every interactive element. Focus is
+   * never removed, only restyled (WCAG 2.4.7, 2.4.11).
+   */
+  :focus-visible {
+    outline: 3px solid var(--color-focus);
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+
+  /* Respect an explicit user preference for less motion (WCAG 2.3.3). */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
