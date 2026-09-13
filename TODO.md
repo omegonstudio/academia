@@ -86,10 +86,10 @@ Make access control real and manageable.
 - [x] Director (and SUPER_ADMIN) can list the permission catalog and grant/revoke ADMINISTRATIVE RolePermission via API. Gate: `permissions.read` / `permissions.update` via `requirePermission` (SUPER_ADMIN/DIRECTOR bypass).
 - [x] `requirePermission(module, action)` middleware mounted on permission-management and user-provisioning routes.
 - [x] Role-aware `/dashboard` content from the server session role (SUPER_ADMIN, DIRECTOR, ADMINISTRATIVE, TEACHER, STUDENT). No academy modules or fake actions.
+- [x] Authorization matrix tests for every protected Stage 1 API route (positive/negative across all five roles; 403 without grant; client-supplied claims ignored).
 
 ### TODO
 - [ ] Enforce permissions server-side on every remaining academy route (mount `requirePermission` / keep `requireRole` where role gates remain appropriate).
-- [ ] Authorization matrix tests, including negative cases per role.
 - [ ] Permission-change audit trail.
 - [ ] UI for Director → Administrative permissions (`/dashboard/permissions`).
 ### Acceptance criteria

@@ -84,7 +84,7 @@ TODO:
 - Mount `requirePermission` on remaining academy feature routes.
 - Director-managed Administrative permissions UI (`/dashboard/permissions`).
 - SuperAdmin bootstrap for `omegon.info@gmail.com` (done in Stage 0).
-- Backend authorization tests (all role-provision routes covered; full matrix still open).
+- Authorization matrix for protected Stage 1 API routes (done in suite `authorization-matrix.test.ts`).
 - Audit sensitive permission changes.
 
 ## Stage 2 — Students & Teachers
