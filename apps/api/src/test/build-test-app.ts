@@ -8,6 +8,8 @@ import type {
 } from '../domain/authorization/permission-change-audit.js';
 import { createInMemoryStudentStore } from '../domain/students/in-memory-student-store.js';
 import type { InMemoryStudentStore } from '../domain/students/in-memory-student-store.js';
+import { createInMemoryTeacherStore } from '../domain/teachers/in-memory-teacher-store.js';
+import type { InMemoryTeacherStore } from '../domain/teachers/in-memory-teacher-store.js';
 import { createAuthService } from '../domain/identity/auth-service.js';
 import type {
   ProvisionIdentityRecord,
@@ -60,6 +62,7 @@ export interface TestApp {
   teachers: InMemoryRoleProvisionStore;
   students: InMemoryRoleProvisionStore;
   studentRegistry: InMemoryStudentStore;
+  teacherRegistry: InMemoryTeacherStore;
   administrativePermissions: InMemoryAdministrativePermissionStore;
   permissionChangeAudits: InMemoryPermissionChangeAuditStore;
 }
@@ -217,8 +220,8 @@ export async function buildTestApp({
   const permissionGrants = administrativePermissions.asPermissionGrantStore();
   const permissionChangeAudits = createInMemoryPermissionChangeAuditStore();
   let userSeq = 0;
-  const studentRegistry = createInMemoryStudentStore({
-    findUserByEmail(email) {
+  const userBridge = {
+    findUserByEmail(email: string) {
       const user = users.getByEmailSync(email);
       if (!user) return null;
       return {
@@ -228,7 +231,7 @@ export async function buildTestApp({
         isActive: user.isActive,
       };
     },
-    findUserById(id) {
+    findUserById(id: string) {
       const user = users.getByIdSync(id);
       if (!user) return null;
       return {
@@ -238,7 +241,13 @@ export async function buildTestApp({
         isActive: user.isActive,
       };
     },
-    createUser(input) {
+    createUser(input: {
+      email: string;
+      name: string;
+      passwordHash: string;
+      role: Role;
+      isActive: boolean;
+    }) {
       userSeq += 1;
       const created = {
         id: `registry-user-${userSeq}`,
@@ -256,10 +265,12 @@ export async function buildTestApp({
         isActive: created.isActive,
       };
     },
-    updateUser(id, patch) {
+    updateUser(id: string, patch: { name?: string; isActive?: boolean }) {
       users.patch(id, patch);
     },
-  });
+  };
+  const studentRegistry = createInMemoryStudentStore(userBridge);
+  const teacherRegistry = createInMemoryTeacherStore(userBridge);
   const authService = createAuthService(users);
   const sessionCodec = createSessionCodec(TEST_SECRET, 3600);
 
@@ -308,6 +319,11 @@ export async function buildTestApp({
       students: studentRegistry,
       permissionGrants,
     },
+    teacherRegistry: {
+      authenticate: authOptions,
+      teachers: teacherRegistry,
+      permissionGrants,
+    },
     administrativePermissions: {
       authenticate: authOptions,
       administrativePermissions,
@@ -324,6 +340,7 @@ export async function buildTestApp({
     teachers,
     students,
     studentRegistry,
+    teacherRegistry,
     administrativePermissions,
     permissionChangeAudits,
   };

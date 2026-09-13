@@ -58,3 +58,21 @@ export {
   type CreateStudentRequest,
   type UpdateStudentRequest,
 } from './students.js';
+export {
+  TEACHER_LEVELS,
+  TEACHER_AVAILABILITIES,
+  teacherLevelSchema,
+  teacherAvailabilitySchema,
+  teacherSchema,
+  teacherListResponseSchema,
+  teacherResponseSchema,
+  createTeacherRequestSchema,
+  updateTeacherRequestSchema,
+  type TeacherLevel,
+  type TeacherAvailability,
+  type Teacher,
+  type TeacherListResponse,
+  type TeacherResponse,
+  type CreateTeacherRequest,
+  type UpdateTeacherRequest,
+} from './teachers.js';

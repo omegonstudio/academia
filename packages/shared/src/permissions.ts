@@ -46,6 +46,7 @@ export const PERMISSION_CATALOG: readonly PermissionRef[] = [
   { module: 'teachers', action: 'read' },
   { module: 'teachers', action: 'create' },
   { module: 'teachers', action: 'update' },
+  { module: 'teachers', action: 'delete' },
   { module: 'assignments', action: 'read' },
   { module: 'assignments', action: 'create' },
   { module: 'assignments', action: 'update' },

@@ -22,6 +22,7 @@ describe('PERMISSION_CATALOG', () => {
     expect(isCatalogPermission('permissions', 'create')).toBe(false);
     expect(isCatalogPermission('students', 'read')).toBe(true);
     expect(isCatalogPermission('students', 'delete')).toBe(true);
+    expect(isCatalogPermission('teachers', 'delete')).toBe(true);
     expect(isCatalogPermission('students', 'archive')).toBe(false);
   });
 });

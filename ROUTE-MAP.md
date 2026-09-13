@@ -31,6 +31,8 @@ All public pages: `lang="es"`, one `<h1>`, skip link, landmarks, verified contra
 | `[x]`  | `/dashboard` | Authenticated only. `noindex, nofollow`. Server-side redirect to `/login`. Session identity + **role-aware** copy from server session role. No academy modules yet. |
 | `[x]`  | `/dashboard/students` | Authenticated. Lista/crea estudiantes vía API real (loading/error/vacío). |
 | `[x]`  | `/dashboard/students/[id]` | Authenticated. Detalle + edición/desactivación según permiso. |
+| `[x]`  | `/dashboard/teachers` | Authenticated. Lista/crea profesores vía API real (loading/error/vacío). |
+| `[x]`  | `/dashboard/teachers/[id]` | Authenticated. Detalle + edición/desactivación según permiso. |
 
 ### API routes
 
@@ -53,6 +55,11 @@ All public pages: `lang="es"`, one `<h1>`, skip link, landmarks, verified contra
 | `[x]`  | `GET /students/:id` | `students.read` o el propio STUDENT (ownership). Sin secretos de User. |
 | `[x]`  | `PATCH /students/:id` | `requirePermission(students, update)`. |
 | `[x]`  | `DELETE /students/:id` | `requirePermission(students, delete)`. Baja lógica (`isActive=false`). |
+| `[x]`  | `GET /teachers` | `requirePermission(teachers, read)`. Lista perfiles académicos. |
+| `[x]`  | `POST /teachers` | `requirePermission(teachers, create)`. Crea User+Teacher o perfil sobre TEACHER existente. |
+| `[x]`  | `GET /teachers/:id` | `teachers.read` o el propio TEACHER (ownership). Sin secretos de User. |
+| `[x]`  | `PATCH /teachers/:id` | `requirePermission(teachers, update)`. |
+| `[x]`  | `DELETE /teachers/:id` | `requirePermission(teachers, delete)`. Baja lógica (`isActive=false`). |
 
 The browser reaches these as `/api/*`, rewritten by Next.js. In production the
 API publishes no host port.
@@ -99,16 +106,16 @@ TODO:
 
 - [x] `/dashboard/students`
 - [x] `/dashboard/students/[id]`
-- [ ] `/dashboard/teachers`
-- [ ] `/dashboard/teachers/[id]`
+- [x] `/dashboard/teachers`
+- [x] `/dashboard/teachers/[id]`
 
 TODO:
 - Student CRUD (API + UI done; soft delete; ownership read for STUDENT).
-- Teacher CRUD.
-- Levels (Student CEFR done).
-- Status (Student active/inactive done).
-- Basic profiles (Student done).
-- Ownership/access rules (Student own-read done).
+- Teacher CRUD (API + UI done; soft delete; availability; ownership read for TEACHER).
+- Levels (Student/Teacher CEFR done).
+- Status (Student/Teacher active/inactive done).
+- Basic profiles (Student/Teacher done).
+- Ownership/access rules (own-read for STUDENT and TEACHER done).
 
 ## Stage 3 — Assignments & Academic Structure
 

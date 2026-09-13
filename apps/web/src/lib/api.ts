@@ -2,8 +2,11 @@ import {
   sessionResponseSchema,
   studentListResponseSchema,
   studentResponseSchema,
+  teacherListResponseSchema,
+  teacherResponseSchema,
   type SessionUser,
   type Student,
+  type Teacher,
 } from '@academia/shared';
 import { cookies } from 'next/headers';
 
@@ -109,6 +112,78 @@ export async function fetchStudent(id: string): Promise<StudentFetchResult> {
       };
     }
     return { ok: true, student: parsed.data.student };
+  } catch {
+    return {
+      ok: false,
+      status: 503,
+      message: 'No pudimos conectar con el servidor.',
+    };
+  }
+}
+
+export type TeachersFetchResult =
+  | { ok: true; teachers: Teacher[] }
+  | { ok: false; status: number; message: string };
+
+export async function fetchTeachers(): Promise<TeachersFetchResult> {
+  try {
+    const response = await apiFetch('/teachers');
+    if (!response.ok) {
+      return {
+        ok: false,
+        status: response.status,
+        message:
+          response.status === 403
+            ? 'No tenés permiso para ver el listado de profesores.'
+            : 'No pudimos cargar los profesores.',
+      };
+    }
+    const parsed = teacherListResponseSchema.safeParse(await response.json());
+    if (!parsed.success) {
+      return {
+        ok: false,
+        status: 500,
+        message: 'Respuesta inválida del servidor.',
+      };
+    }
+    return { ok: true, teachers: parsed.data.teachers };
+  } catch {
+    return {
+      ok: false,
+      status: 503,
+      message: 'No pudimos conectar con el servidor.',
+    };
+  }
+}
+
+export type TeacherFetchResult =
+  | { ok: true; teacher: Teacher }
+  | { ok: false; status: number; message: string };
+
+export async function fetchTeacher(id: string): Promise<TeacherFetchResult> {
+  try {
+    const response = await apiFetch(`/teachers/${id}`);
+    if (!response.ok) {
+      return {
+        ok: false,
+        status: response.status,
+        message:
+          response.status === 404
+            ? 'Profesor no encontrado.'
+            : response.status === 403
+              ? 'No tenés permiso para ver este profesor.'
+              : 'No pudimos cargar el profesor.',
+      };
+    }
+    const parsed = teacherResponseSchema.safeParse(await response.json());
+    if (!parsed.success) {
+      return {
+        ok: false,
+        status: 500,
+        message: 'Respuesta inválida del servidor.',
+      };
+    }
+    return { ok: true, teacher: parsed.data.teacher };
   } catch {
     return {
       ok: false,
