@@ -42,10 +42,10 @@ All public pages: `lang="es"`, one `<h1>`, skip link, landmarks, verified contra
 | `[x]`  | `POST /users/administratives` | SUPER_ADMIN or DIRECTOR. Provisions an ADMINISTRATIVE (role server-assigned). Same conflict/reassert rules as DIRECTOR. |
 | `[x]`  | `POST /users/teachers` | SUPER_ADMIN or DIRECTOR. Provisions a TEACHER (role server-assigned). Same conflict/reassert rules. |
 | `[x]`  | `POST /users/students` | SUPER_ADMIN or DIRECTOR. Provisions a STUDENT (role server-assigned). TEACHER not authorized. Same conflict/reassert rules. |
-| `[x]`  | `GET /permissions/catalog` | SUPER_ADMIN or DIRECTOR. Returns the grantable (module, action) catalog. |
-| `[x]`  | `GET /roles/administrative/permissions` | SUPER_ADMIN or DIRECTOR. Lists ADMINISTRATIVE grants. |
-| `[x]`  | `POST /roles/administrative/permissions` | SUPER_ADMIN or DIRECTOR. Grants a catalog permission to ADMINISTRATIVE (idempotent 201/200). |
-| `[x]`  | `DELETE /roles/administrative/permissions` | SUPER_ADMIN or DIRECTOR. Revokes a catalog permission from ADMINISTRATIVE (idempotent 204). |
+| `[x]`  | `GET /permissions/catalog` | `authenticate` + `requirePermission(permissions, read)`. SUPER_ADMIN/DIRECTOR bypass; others need grant. |
+| `[x]`  | `GET /roles/administrative/permissions` | `requirePermission(permissions, read)`. Lists ADMINISTRATIVE grants. |
+| `[x]`  | `POST /roles/administrative/permissions` | `requirePermission(permissions, update)`. Grants to ADMINISTRATIVE (idempotent 201/200). |
+| `[x]`  | `DELETE /roles/administrative/permissions` | `requirePermission(permissions, update)`. Revokes from ADMINISTRATIVE (idempotent 204). |
 
 The browser reaches these as `/api/*`, rewritten by Next.js. In production the
 API publishes no host port.
@@ -73,15 +73,15 @@ API publishes no host port.
 - [x] `POST /users/teachers` — provision TEACHER (SUPER_ADMIN or DIRECTOR)
 - [x] `POST /users/students` — provision STUDENT (SUPER_ADMIN or DIRECTOR)
 - [x] Permission model (DB + domain) — `permissions` / `role_permissions` tables; catalog seed; `hasPermission` (no HTTP surface yet)
-- [x] `GET /permissions/catalog` — SUPER_ADMIN or DIRECTOR
-- [x] `GET|POST|DELETE /roles/administrative/permissions` — SUPER_ADMIN or DIRECTOR manage ADMINISTRATIVE grants
-- [x] `requirePermission(module, action)` — server middleware ready (not mounted on feature routes yet)
+- [x] `GET /permissions/catalog` — `requirePermission(permissions, read)`
+- [x] `GET|POST|DELETE /roles/administrative/permissions` — read / update via `requirePermission`
+- [x] `requirePermission(module, action)` — mounted on permission-management routes (other feature routes still open)
 - [ ] `/dashboard/settings`
 - [ ] `/dashboard/administratives`
 - [ ] `/dashboard/permissions`
 
 TODO:
-- Mount `requirePermission` on academy feature routes (middleware exists; wiring still open).
+- Mount `requirePermission` on remaining academy feature routes.
 - Director-managed Administrative permissions UI (`/dashboard/permissions`).
 - SuperAdmin bootstrap for `omegon.info@gmail.com` (done in Stage 0).
 - Backend authorization tests (all role-provision routes covered; full matrix still open).

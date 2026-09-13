@@ -55,20 +55,57 @@ describe('administrative permissions routes', () => {
     ['ADMINISTRATIVE', 'admin@academia.test', 'admin-password-12'],
     ['TEACHER', 'docente@academia.test', 'teacher-password-12'],
     ['STUDENT', 'estudiante@academia.test', 'student-password-12'],
-  ] as const)('forbids %s from managing permissions', async (role, email, password) => {
-    await seedRole(role, email, password);
-    const cookie = await loginAs(email, password);
+  ] as const)(
+    'returns 403 when %s lacks permissions.read/update',
+    async (role, email, password) => {
+      await seedRole(role, email, password);
+      const cookie = await loginAs(email, password);
+
+      const catalog = await request(fixture.app)
+        .get('/permissions/catalog')
+        .set('Cookie', cookie!);
+      expect(catalog.status).toBe(403);
+      expect(catalog.body.error.code).toBe('FORBIDDEN');
+
+      const listed = await request(fixture.app)
+        .get('/roles/administrative/permissions')
+        .set('Cookie', cookie!);
+      expect(listed.status).toBe(403);
+
+      const grant = await request(fixture.app)
+        .post('/roles/administrative/permissions')
+        .set('Cookie', cookie!)
+        .send({ module: 'students', action: 'read' });
+      expect(grant.status).toBe(403);
+
+      const revoke = await request(fixture.app)
+        .delete('/roles/administrative/permissions')
+        .set('Cookie', cookie!)
+        .send({ module: 'students', action: 'read' });
+      expect(revoke.status).toBe(403);
+    },
+  );
+
+  it('returns 403 when ADMINISTRATIVE has read but not update', async () => {
+    await seedRole(
+      'ADMINISTRATIVE',
+      'admin@academia.test',
+      'admin-password-12',
+    );
+    await fixture.administrativePermissions.grant('permissions', 'read');
+    const cookie = await loginAs('admin@academia.test', 'admin-password-12');
 
     const catalog = await request(fixture.app)
       .get('/permissions/catalog')
       .set('Cookie', cookie!);
-    expect(catalog.status).toBe(403);
+    expect(catalog.status).toBe(200);
 
     const grant = await request(fixture.app)
       .post('/roles/administrative/permissions')
       .set('Cookie', cookie!)
       .send({ module: 'students', action: 'read' });
     expect(grant.status).toBe(403);
+    expect(grant.body.error.code).toBe('FORBIDDEN');
 
     const revoke = await request(fixture.app)
       .delete('/roles/administrative/permissions')

@@ -1,5 +1,6 @@
 import type { Express } from 'express';
 import type { PermissionRef, Role } from '@academia/shared';
+import type { PermissionGrantStore } from '../domain/authorization/has-permission.js';
 import type { AdministrativePermissionStore } from '../domain/authorization/manage-administrative-permissions.js';
 import { createAuthService } from '../domain/identity/auth-service.js';
 import type {
@@ -32,6 +33,11 @@ export interface InMemoryRoleProvisionStore extends RoleProvisionStore {
 export interface InMemoryAdministrativePermissionStore
   extends AdministrativePermissionStore {
   clear(): void;
+  /**
+   * Lookup used by requirePermission. Mirrors Prisma RolePermission for
+   * ADMINISTRATIVE only (other roles have no in-memory grants).
+   */
+  asPermissionGrantStore(): PermissionGrantStore;
 }
 
 export interface TestApp {
@@ -54,6 +60,17 @@ function createInMemoryAdministrativePermissionStore(): InMemoryAdministrativePe
   return {
     clear() {
       grants.clear();
+    },
+
+    asPermissionGrantStore() {
+      return {
+        async roleOwns(role, module, action) {
+          if (role !== 'ADMINISTRATIVE') {
+            return false;
+          }
+          return grants.has(permissionKey(module, action));
+        },
+      };
     },
 
     async listGranted() {
@@ -209,6 +226,7 @@ export async function buildTestApp({
     administrativePermissions: {
       authenticate: authOptions,
       administrativePermissions,
+      permissionGrants: administrativePermissions.asPermissionGrantStore(),
     },
   });
 

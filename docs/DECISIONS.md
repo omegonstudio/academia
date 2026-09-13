@@ -368,3 +368,23 @@ permission claims.
 
 **Out of scope here.** Mounting on every academy route — the helper is ready;
 wiring is a follow-up Stage 1 task.
+
+---
+
+## 21. Permission-management routes use `requirePermission`
+
+**Context.** Catalog and ADMINISTRATIVE grant endpoints were gated only with
+`requireRole('SUPER_ADMIN', 'DIRECTOR')`. Stage 1 now has `requirePermission`
+and catalog pairs `permissions.read` / `permissions.update`.
+
+**Decision.** Replace the role-only guard on those four routes:
+
+- GET `/permissions/catalog` and GET `/roles/administrative/permissions` →
+  `requirePermission(..., 'permissions', 'read')`
+- POST/DELETE `/roles/administrative/permissions` →
+  `requirePermission(..., 'permissions', 'update')`
+
+SUPER_ADMIN/DIRECTOR still pass via `hasPermission` bypass. Callers without the
+grant receive 403.
+
+**Still out of scope.** Mounting on unrelated academy feature routes.

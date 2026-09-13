@@ -14,7 +14,7 @@ import { ForbiddenError, UnauthorizedError } from '../errors.js';
  * RolePermission grants). Never reads permissions from the request body or
  * query string.
  *
- * Ready for route mounting; academy feature routes are not wired yet.
+ * Ready for route mounting; currently used on permission-management routes.
  */
 export function requirePermission(
   store: PermissionGrantStore,

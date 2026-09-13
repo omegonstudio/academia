@@ -5,6 +5,7 @@ import {
   type PermissionMutationResponse,
 } from '@academia/shared';
 import { Router } from 'express';
+import type { PermissionGrantStore } from '../../domain/authorization/has-permission.js';
 import {
   grantAdministrativePermission,
   listAdministrativePermissions,
@@ -15,82 +16,101 @@ import {
 import { BadRequestError } from '../errors.js';
 import {
   authenticate,
-  requireRole,
   type AuthenticateOptions,
 } from '../middleware/authenticate.js';
+import { requirePermission } from '../middleware/require-permission.js';
 
 export interface AdministrativePermissionsDependencies {
   authenticate: AuthenticateOptions;
   administrativePermissions: AdministrativePermissionStore;
+  /** Used by requirePermission; never trust client-supplied grants. */
+  permissionGrants: PermissionGrantStore;
 }
 
 /**
- * Director/SuperAdmin management of ADMINISTRATIVE RolePermission grants.
+ * Management of ADMINISTRATIVE RolePermission grants.
  *
- * Does not mount requirePermission on other academy routes; only gatekeeps
- * this configuration surface with requireRole.
+ * Authorization: authenticate + requirePermission.
+ * - GET catalog / list → permissions.read
+ * - POST grant / DELETE revoke → permissions.update
+ *
+ * SUPER_ADMIN and DIRECTOR pass via hasPermission policy; other roles need
+ * explicit RolePermission rows. Does not mount requirePermission elsewhere.
  */
 export function createAdministrativePermissionsRouter({
   authenticate: authOptions,
   administrativePermissions,
+  permissionGrants,
 }: AdministrativePermissionsDependencies): Router {
   const router = Router();
-  const guard = [
+  const readGuard = [
     authenticate(authOptions),
-    requireRole('SUPER_ADMIN', 'DIRECTOR'),
+    requirePermission(permissionGrants, 'permissions', 'read'),
+  ] as const;
+  const updateGuard = [
+    authenticate(authOptions),
+    requirePermission(permissionGrants, 'permissions', 'update'),
   ] as const;
 
-  router.get('/permissions/catalog', ...guard, (_req, res) => {
+  router.get('/permissions/catalog', ...readGuard, (_req, res) => {
     const body: PermissionListResponse = {
       permissions: [...PERMISSION_CATALOG],
     };
     res.status(200).json(body);
   });
 
-  router.get('/roles/administrative/permissions', ...guard, (_req, res, next) => {
-    void (async () => {
-      try {
-        const permissions = await listAdministrativePermissions(
-          administrativePermissions,
-        );
-        const body: PermissionListResponse = { permissions };
-        res.status(200).json(body);
-      } catch (error) {
-        next(error);
-      }
-    })();
-  });
-
-  router.post('/roles/administrative/permissions', ...guard, (req, res, next) => {
-    void (async () => {
-      try {
-        const parsed = managePermissionRequestSchema.safeParse(req.body);
-        if (!parsed.success) {
-          throw new BadRequestError(
-            'A catalog permission with module and action is required.',
+  router.get(
+    '/roles/administrative/permissions',
+    ...readGuard,
+    (_req, res, next) => {
+      void (async () => {
+        try {
+          const permissions = await listAdministrativePermissions(
+            administrativePermissions,
           );
+          const body: PermissionListResponse = { permissions };
+          res.status(200).json(body);
+        } catch (error) {
+          next(error);
         }
+      })();
+    },
+  );
 
-        const { outcome, permission } = await grantAdministrativePermission(
-          administrativePermissions,
-          parsed.data.module,
-          parsed.data.action,
-        );
-        const body: PermissionMutationResponse = { permission };
-        res.status(outcome === 'created' ? 201 : 200).json(body);
-      } catch (error) {
-        if (error instanceof UnknownPermissionError) {
-          next(new BadRequestError(error.message));
-          return;
+  router.post(
+    '/roles/administrative/permissions',
+    ...updateGuard,
+    (req, res, next) => {
+      void (async () => {
+        try {
+          const parsed = managePermissionRequestSchema.safeParse(req.body);
+          if (!parsed.success) {
+            throw new BadRequestError(
+              'A catalog permission with module and action is required.',
+            );
+          }
+
+          const { outcome, permission } = await grantAdministrativePermission(
+            administrativePermissions,
+            parsed.data.module,
+            parsed.data.action,
+          );
+          const body: PermissionMutationResponse = { permission };
+          res.status(outcome === 'created' ? 201 : 200).json(body);
+        } catch (error) {
+          if (error instanceof UnknownPermissionError) {
+            next(new BadRequestError(error.message));
+            return;
+          }
+          next(error);
         }
-        next(error);
-      }
-    })();
-  });
+      })();
+    },
+  );
 
   router.delete(
     '/roles/administrative/permissions',
-    ...guard,
+    ...updateGuard,
     (req, res, next) => {
       void (async () => {
         try {

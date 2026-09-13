@@ -83,16 +83,15 @@ Make access control real and manageable.
 - [x] Provision TEACHER via `POST /users/teachers` (SUPER_ADMIN or DIRECTOR). Same shared provisioning domain/store pattern.
 - [x] Provision STUDENT via `POST /users/students` (SUPER_ADMIN or DIRECTOR). Teachers cannot provision students.
 - [x] Granular permission model (module/action): `Permission` + `RolePermission` in Prisma, catalog in `@academia/shared`, `hasPermission` domain query (SUPER_ADMIN/DIRECTOR bypass catalog; others need grants). No route middleware yet.
-- [x] Director (and SUPER_ADMIN) can list the permission catalog and grant/revoke ADMINISTRATIVE RolePermission via API. ADMINISTRATIVE/TEACHER/STUDENT forbidden.
-- [x] `requirePermission(module, action)` middleware: after `authenticate`, uses `hasPermission` + grant store; SUPER_ADMIN/DIRECTOR allowed by policy; 401/403 consistent. Not mounted on academy feature routes yet.
+- [x] Director (and SUPER_ADMIN) can list the permission catalog and grant/revoke ADMINISTRATIVE RolePermission via API. Gate: `permissions.read` / `permissions.update` via `requirePermission` (SUPER_ADMIN/DIRECTOR bypass).
+- [x] `requirePermission(module, action)` middleware: after `authenticate`, uses `hasPermission` + grant store; SUPER_ADMIN/DIRECTOR allowed by policy; 401/403 consistent. Mounted on permission-management routes.
 
 ### TODO
-- [ ] Enforce permissions server-side on every route (mount `requirePermission` / keep `requireRole` where role gates remain appropriate).
+- [ ] Enforce permissions server-side on every remaining academy route (mount `requirePermission` / keep `requireRole` where role gates remain appropriate).
 - [ ] Role-aware dashboard content.
 - [ ] Authorization matrix tests, including negative cases per role.
 - [ ] Permission-change audit trail.
 - [ ] UI for Director → Administrative permissions (`/dashboard/permissions`).
-
 ### Acceptance criteria
 - Unauthorized API requests fail.
 - UI does not expose inaccessible actions.
