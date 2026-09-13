@@ -329,3 +329,24 @@ catalog growth. Grant rows remain the source of truth for ADMINISTRATIVE.
 
 **Out of scope here.** HTTP `requirePermission`, Director assignment API/UI, and
 mounting checks on every route.
+
+---
+
+## 19. ADMINISTRATIVE grants are role-scoped, managed by SUPER_ADMIN/DIRECTOR
+
+**Context.** Product rule: Director controls Administrative permissions. Grants
+are modelled as `RolePermission` rows for the `ADMINISTRATIVE` role, not per
+user.
+
+**Decision.** Expose configuration endpoints gated with
+`requireRole('SUPER_ADMIN', 'DIRECTOR')`:
+
+- `GET /permissions/catalog`
+- `GET|POST|DELETE /roles/administrative/permissions`
+
+Domain functions only mutate the ADMINISTRATIVE target. Catalog membership is
+validated via shared Zod/`isCatalogPermission` before persistence. Grant and
+revoke are idempotent.
+
+**Still out of scope.** UI, permission-change audit trail, and mounting
+`requirePermission` on academy feature routes.

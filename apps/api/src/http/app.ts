@@ -21,6 +21,10 @@ import {
   createTeachersRouter,
   type TeachersDependencies,
 } from './routes/teachers.js';
+import {
+  createAdministrativePermissionsRouter,
+  type AdministrativePermissionsDependencies,
+} from './routes/administrative-permissions.js';
 
 export interface AppDependencies {
   logger: Logger;
@@ -31,6 +35,7 @@ export interface AppDependencies {
   administratives: AdministrativesDependencies;
   teachers: TeachersDependencies;
   students: StudentsDependencies;
+  administrativePermissions: AdministrativePermissionsDependencies;
 }
 
 /**
@@ -48,6 +53,7 @@ export function createApp({
   administratives,
   teachers,
   students,
+  administrativePermissions,
 }: AppDependencies): Express {
   const app = express();
 
@@ -75,6 +81,7 @@ export function createApp({
   app.use(createAdministrativesRouter(administratives));
   app.use(createTeachersRouter(teachers));
   app.use(createStudentsRouter(students));
+  app.use(createAdministrativePermissionsRouter(administrativePermissions));
 
   app.use(notFoundHandler());
   app.use(errorHandler(logger));

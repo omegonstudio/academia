@@ -77,3 +77,42 @@ export function isCatalogPermission(module: string, action: string): boolean {
     (entry) => entry.module === module && entry.action === action,
   );
 }
+
+export const permissionRefSchema = z
+  .object({
+    module: permissionModuleSchema,
+    action: permissionActionSchema,
+  })
+  .refine(
+    (value) => isCatalogPermission(value.module, value.action),
+    { message: 'Permission is not in the catalog.' },
+  );
+
+export type PermissionRefInput = z.infer<typeof permissionRefSchema>;
+
+/** Body for grant/revoke of a single catalog permission. */
+export const managePermissionRequestSchema = permissionRefSchema;
+
+export type ManagePermissionRequest = PermissionRefInput;
+
+export const permissionListResponseSchema = z.object({
+  permissions: z.array(
+    z.object({
+      module: permissionModuleSchema,
+      action: permissionActionSchema,
+    }),
+  ),
+});
+
+export type PermissionListResponse = z.infer<typeof permissionListResponseSchema>;
+
+export const permissionMutationResponseSchema = z.object({
+  permission: z.object({
+    module: permissionModuleSchema,
+    action: permissionActionSchema,
+  }),
+});
+
+export type PermissionMutationResponse = z.infer<
+  typeof permissionMutationResponseSchema
+>;

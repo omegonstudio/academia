@@ -1,5 +1,6 @@
 import type { Express } from 'express';
-import type { Role } from '@academia/shared';
+import type { PermissionRef, Role } from '@academia/shared';
+import type { AdministrativePermissionStore } from '../domain/authorization/manage-administrative-permissions.js';
 import { createAuthService } from '../domain/identity/auth-service.js';
 import type {
   ProvisionIdentityRecord,
@@ -28,6 +29,11 @@ export interface InMemoryRoleProvisionStore extends RoleProvisionStore {
   passwordHashes(): Map<string, string>;
 }
 
+export interface InMemoryAdministrativePermissionStore
+  extends AdministrativePermissionStore {
+  clear(): void;
+}
+
 export interface TestApp {
   app: Express;
   users: InMemoryUserRepository;
@@ -35,6 +41,54 @@ export interface TestApp {
   administratives: InMemoryRoleProvisionStore;
   teachers: InMemoryRoleProvisionStore;
   students: InMemoryRoleProvisionStore;
+  administrativePermissions: InMemoryAdministrativePermissionStore;
+}
+
+function permissionKey(module: string, action: string): string {
+  return `${module}:${action}`;
+}
+
+function createInMemoryAdministrativePermissionStore(): InMemoryAdministrativePermissionStore {
+  const grants = new Set<string>();
+
+  return {
+    clear() {
+      grants.clear();
+    },
+
+    async listGranted() {
+      const permissions: PermissionRef[] = [...grants].map((entry) => {
+        const [module, action] = entry.split(':') as [
+          PermissionRef['module'],
+          PermissionRef['action'],
+        ];
+        return { module, action };
+      });
+      return permissions.sort((a, b) =>
+        a.module === b.module
+          ? a.action.localeCompare(b.action)
+          : a.module.localeCompare(b.module),
+      );
+    },
+
+    async grant(module, action) {
+      const key = permissionKey(module, action);
+      if (grants.has(key)) {
+        return 'exists';
+      }
+      grants.add(key);
+      return 'created';
+    },
+
+    async revoke(module, action) {
+      const key = permissionKey(module, action);
+      if (!grants.has(key)) {
+        return 'missing';
+      }
+      grants.delete(key);
+      return 'removed';
+    },
+  };
 }
 
 function createInMemoryRoleProvisionStore(
@@ -112,6 +166,7 @@ export async function buildTestApp({
   const administratives = createInMemoryRoleProvisionStore(users, 'ADMINISTRATIVE');
   const teachers = createInMemoryRoleProvisionStore(users, 'TEACHER');
   const students = createInMemoryRoleProvisionStore(users, 'STUDENT');
+  const administrativePermissions = createInMemoryAdministrativePermissionStore();
   const authService = createAuthService(users);
   const sessionCodec = createSessionCodec(TEST_SECRET, 3600);
 
@@ -151,10 +206,23 @@ export async function buildTestApp({
       authenticate: authOptions,
       students,
     },
+    administrativePermissions: {
+      authenticate: authOptions,
+      administrativePermissions,
+    },
   });
 
-  return { app, users, directors, administratives, teachers, students };
+  return {
+    app,
+    users,
+    directors,
+    administratives,
+    teachers,
+    students,
+    administrativePermissions,
+  };
 }
+
 
 export async function seedUser(
   users: InMemoryUserRepository,

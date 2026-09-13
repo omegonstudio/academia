@@ -4,6 +4,7 @@ import { createAdministrativeProvisionStore } from './domain/identity/provision-
 import { createDirectorProvisionStore } from './domain/identity/provision-director.js';
 import { createStudentProvisionStore } from './domain/identity/provision-student.js';
 import { createTeacherProvisionStore } from './domain/identity/provision-teacher.js';
+import { createAdministrativePermissionStore } from './domain/authorization/administrative-permission-store.js';
 import { createSessionCodec } from './domain/identity/session.js';
 import { createUserRepository } from './domain/identity/user-repository.js';
 import { createApp } from './http/app.js';
@@ -34,6 +35,8 @@ async function main(): Promise<void> {
   const administratives = createAdministrativeProvisionStore(database);
   const teachers = createTeacherProvisionStore(database);
   const students = createStudentProvisionStore(database);
+  const administrativePermissions =
+    createAdministrativePermissionStore(database);
   const startedAt = Date.now();
 
   const authOptions = {
@@ -75,6 +78,10 @@ async function main(): Promise<void> {
     students: {
       authenticate: authOptions,
       students,
+    },
+    administrativePermissions: {
+      authenticate: authOptions,
+      administrativePermissions,
     },
   });
 

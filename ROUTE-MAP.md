@@ -42,6 +42,10 @@ All public pages: `lang="es"`, one `<h1>`, skip link, landmarks, verified contra
 | `[x]`  | `POST /users/administratives` | SUPER_ADMIN or DIRECTOR. Provisions an ADMINISTRATIVE (role server-assigned). Same conflict/reassert rules as DIRECTOR. |
 | `[x]`  | `POST /users/teachers` | SUPER_ADMIN or DIRECTOR. Provisions a TEACHER (role server-assigned). Same conflict/reassert rules. |
 | `[x]`  | `POST /users/students` | SUPER_ADMIN or DIRECTOR. Provisions a STUDENT (role server-assigned). TEACHER not authorized. Same conflict/reassert rules. |
+| `[x]`  | `GET /permissions/catalog` | SUPER_ADMIN or DIRECTOR. Returns the grantable (module, action) catalog. |
+| `[x]`  | `GET /roles/administrative/permissions` | SUPER_ADMIN or DIRECTOR. Lists ADMINISTRATIVE grants. |
+| `[x]`  | `POST /roles/administrative/permissions` | SUPER_ADMIN or DIRECTOR. Grants a catalog permission to ADMINISTRATIVE (idempotent 201/200). |
+| `[x]`  | `DELETE /roles/administrative/permissions` | SUPER_ADMIN or DIRECTOR. Revokes a catalog permission from ADMINISTRATIVE (idempotent 204). |
 
 The browser reaches these as `/api/*`, rewritten by Next.js. In production the
 API publishes no host port.
@@ -69,13 +73,15 @@ API publishes no host port.
 - [x] `POST /users/teachers` — provision TEACHER (SUPER_ADMIN or DIRECTOR)
 - [x] `POST /users/students` — provision STUDENT (SUPER_ADMIN or DIRECTOR)
 - [x] Permission model (DB + domain) — `permissions` / `role_permissions` tables; catalog seed; `hasPermission` (no HTTP surface yet)
+- [x] `GET /permissions/catalog` — SUPER_ADMIN or DIRECTOR
+- [x] `GET|POST|DELETE /roles/administrative/permissions` — SUPER_ADMIN or DIRECTOR manage ADMINISTRATIVE grants
 - [ ] `/dashboard/settings`
 - [ ] `/dashboard/administratives`
 - [ ] `/dashboard/permissions`
 
 TODO:
 - Real role authorization (requireRole mounted on all role-provision routes; broader matrix / `requirePermission` still open).
-- Director-managed Administrative permissions (API + UI).
+- Director-managed Administrative permissions UI (`/dashboard/permissions`).
 - SuperAdmin bootstrap for `omegon.info@gmail.com` (done in Stage 0).
 - Backend authorization tests (all role-provision routes covered; full matrix still open).
 - Audit sensitive permission changes.

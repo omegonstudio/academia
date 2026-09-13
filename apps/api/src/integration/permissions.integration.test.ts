@@ -1,6 +1,13 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { PERMISSION_CATALOG } from '@academia/shared';
+import { createAdministrativePermissionStore } from '../domain/authorization/administrative-permission-store.js';
 import { hasPermission } from '../domain/authorization/has-permission.js';
+import {
+  grantAdministrativePermission,
+  listAdministrativePermissions,
+  revokeAdministrativePermission,
+  UnknownPermissionError,
+} from '../domain/authorization/manage-administrative-permissions.js';
 import { createPermissionGrantStore } from '../domain/authorization/permission-grant-store.js';
 import { createPrismaClient, type Database } from '../lib/prisma.js';
 
@@ -119,5 +126,46 @@ describe('permissions integration', () => {
         },
       }),
     ).rejects.toMatchObject({ code: 'P2002' });
+  });
+
+  it('grants, lists and revokes ADMINISTRATIVE permissions idempotently', async () => {
+    const store = createAdministrativePermissionStore(database);
+
+    await expect(listAdministrativePermissions(store)).resolves.toEqual([]);
+
+    await expect(
+      grantAdministrativePermission(store, 'materials', 'create'),
+    ).resolves.toMatchObject({ outcome: 'created' });
+    await expect(
+      grantAdministrativePermission(store, 'materials', 'create'),
+    ).resolves.toMatchObject({ outcome: 'exists' });
+
+    await expect(listAdministrativePermissions(store)).resolves.toEqual([
+      { module: 'materials', action: 'create' },
+    ]);
+
+    const grantStore = createPermissionGrantStore(database);
+    await expect(
+      hasPermission(grantStore, 'ADMINISTRATIVE', 'materials', 'create'),
+    ).resolves.toBe(true);
+
+    await expect(
+      revokeAdministrativePermission(store, 'materials', 'create'),
+    ).resolves.toMatchObject({ outcome: 'removed' });
+    await expect(
+      revokeAdministrativePermission(store, 'materials', 'create'),
+    ).resolves.toMatchObject({ outcome: 'missing' });
+
+    await expect(
+      hasPermission(grantStore, 'ADMINISTRATIVE', 'materials', 'create'),
+    ).resolves.toBe(false);
+  });
+
+  it('rejects unknown permissions before touching persistence', async () => {
+    const store = createAdministrativePermissionStore(database);
+
+    await expect(
+      grantAdministrativePermission(store, 'students', 'delete'),
+    ).rejects.toBeInstanceOf(UnknownPermissionError);
   });
 });
