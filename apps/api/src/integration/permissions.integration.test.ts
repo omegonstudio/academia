@@ -167,7 +167,7 @@ describe('permissions integration', () => {
     const store = createAdministrativePermissionStore(database);
 
     await expect(
-      grantAdministrativePermission(store, 'students', 'delete'),
+      grantAdministrativePermission(store, 'students', 'archive'),
     ).rejects.toBeInstanceOf(UnknownPermissionError);
   });
 

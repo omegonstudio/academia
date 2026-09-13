@@ -66,7 +66,7 @@ describe('hasPermission', () => {
     const store = createStore(true);
 
     await expect(
-      hasPermission(store, 'SUPER_ADMIN', 'students', 'delete'),
+      hasPermission(store, 'SUPER_ADMIN', 'students', 'archive'),
     ).resolves.toBe(false);
     await expect(
       hasPermission(store, 'DIRECTOR', 'unknown', 'read'),

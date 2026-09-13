@@ -18,6 +18,10 @@ import {
   type StudentsDependencies,
 } from './routes/students.js';
 import {
+  createStudentRegistryRouter,
+  type StudentRegistryDependencies,
+} from './routes/student-registry.js';
+import {
   createTeachersRouter,
   type TeachersDependencies,
 } from './routes/teachers.js';
@@ -35,6 +39,7 @@ export interface AppDependencies {
   administratives: AdministrativesDependencies;
   teachers: TeachersDependencies;
   students: StudentsDependencies;
+  studentRegistry: StudentRegistryDependencies;
   administrativePermissions: AdministrativePermissionsDependencies;
 }
 
@@ -53,6 +58,7 @@ export function createApp({
   administratives,
   teachers,
   students,
+  studentRegistry,
   administrativePermissions,
 }: AppDependencies): Express {
   const app = express();
@@ -81,6 +87,7 @@ export function createApp({
   app.use(createAdministrativesRouter(administratives));
   app.use(createTeachersRouter(teachers));
   app.use(createStudentsRouter(students));
+  app.use(createStudentRegistryRouter(studentRegistry));
   app.use(createAdministrativePermissionsRouter(administrativePermissions));
 
   app.use(notFoundHandler());

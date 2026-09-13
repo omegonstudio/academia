@@ -43,3 +43,18 @@ export {
   healthCheckStatusSchema,
   type HealthResponse,
 } from './health.js';
+export {
+  STUDENT_LEVELS,
+  studentLevelSchema,
+  studentSchema,
+  studentListResponseSchema,
+  studentResponseSchema,
+  createStudentRequestSchema,
+  updateStudentRequestSchema,
+  type StudentLevel,
+  type Student,
+  type StudentListResponse,
+  type StudentResponse,
+  type CreateStudentRequest,
+  type UpdateStudentRequest,
+} from './students.js';

@@ -6,6 +6,8 @@ import type {
   PermissionChangeAuditEntry,
   PermissionChangeAuditStore,
 } from '../domain/authorization/permission-change-audit.js';
+import { createInMemoryStudentStore } from '../domain/students/in-memory-student-store.js';
+import type { InMemoryStudentStore } from '../domain/students/in-memory-student-store.js';
 import { createAuthService } from '../domain/identity/auth-service.js';
 import type {
   ProvisionIdentityRecord,
@@ -57,6 +59,7 @@ export interface TestApp {
   administratives: InMemoryRoleProvisionStore;
   teachers: InMemoryRoleProvisionStore;
   students: InMemoryRoleProvisionStore;
+  studentRegistry: InMemoryStudentStore;
   administrativePermissions: InMemoryAdministrativePermissionStore;
   permissionChangeAudits: InMemoryPermissionChangeAuditStore;
 }
@@ -213,6 +216,50 @@ export async function buildTestApp({
   const administrativePermissions = createInMemoryAdministrativePermissionStore();
   const permissionGrants = administrativePermissions.asPermissionGrantStore();
   const permissionChangeAudits = createInMemoryPermissionChangeAuditStore();
+  let userSeq = 0;
+  const studentRegistry = createInMemoryStudentStore({
+    findUserByEmail(email) {
+      const user = users.getByEmailSync(email);
+      if (!user) return null;
+      return {
+        id: user.id,
+        email: user.email,
+        role: user.role,
+        isActive: user.isActive,
+      };
+    },
+    findUserById(id) {
+      const user = users.getByIdSync(id);
+      if (!user) return null;
+      return {
+        id: user.id,
+        email: user.email,
+        role: user.role,
+        isActive: user.isActive,
+      };
+    },
+    createUser(input) {
+      userSeq += 1;
+      const created = {
+        id: `registry-user-${userSeq}`,
+        email: normalizeEmail(input.email),
+        name: input.name,
+        role: input.role,
+        isActive: input.isActive,
+        passwordHash: input.passwordHash,
+      };
+      users.upsert(created);
+      return {
+        id: created.id,
+        email: created.email,
+        role: created.role,
+        isActive: created.isActive,
+      };
+    },
+    updateUser(id, patch) {
+      users.patch(id, patch);
+    },
+  });
   const authService = createAuthService(users);
   const sessionCodec = createSessionCodec(TEST_SECRET, 3600);
 
@@ -256,6 +303,11 @@ export async function buildTestApp({
       students,
       permissionGrants,
     },
+    studentRegistry: {
+      authenticate: authOptions,
+      students: studentRegistry,
+      permissionGrants,
+    },
     administrativePermissions: {
       authenticate: authOptions,
       administrativePermissions,
@@ -271,6 +323,7 @@ export async function buildTestApp({
     administratives,
     teachers,
     students,
+    studentRegistry,
     administrativePermissions,
     permissionChangeAudits,
   };

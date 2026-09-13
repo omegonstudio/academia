@@ -51,7 +51,7 @@ describe('manageAdministrativePermissions', () => {
     const store = createStore();
 
     await expect(
-      grantAdministrativePermission(store, 'students', 'delete'),
+      grantAdministrativePermission(store, 'students', 'archive'),
     ).rejects.toBeInstanceOf(UnknownPermissionError);
     expect(store.grant).not.toHaveBeenCalled();
   });

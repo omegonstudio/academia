@@ -105,13 +105,13 @@ Make access control real and manageable.
 Create the academy's people registry.
 
 ### TODO
-- [ ] Student CRUD.
+- [x] Student CRUD (API `/students` + UI `/dashboard/students` + `[id]`; perfil 1:1 con User; baja lógica).
 - [ ] Teacher CRUD.
-- [ ] Level field.
-- [ ] Active/inactive state.
-- [ ] Basic profile.
+- [x] Level field (CEFR A1–C2 on Student).
+- [x] Active/inactive state (Student + User soft deactivate).
+- [x] Basic profile (firstName, lastName, level, email via User).
 - [ ] Teacher status/availability foundation.
-- [ ] Access-control tests.
+- [x] Access-control tests (registry suite + ownership for STUDENT).
 
 ### Acceptance criteria
 - Director/Admin with permission can manage records.

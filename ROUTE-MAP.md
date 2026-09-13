@@ -29,6 +29,8 @@ All public pages: `lang="es"`, one `<h1>`, skip link, landmarks, verified contra
 | ------ | ------------ | ---------------------------------------------------------------------- |
 | `[x]`  | `/login`     | Public. `noindex, nofollow`. Redirects to `/dashboard` if already authenticated. |
 | `[x]`  | `/dashboard` | Authenticated only. `noindex, nofollow`. Server-side redirect to `/login`. Session identity + **role-aware** copy from server session role. No academy modules yet. |
+| `[x]`  | `/dashboard/students` | Authenticated. Lista/crea estudiantes vía API real (loading/error/vacío). |
+| `[x]`  | `/dashboard/students/[id]` | Authenticated. Detalle + edición/desactivación según permiso. |
 
 ### API routes
 
@@ -46,6 +48,11 @@ All public pages: `lang="es"`, one `<h1>`, skip link, landmarks, verified contra
 | `[x]`  | `GET /roles/administrative/permissions` | `requirePermission(permissions, read)`. Lists ADMINISTRATIVE grants. |
 | `[x]`  | `POST /roles/administrative/permissions` | `requirePermission(permissions, update)`. Grants to ADMINISTRATIVE (idempotent 201/200). |
 | `[x]`  | `DELETE /roles/administrative/permissions` | `requirePermission(permissions, update)`. Revokes from ADMINISTRATIVE (idempotent 204). |
+| `[x]`  | `GET /students` | `requirePermission(students, read)`. Lista perfiles académicos. |
+| `[x]`  | `POST /students` | `requirePermission(students, create)`. Crea User+Student o perfil sobre STUDENT existente. |
+| `[x]`  | `GET /students/:id` | `students.read` o el propio STUDENT (ownership). Sin secretos de User. |
+| `[x]`  | `PATCH /students/:id` | `requirePermission(students, update)`. |
+| `[x]`  | `DELETE /students/:id` | `requirePermission(students, delete)`. Baja lógica (`isActive=false`). |
 
 The browser reaches these as `/api/*`, rewritten by Next.js. In production the
 API publishes no host port.
@@ -90,18 +97,18 @@ TODO:
 
 ## Stage 2 — Students & Teachers
 
-- [ ] `/dashboard/students`
-- [ ] `/dashboard/students/[id]`
+- [x] `/dashboard/students`
+- [x] `/dashboard/students/[id]`
 - [ ] `/dashboard/teachers`
 - [ ] `/dashboard/teachers/[id]`
 
 TODO:
-- Student CRUD.
+- Student CRUD (API + UI done; soft delete; ownership read for STUDENT).
 - Teacher CRUD.
-- Levels.
-- Status.
-- Basic profiles.
-- Ownership/access rules.
+- Levels (Student CEFR done).
+- Status (Student active/inactive done).
+- Basic profiles (Student done).
+- Ownership/access rules (Student own-read done).
 
 ## Stage 3 — Assignments & Academic Structure
 

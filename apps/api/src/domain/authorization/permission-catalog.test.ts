@@ -21,6 +21,7 @@ describe('PERMISSION_CATALOG', () => {
   it('omits permissions.create and rejects unknown pairs', () => {
     expect(isCatalogPermission('permissions', 'create')).toBe(false);
     expect(isCatalogPermission('students', 'read')).toBe(true);
-    expect(isCatalogPermission('students', 'delete')).toBe(false);
+    expect(isCatalogPermission('students', 'delete')).toBe(true);
+    expect(isCatalogPermission('students', 'archive')).toBe(false);
   });
 });

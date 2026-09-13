@@ -22,7 +22,7 @@ export type PermissionModule = z.infer<typeof permissionModuleSchema>;
  * Actions a module may expose. Not every module uses every action
  * (`permissions` has no `create`).
  */
-export const PERMISSION_ACTIONS = ['read', 'create', 'update'] as const;
+export const PERMISSION_ACTIONS = ['read', 'create', 'update', 'delete'] as const;
 
 export const permissionActionSchema = z.enum(PERMISSION_ACTIONS);
 export type PermissionAction = z.infer<typeof permissionActionSchema>;
@@ -42,6 +42,7 @@ export const PERMISSION_CATALOG: readonly PermissionRef[] = [
   { module: 'students', action: 'read' },
   { module: 'students', action: 'create' },
   { module: 'students', action: 'update' },
+  { module: 'students', action: 'delete' },
   { module: 'teachers', action: 'read' },
   { module: 'teachers', action: 'create' },
   { module: 'teachers', action: 'update' },
