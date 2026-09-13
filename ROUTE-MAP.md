@@ -28,7 +28,7 @@ All public pages: `lang="es"`, one `<h1>`, skip link, landmarks, verified contra
 | Status | Route        | Access                                                                 |
 | ------ | ------------ | ---------------------------------------------------------------------- |
 | `[x]`  | `/login`     | Public. `noindex, nofollow`. Redirects to `/dashboard` if already authenticated. |
-| `[x]`  | `/dashboard` | Authenticated only. `noindex, nofollow`. Server-side redirect to `/login` (verified 307). Shows session identity and role; **no academy modules yet**. |
+| `[x]`  | `/dashboard` | Authenticated only. `noindex, nofollow`. Server-side redirect to `/login`. Session identity + **role-aware** copy from server session role. No academy modules yet. |
 
 ### API routes
 
@@ -62,7 +62,6 @@ API publishes no host port.
 | `[x]`  | Migration `20260912215052_init_identity` | `users` table + `user_role` enum, snake_case. No destructive statements. |
 
 ### Carried forward
-- Role-aware dashboard content → Stage 1.
 - Public teacher directory → later stage, once teacher data exists and privacy is decided.
 - Contact form with persistence → later stage; a form that discarded messages would be a fake feature.
 
@@ -76,6 +75,7 @@ API publishes no host port.
 - [x] `GET /permissions/catalog` — `requirePermission(permissions, read)`
 - [x] `GET|POST|DELETE /roles/administrative/permissions` — read / update via `requirePermission`
 - [x] `requirePermission(module, action)` — mounted on permission-management and user-provisioning routes
+- [x] `/dashboard` — role-aware content from server session (no academy modules yet)
 - [ ] `/dashboard/settings`
 - [ ] `/dashboard/administratives`
 - [ ] `/dashboard/permissions`

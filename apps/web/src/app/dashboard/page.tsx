@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation';
 import { LogoutButton } from '@/components/logout-button';
 import { PageHeader } from '@/components/page-header';
 import { getSession } from '@/lib/api';
+import { dashboardContentForRole } from '@/lib/dashboard-content';
 import { roleLabel } from '@/lib/roles';
 
 export const metadata: Metadata = {
@@ -11,18 +12,15 @@ export const metadata: Metadata = {
 };
 
 /**
- * Private entry point.
- *
- * Stage 0 only proves that identity flows end to end: the session is resolved
- * server-side and the role is displayed. The per-role dashboards and every
- * academy module belong to later stages and are deliberately absent — an empty
- * panel is preferable to buttons that do nothing.
+ * Private entry point. Session and role come from the API (`/auth/me`);
+ * content is chosen server-side from that role.
  */
 export default async function DashboardPage() {
   const user = await getSession();
 
-  // Server-side gate. The redirect happens before any private markup is sent.
   if (!user) redirect('/login');
+
+  const roleContent = dashboardContentForRole(user.role);
 
   return (
     <>
@@ -46,9 +44,23 @@ export default async function DashboardPage() {
         </div>
       </dl>
 
-      <p className="mt-6 text-sm text-ink-muted">
-        Los módulos de la academia se habilitarán en las próximas etapas.
-      </p>
+      <section
+        className="mt-8 max-w-2xl"
+        aria-labelledby="dashboard-role-heading"
+      >
+        <h2
+          id="dashboard-role-heading"
+          className="text-xl font-semibold tracking-tight text-ink"
+        >
+          {roleContent.heading}
+        </h2>
+        <p className="mt-3 text-base text-ink-muted">{roleContent.summary}</p>
+        <ul className="mt-4 list-disc space-y-2 pl-5 text-sm text-ink">
+          {roleContent.points.map((point) => (
+            <li key={point}>{point}</li>
+          ))}
+        </ul>
+      </section>
 
       <div className="mt-8">
         <LogoutButton />
