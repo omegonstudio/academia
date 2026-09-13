@@ -1,8 +1,9 @@
 // Academia — database schema.
 //
-// Stage 0 modelled identity. Stage 1 adds the permission catalog and
-// role ↔ permission grants. Student/Teacher profile entities, courses, classes,
-// materials, payments and settlements belong to later stages.
+// Stage 0 modelled identity. Stage 1 adds the permission catalog,
+// role ↔ permission grants, and an audit trail for permission changes.
+// Student/Teacher profile entities, courses, classes, materials, payments and
+// settlements belong to later stages.
 //
 // The connection URL is supplied by `prisma7.config.ts` from the environment.
 //
@@ -34,6 +35,14 @@ enum Role {
   @@map("user_role")
 }
 
+/// GRANT or REVOKE against a role's permission set.
+enum PermissionChangeType {
+  GRANT
+  REVOKE
+
+  @@map("permission_change_type")
+}
+
 model User {
   id String @id @default(uuid()) @db.Uuid
 
@@ -50,6 +59,8 @@ model User {
   lastLoginAt DateTime? @map("last_login_at")
   createdAt   DateTime  @default(now()) @map("created_at")
   updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  permissionChangeAudits PermissionChangeAudit[]
 
   @@index([role])
   @@map("users")
@@ -84,4 +95,30 @@ model RolePermission {
   @@unique([role, permissionId])
   @@index([role])
   @@map("role_permissions")
+}
+
+/// Append-only record of permission grant/revoke attempts for a target role.
+model PermissionChangeAudit {
+  id String @id @default(uuid()) @db.Uuid
+
+  actorUserId String @map("actor_user_id") @db.Uuid
+  actor       User   @relation(fields: [actorUserId], references: [id], onDelete: Restrict)
+
+  /// Role whose grants were changed (today always ADMINISTRATIVE).
+  targetRole Role @map("target_role")
+
+  changeType PermissionChangeType @map("change_type")
+
+  module String @db.VarChar(64)
+  action String @db.VarChar(32)
+
+  /// Domain outcome: created | exists | removed | missing.
+  outcome String @db.VarChar(32)
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([createdAt])
+  @@index([actorUserId])
+  @@index([targetRole, createdAt])
+  @@map("permission_change_audits")
 }

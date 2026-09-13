@@ -404,3 +404,19 @@ the SUPER_ADMIN/DIRECTOR permission bypass; callers without `users.create`
 receive 403.
 
 **Still out of scope.** Non-provision academy feature routes.
+
+---
+
+## 23. Permission changes leave an append-only audit row
+
+**Context.** MASTER-PROMPT asks for audit of important administrative actions.
+GRANT/REVOKE of ADMINISTRATIVE permissions is the first mutation surface that
+needs a durable trail.
+
+**Decision.** Persist `PermissionChangeAudit` rows on successful POST/DELETE
+`/roles/administrative/permissions`: actor from `req.user` (server session),
+target role ADMINISTRATIVE, change type GRANT/REVOKE, module/action, and the
+domain outcome (`created`/`exists`/`removed`/`missing`). Forbidden callers do
+not create rows. No list UI in this increment.
+
+**Still out of scope.** Audit of unrelated domain events; audit query API/UI.

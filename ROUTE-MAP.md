@@ -76,6 +76,7 @@ API publishes no host port.
 - [x] `GET|POST|DELETE /roles/administrative/permissions` — read / update via `requirePermission`
 - [x] `requirePermission(module, action)` — mounted on permission-management and user-provisioning routes
 - [x] `/dashboard` — role-aware content from server session (no academy modules yet)
+- [x] Permission-change audit trail — DB append on GRANT/REVOKE (no list UI yet)
 - [ ] `/dashboard/settings`
 - [ ] `/dashboard/administratives`
 - [ ] `/dashboard/permissions`
@@ -85,7 +86,7 @@ TODO:
 - Director-managed Administrative permissions UI (`/dashboard/permissions`).
 - SuperAdmin bootstrap for `omegon.info@gmail.com` (done in Stage 0).
 - Authorization matrix for protected Stage 1 API routes (done in suite `authorization-matrix.test.ts`).
-- Audit sensitive permission changes.
+- Audit sensitive permission changes (GRANT/REVOKE trail done; broader audit later).
 
 ## Stage 2 — Students & Teachers
 

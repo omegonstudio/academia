@@ -13,6 +13,10 @@ import {
   UnknownPermissionError,
   type AdministrativePermissionStore,
 } from '../../domain/authorization/manage-administrative-permissions.js';
+import {
+  recordPermissionChange,
+  type PermissionChangeAuditStore,
+} from '../../domain/authorization/permission-change-audit.js';
 import { BadRequestError } from '../errors.js';
 import {
   authenticate,
@@ -20,11 +24,14 @@ import {
 } from '../middleware/authenticate.js';
 import { requirePermission } from '../middleware/require-permission.js';
 
+const TARGET_ROLE = 'ADMINISTRATIVE' as const;
+
 export interface AdministrativePermissionsDependencies {
   authenticate: AuthenticateOptions;
   administrativePermissions: AdministrativePermissionStore;
   /** Used by requirePermission; never trust client-supplied grants. */
   permissionGrants: PermissionGrantStore;
+  permissionChangeAudits: PermissionChangeAuditStore;
 }
 
 /**
@@ -34,13 +41,13 @@ export interface AdministrativePermissionsDependencies {
  * - GET catalog / list → permissions.read
  * - POST grant / DELETE revoke → permissions.update
  *
- * SUPER_ADMIN and DIRECTOR pass via hasPermission policy; other roles need
- * explicit RolePermission rows. Does not mount requirePermission elsewhere.
+ * Successful mutations append a PermissionChangeAudit row (actor from session).
  */
 export function createAdministrativePermissionsRouter({
   authenticate: authOptions,
   administrativePermissions,
   permissionGrants,
+  permissionChangeAudits,
 }: AdministrativePermissionsDependencies): Router {
   const router = Router();
   const readGuard = [
@@ -90,11 +97,22 @@ export function createAdministrativePermissionsRouter({
             );
           }
 
+          const actor = req.user!;
           const { outcome, permission } = await grantAdministrativePermission(
             administrativePermissions,
             parsed.data.module,
             parsed.data.action,
           );
+
+          await recordPermissionChange(permissionChangeAudits, {
+            actorUserId: actor.id,
+            targetRole: TARGET_ROLE,
+            changeType: 'GRANT',
+            module: permission.module,
+            action: permission.action,
+            outcome,
+          });
+
           const body: PermissionMutationResponse = { permission };
           res.status(outcome === 'created' ? 201 : 200).json(body);
         } catch (error) {
@@ -121,11 +139,22 @@ export function createAdministrativePermissionsRouter({
             );
           }
 
-          await revokeAdministrativePermission(
+          const actor = req.user!;
+          const { outcome, permission } = await revokeAdministrativePermission(
             administrativePermissions,
             parsed.data.module,
             parsed.data.action,
           );
+
+          await recordPermissionChange(permissionChangeAudits, {
+            actorUserId: actor.id,
+            targetRole: TARGET_ROLE,
+            changeType: 'REVOKE',
+            module: permission.module,
+            action: permission.action,
+            outcome,
+          });
+
           res.status(204).send();
         } catch (error) {
           if (error instanceof UnknownPermissionError) {

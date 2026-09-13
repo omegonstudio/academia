@@ -2,6 +2,10 @@ import type { Express } from 'express';
 import type { PermissionRef, Role } from '@academia/shared';
 import type { PermissionGrantStore } from '../domain/authorization/has-permission.js';
 import type { AdministrativePermissionStore } from '../domain/authorization/manage-administrative-permissions.js';
+import type {
+  PermissionChangeAuditEntry,
+  PermissionChangeAuditStore,
+} from '../domain/authorization/permission-change-audit.js';
 import { createAuthService } from '../domain/identity/auth-service.js';
 import type {
   ProvisionIdentityRecord,
@@ -40,6 +44,12 @@ export interface InMemoryAdministrativePermissionStore
   asPermissionGrantStore(): PermissionGrantStore;
 }
 
+export interface InMemoryPermissionChangeAuditStore
+  extends PermissionChangeAuditStore {
+  entries(): readonly PermissionChangeAuditEntry[];
+  clear(): void;
+}
+
 export interface TestApp {
   app: Express;
   users: InMemoryUserRepository;
@@ -48,10 +58,27 @@ export interface TestApp {
   teachers: InMemoryRoleProvisionStore;
   students: InMemoryRoleProvisionStore;
   administrativePermissions: InMemoryAdministrativePermissionStore;
+  permissionChangeAudits: InMemoryPermissionChangeAuditStore;
 }
 
 function permissionKey(module: string, action: string): string {
   return `${module}:${action}`;
+}
+
+function createInMemoryPermissionChangeAuditStore(): InMemoryPermissionChangeAuditStore {
+  const entries: PermissionChangeAuditEntry[] = [];
+
+  return {
+    entries() {
+      return entries;
+    },
+    clear() {
+      entries.length = 0;
+    },
+    async append(entry) {
+      entries.push({ ...entry });
+    },
+  };
 }
 
 function createInMemoryAdministrativePermissionStore(): InMemoryAdministrativePermissionStore {
@@ -185,6 +212,7 @@ export async function buildTestApp({
   const students = createInMemoryRoleProvisionStore(users, 'STUDENT');
   const administrativePermissions = createInMemoryAdministrativePermissionStore();
   const permissionGrants = administrativePermissions.asPermissionGrantStore();
+  const permissionChangeAudits = createInMemoryPermissionChangeAuditStore();
   const authService = createAuthService(users);
   const sessionCodec = createSessionCodec(TEST_SECRET, 3600);
 
@@ -232,6 +260,7 @@ export async function buildTestApp({
       authenticate: authOptions,
       administrativePermissions,
       permissionGrants,
+      permissionChangeAudits,
     },
   });
 
@@ -243,6 +272,7 @@ export async function buildTestApp({
     teachers,
     students,
     administrativePermissions,
+    permissionChangeAudits,
   };
 }
 

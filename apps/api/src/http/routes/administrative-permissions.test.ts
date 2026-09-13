@@ -161,6 +161,33 @@ describe('administrative permissions routes', () => {
       .get('/roles/administrative/permissions')
       .set('Cookie', cookie!);
     expect(empty.body.permissions).toEqual([]);
+
+    expect(fixture.permissionChangeAudits.entries()).toEqual([
+      {
+        actorUserId: 'director-1',
+        targetRole: 'ADMINISTRATIVE',
+        changeType: 'GRANT',
+        module: 'students',
+        action: 'read',
+        outcome: 'created',
+      },
+      {
+        actorUserId: 'director-1',
+        targetRole: 'ADMINISTRATIVE',
+        changeType: 'GRANT',
+        module: 'students',
+        action: 'read',
+        outcome: 'exists',
+      },
+      {
+        actorUserId: 'director-1',
+        targetRole: 'ADMINISTRATIVE',
+        changeType: 'REVOKE',
+        module: 'students',
+        action: 'read',
+        outcome: 'removed',
+      },
+    ]);
   });
 
   it('lets SUPER_ADMIN grant a permission', async () => {
@@ -196,5 +223,18 @@ describe('administrative permissions routes', () => {
 
     expect(response.status).toBe(400);
     expect(response.body.error.code).toBe('BAD_REQUEST');
+  });
+
+  it('does not audit when the caller is forbidden', async () => {
+    await seedRole('TEACHER', 'docente@academia.test', 'teacher-password-12');
+    const cookie = await loginAs('docente@academia.test', 'teacher-password-12');
+
+    const response = await request(fixture.app)
+      .post('/roles/administrative/permissions')
+      .set('Cookie', cookie!)
+      .send({ module: 'students', action: 'read' });
+
+    expect(response.status).toBe(403);
+    expect(fixture.permissionChangeAudits.entries()).toEqual([]);
   });
 });

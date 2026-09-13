@@ -8,6 +8,8 @@ import {
   revokeAdministrativePermission,
   UnknownPermissionError,
 } from '../domain/authorization/manage-administrative-permissions.js';
+import { recordPermissionChange } from '../domain/authorization/permission-change-audit.js';
+import { createPermissionChangeAuditStore } from '../domain/authorization/permission-change-audit-store.js';
 import { createPermissionGrantStore } from '../domain/authorization/permission-grant-store.js';
 import { createPrismaClient, type Database } from '../lib/prisma.js';
 
@@ -167,5 +169,44 @@ describe('permissions integration', () => {
     await expect(
       grantAdministrativePermission(store, 'students', 'delete'),
     ).rejects.toBeInstanceOf(UnknownPermissionError);
+  });
+
+  it('persists permission change audit rows via Prisma store', async () => {
+    const actor = await database.user.create({
+      data: {
+        email: 'audit-actor@academia.test',
+        name: 'Audit Actor',
+        passwordHash: 'not-a-real-hash',
+        role: 'DIRECTOR',
+        isActive: true,
+      },
+    });
+
+    const auditStore = createPermissionChangeAuditStore(database);
+    await recordPermissionChange(auditStore, {
+      actorUserId: actor.id,
+      targetRole: 'ADMINISTRATIVE',
+      changeType: 'GRANT',
+      module: 'finance',
+      action: 'read',
+      outcome: 'created',
+    });
+
+    const rows = await database.permissionChangeAudit.findMany({
+      where: { actorUserId: actor.id },
+    });
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({
+      targetRole: 'ADMINISTRATIVE',
+      changeType: 'GRANT',
+      module: 'finance',
+      action: 'read',
+      outcome: 'created',
+    });
+
+    await database.permissionChangeAudit.deleteMany({
+      where: { actorUserId: actor.id },
+    });
+    await database.user.delete({ where: { id: actor.id } });
   });
 });
