@@ -68,18 +68,22 @@ async function main(): Promise<void> {
     directors: {
       authenticate: authOptions,
       directors,
+      permissionGrants,
     },
     administratives: {
       authenticate: authOptions,
       administratives,
+      permissionGrants,
     },
     teachers: {
       authenticate: authOptions,
       teachers,
+      permissionGrants,
     },
     students: {
       authenticate: authOptions,
       students,
+      permissionGrants,
     },
     administrativePermissions: {
       authenticate: authOptions,

@@ -388,3 +388,19 @@ SUPER_ADMIN/DIRECTOR still pass via `hasPermission` bypass. Callers without the
 grant receive 403.
 
 **Still out of scope.** Mounting on unrelated academy feature routes.
+
+---
+
+## 22. User provisioning gated by `users.create`
+
+**Context.** Provision routes used `requireRole` only. Catalog includes
+`users.create` for creating accounts.
+
+**Decision.** Mount `requirePermission(..., 'users', 'create')` on
+`POST /users/{directors,administratives,teachers,students}`. Keep
+`requireRole('SUPER_ADMIN')` on directors so DIRECTOR cannot provision
+DIRECTOR (bypass would otherwise allow it). Other provision routes rely on
+the SUPER_ADMIN/DIRECTOR permission bypass; callers without `users.create`
+receive 403.
+
+**Still out of scope.** Non-provision academy feature routes.

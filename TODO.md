@@ -78,13 +78,13 @@ Make access control real and manageable.
 - SUPER_ADMIN provisioned and verified end to end.
 
 ### Done in Stage 1 (partial)
-- [x] Provision DIRECTOR via `POST /users/directors` (SUPER_ADMIN only). Role assigned server-side; conflicts if the email already holds another role; password never overwritten on reassert. `requireRole` mounted on this route.
-- [x] Provision ADMINISTRATIVE via `POST /users/administratives` (SUPER_ADMIN or DIRECTOR). Same shared provisioning domain/store pattern as DIRECTOR.
-- [x] Provision TEACHER via `POST /users/teachers` (SUPER_ADMIN or DIRECTOR). Same shared provisioning domain/store pattern.
-- [x] Provision STUDENT via `POST /users/students` (SUPER_ADMIN or DIRECTOR). Teachers cannot provision students.
-- [x] Granular permission model (module/action): `Permission` + `RolePermission` in Prisma, catalog in `@academia/shared`, `hasPermission` domain query (SUPER_ADMIN/DIRECTOR bypass catalog; others need grants). No route middleware yet.
+- [x] Provision DIRECTOR via `POST /users/directors` (SUPER_ADMIN only + `requirePermission(users, create)`).
+- [x] Provision ADMINISTRATIVE via `POST /users/administratives` (`requirePermission(users, create)`; SUPER_ADMIN/DIRECTOR bypass).
+- [x] Provision TEACHER via `POST /users/teachers` (`requirePermission(users, create)`; SUPER_ADMIN/DIRECTOR bypass).
+- [x] Provision STUDENT via `POST /users/students` (`requirePermission(users, create)`; SUPER_ADMIN/DIRECTOR bypass; TEACHER denied without grant).
+- [x] Granular permission model (module/action): `Permission` + `RolePermission` in Prisma, catalog in `@academia/shared`, `hasPermission` domain query (SUPER_ADMIN/DIRECTOR bypass catalog; others need grants).
 - [x] Director (and SUPER_ADMIN) can list the permission catalog and grant/revoke ADMINISTRATIVE RolePermission via API. Gate: `permissions.read` / `permissions.update` via `requirePermission` (SUPER_ADMIN/DIRECTOR bypass).
-- [x] `requirePermission(module, action)` middleware: after `authenticate`, uses `hasPermission` + grant store; SUPER_ADMIN/DIRECTOR allowed by policy; 401/403 consistent. Mounted on permission-management routes.
+- [x] `requirePermission(module, action)` middleware mounted on permission-management and user-provisioning routes.
 
 ### TODO
 - [ ] Enforce permissions server-side on every remaining academy route (mount `requirePermission` / keep `requireRole` where role gates remain appropriate).

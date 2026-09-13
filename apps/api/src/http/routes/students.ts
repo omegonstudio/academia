@@ -3,6 +3,7 @@ import {
   type SessionResponse,
 } from '@academia/shared';
 import { Router } from 'express';
+import type { PermissionGrantStore } from '../../domain/authorization/has-permission.js';
 import {
   provisionStudent,
   RoleConflictError,
@@ -11,32 +12,34 @@ import {
 import { BadRequestError, ConflictError } from '../errors.js';
 import {
   authenticate,
-  requireRole,
   type AuthenticateOptions,
 } from '../middleware/authenticate.js';
+import { requirePermission } from '../middleware/require-permission.js';
 
 export interface StudentsDependencies {
   authenticate: AuthenticateOptions;
   students: StudentProvisionStore;
+  permissionGrants: PermissionGrantStore;
 }
 
 /**
  * Student provisioning.
  *
- * DIRECTOR operates the academy and may create STUDENT accounts.
- * SUPER_ADMIN retains technical access. Teachers cannot self-assign students,
- * so TEACHER is not authorized here. The role is assigned server-side.
+ * Requires `users.create`. SUPER_ADMIN/DIRECTOR pass via hasPermission bypass;
+ * TEACHER/STUDENT/ADMINISTRATIVE without a grant are denied (teachers cannot
+ * self-assign students). Role is assigned server-side.
  */
 export function createStudentsRouter({
   authenticate: authOptions,
   students,
+  permissionGrants,
 }: StudentsDependencies): Router {
   const router = Router();
 
   router.post(
     '/users/students',
     authenticate(authOptions),
-    requireRole('SUPER_ADMIN', 'DIRECTOR'),
+    requirePermission(permissionGrants, 'users', 'create'),
     (req, res, next) => {
       void (async () => {
         try {

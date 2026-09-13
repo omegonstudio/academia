@@ -38,10 +38,10 @@ All public pages: `lang="es"`, one `<h1>`, skip link, landmarks, verified contra
 | `[x]`  | `POST /auth/login` | Zod-validated. Sets HttpOnly cookie. Throttled per IP. Identical 401 for every failure. |
 | `[x]`  | `POST /auth/logout`| 204, clears the cookie.                                                  |
 | `[x]`  | `GET /auth/me`     | Requires a valid session; reloads the user, so revocation is immediate.  |
-| `[x]`  | `POST /users/directors` | SUPER_ADMIN only. Provisions a DIRECTOR (role server-assigned). 409 if email has another role. Password never overwritten on reassert. |
-| `[x]`  | `POST /users/administratives` | SUPER_ADMIN or DIRECTOR. Provisions an ADMINISTRATIVE (role server-assigned). Same conflict/reassert rules as DIRECTOR. |
-| `[x]`  | `POST /users/teachers` | SUPER_ADMIN or DIRECTOR. Provisions a TEACHER (role server-assigned). Same conflict/reassert rules. |
-| `[x]`  | `POST /users/students` | SUPER_ADMIN or DIRECTOR. Provisions a STUDENT (role server-assigned). TEACHER not authorized. Same conflict/reassert rules. |
+| `[x]`  | `POST /users/directors` | SUPER_ADMIN + `requirePermission(users, create)`. Provisions DIRECTOR. |
+| `[x]`  | `POST /users/administratives` | `requirePermission(users, create)`. SUPER_ADMIN/DIRECTOR bypass. |
+| `[x]`  | `POST /users/teachers` | `requirePermission(users, create)`. SUPER_ADMIN/DIRECTOR bypass. |
+| `[x]`  | `POST /users/students` | `requirePermission(users, create)`. SUPER_ADMIN/DIRECTOR bypass; TEACHER denied without grant. |
 | `[x]`  | `GET /permissions/catalog` | `authenticate` + `requirePermission(permissions, read)`. SUPER_ADMIN/DIRECTOR bypass; others need grant. |
 | `[x]`  | `GET /roles/administrative/permissions` | `requirePermission(permissions, read)`. Lists ADMINISTRATIVE grants. |
 | `[x]`  | `POST /roles/administrative/permissions` | `requirePermission(permissions, update)`. Grants to ADMINISTRATIVE (idempotent 201/200). |
@@ -68,14 +68,14 @@ API publishes no host port.
 
 ## Stage 1 — Identity, Roles & Permissions
 
-- [x] `POST /users/directors` — provision DIRECTOR (SUPER_ADMIN only)
-- [x] `POST /users/administratives` — provision ADMINISTRATIVE (SUPER_ADMIN or DIRECTOR)
-- [x] `POST /users/teachers` — provision TEACHER (SUPER_ADMIN or DIRECTOR)
-- [x] `POST /users/students` — provision STUDENT (SUPER_ADMIN or DIRECTOR)
+- [x] `POST /users/directors` — SUPER_ADMIN + `requirePermission(users, create)`
+- [x] `POST /users/administratives` — `requirePermission(users, create)`
+- [x] `POST /users/teachers` — `requirePermission(users, create)`
+- [x] `POST /users/students` — `requirePermission(users, create)`
 - [x] Permission model (DB + domain) — `permissions` / `role_permissions` tables; catalog seed; `hasPermission` (no HTTP surface yet)
 - [x] `GET /permissions/catalog` — `requirePermission(permissions, read)`
 - [x] `GET|POST|DELETE /roles/administrative/permissions` — read / update via `requirePermission`
-- [x] `requirePermission(module, action)` — mounted on permission-management routes (other feature routes still open)
+- [x] `requirePermission(module, action)` — mounted on permission-management and user-provisioning routes
 - [ ] `/dashboard/settings`
 - [ ] `/dashboard/administratives`
 - [ ] `/dashboard/permissions`

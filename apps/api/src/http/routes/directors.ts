@@ -3,6 +3,7 @@ import {
   type SessionResponse,
 } from '@academia/shared';
 import { Router } from 'express';
+import type { PermissionGrantStore } from '../../domain/authorization/has-permission.js';
 import {
   provisionDirector,
   RoleConflictError,
@@ -14,21 +15,24 @@ import {
   requireRole,
   type AuthenticateOptions,
 } from '../middleware/authenticate.js';
+import { requirePermission } from '../middleware/require-permission.js';
 
 export interface DirectorsDependencies {
   authenticate: AuthenticateOptions;
   directors: DirectorProvisionStore;
+  permissionGrants: PermissionGrantStore;
 }
 
 /**
  * Director provisioning.
  *
- * Only SUPER_ADMIN may create a DIRECTOR. The role is assigned server-side;
- * the request body never carries a role field.
+ * SUPER_ADMIN only (role gate). Also requires `users.create` via
+ * requirePermission; SUPER_ADMIN passes the permission policy by bypass.
  */
 export function createDirectorsRouter({
   authenticate: authOptions,
   directors,
+  permissionGrants,
 }: DirectorsDependencies): Router {
   const router = Router();
 
@@ -36,6 +40,7 @@ export function createDirectorsRouter({
     '/users/directors',
     authenticate(authOptions),
     requireRole('SUPER_ADMIN'),
+    requirePermission(permissionGrants, 'users', 'create'),
     (req, res, next) => {
       void (async () => {
         try {

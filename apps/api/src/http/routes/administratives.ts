@@ -3,6 +3,7 @@ import {
   type SessionResponse,
 } from '@academia/shared';
 import { Router } from 'express';
+import type { PermissionGrantStore } from '../../domain/authorization/has-permission.js';
 import {
   provisionAdministrative,
   RoleConflictError,
@@ -11,31 +12,33 @@ import {
 import { BadRequestError, ConflictError } from '../errors.js';
 import {
   authenticate,
-  requireRole,
   type AuthenticateOptions,
 } from '../middleware/authenticate.js';
+import { requirePermission } from '../middleware/require-permission.js';
 
 export interface AdministrativesDependencies {
   authenticate: AuthenticateOptions;
   administratives: AdministrativeProvisionStore;
+  permissionGrants: PermissionGrantStore;
 }
 
 /**
  * Administrative provisioning.
  *
- * DIRECTOR operates the academy and may create ADMINISTRATIVE staff.
- * SUPER_ADMIN retains technical access. The role is assigned server-side.
+ * Requires `users.create`. SUPER_ADMIN/DIRECTOR pass via hasPermission bypass;
+ * other roles need an explicit grant. Role is assigned server-side.
  */
 export function createAdministrativesRouter({
   authenticate: authOptions,
   administratives,
+  permissionGrants,
 }: AdministrativesDependencies): Router {
   const router = Router();
 
   router.post(
     '/users/administratives',
     authenticate(authOptions),
-    requireRole('SUPER_ADMIN', 'DIRECTOR'),
+    requirePermission(permissionGrants, 'users', 'create'),
     (req, res, next) => {
       void (async () => {
         try {

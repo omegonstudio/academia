@@ -36,7 +36,7 @@ describe('POST /users/teachers', () => {
     expect(response.status).toBe(401);
   });
 
-  it('forbids ADMINISTRATIVE from provisioning TEACHER', async () => {
+  it('returns 403 when ADMINISTRATIVE lacks users.create', async () => {
     fixture.users.seed({
       id: 'a-1',
       email: 'admin@academia.test',
@@ -57,6 +57,7 @@ describe('POST /users/teachers', () => {
       });
 
     expect(response.status).toBe(403);
+    expect(response.body.error.code).toBe('FORBIDDEN');
   });
 
   it('lets DIRECTOR create a TEACHER that can log in', async () => {

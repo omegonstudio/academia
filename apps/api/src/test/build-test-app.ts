@@ -184,6 +184,7 @@ export async function buildTestApp({
   const teachers = createInMemoryRoleProvisionStore(users, 'TEACHER');
   const students = createInMemoryRoleProvisionStore(users, 'STUDENT');
   const administrativePermissions = createInMemoryAdministrativePermissionStore();
+  const permissionGrants = administrativePermissions.asPermissionGrantStore();
   const authService = createAuthService(users);
   const sessionCodec = createSessionCodec(TEST_SECRET, 3600);
 
@@ -210,23 +211,27 @@ export async function buildTestApp({
     directors: {
       authenticate: authOptions,
       directors,
+      permissionGrants,
     },
     administratives: {
       authenticate: authOptions,
       administratives,
+      permissionGrants,
     },
     teachers: {
       authenticate: authOptions,
       teachers,
+      permissionGrants,
     },
     students: {
       authenticate: authOptions,
       students,
+      permissionGrants,
     },
     administrativePermissions: {
       authenticate: authOptions,
       administrativePermissions,
-      permissionGrants: administrativePermissions.asPermissionGrantStore(),
+      permissionGrants,
     },
   });
 

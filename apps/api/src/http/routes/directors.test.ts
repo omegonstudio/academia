@@ -60,6 +60,30 @@ describe('POST /users/directors', () => {
     expect(response.status).toBe(403);
   });
 
+  it('returns 403 when ADMINISTRATIVE lacks users.create', async () => {
+    fixture.users.seed({
+      id: 'admin-1',
+      email: 'admin@academia.test',
+      name: 'Admin',
+      role: 'ADMINISTRATIVE',
+      isActive: true,
+      passwordHash: await hashPassword('admin-password-12'),
+    });
+
+    const cookie = await loginAs('admin@academia.test', 'admin-password-12');
+
+    const response = await request(fixture.app)
+      .post('/users/directors')
+      .set('Cookie', cookie!)
+      .send({
+        email: 'otra@academia.test',
+        password: 'director-password-12',
+      });
+
+    expect(response.status).toBe(403);
+    expect(response.body.error.code).toBe('FORBIDDEN');
+  });
+
   it('lets SUPER_ADMIN create a DIRECTOR that can log in', async () => {
     fixture.users.seed({
       id: 'sa-1',
