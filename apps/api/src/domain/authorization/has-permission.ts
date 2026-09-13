@@ -24,7 +24,8 @@ export interface PermissionGrantStore {
  * - Other roles: require an explicit RolePermission row.
  * - Unknown (module, action) pairs outside the catalog are never allowed.
  *
- * Does not mount HTTP middleware; route enforcement is a later Stage 1 task.
+ * Ready for route mounting via `requirePermission`; academy feature routes are
+ * not wired yet — that is a later Stage 1 task.
  */
 export async function hasPermission(
   store: PermissionGrantStore,

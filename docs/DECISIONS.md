@@ -350,3 +350,21 @@ revoke are idempotent.
 
 **Still out of scope.** UI, permission-change audit trail, and mounting
 `requirePermission` on academy feature routes.
+
+---
+
+## 20. `requirePermission` delegates to `hasPermission`
+
+**Context.** Feature routes will need granular checks beyond `requireRole`.
+Authorization must stay server-side and must not trust client-supplied
+permission claims.
+
+**Decision.** Add `requirePermission(store, module, action)` middleware that:
+
+- requires `authenticate` to have set `req.user` (else 401);
+- calls `hasPermission` with the server-resolved role (SUPER_ADMIN/DIRECTOR
+  bypass; others need `RolePermission`);
+- responds 403 when denied.
+
+**Out of scope here.** Mounting on every academy route — the helper is ready;
+wiring is a follow-up Stage 1 task.

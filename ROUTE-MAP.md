@@ -75,12 +75,13 @@ API publishes no host port.
 - [x] Permission model (DB + domain) — `permissions` / `role_permissions` tables; catalog seed; `hasPermission` (no HTTP surface yet)
 - [x] `GET /permissions/catalog` — SUPER_ADMIN or DIRECTOR
 - [x] `GET|POST|DELETE /roles/administrative/permissions` — SUPER_ADMIN or DIRECTOR manage ADMINISTRATIVE grants
+- [x] `requirePermission(module, action)` — server middleware ready (not mounted on feature routes yet)
 - [ ] `/dashboard/settings`
 - [ ] `/dashboard/administratives`
 - [ ] `/dashboard/permissions`
 
 TODO:
-- Real role authorization (requireRole mounted on all role-provision routes; broader matrix / `requirePermission` still open).
+- Mount `requirePermission` on academy feature routes (middleware exists; wiring still open).
 - Director-managed Administrative permissions UI (`/dashboard/permissions`).
 - SuperAdmin bootstrap for `omegon.info@gmail.com` (done in Stage 0).
 - Backend authorization tests (all role-provision routes covered; full matrix still open).
