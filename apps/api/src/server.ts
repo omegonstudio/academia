@@ -2,6 +2,7 @@ import { evaluateConfiguration, parseEnv } from './config/env.js';
 import { createAuthService } from './domain/identity/auth-service.js';
 import { createAdministrativeProvisionStore } from './domain/identity/provision-administrative.js';
 import { createDirectorProvisionStore } from './domain/identity/provision-director.js';
+import { createTeacherProvisionStore } from './domain/identity/provision-teacher.js';
 import { createSessionCodec } from './domain/identity/session.js';
 import { createUserRepository } from './domain/identity/user-repository.js';
 import { createApp } from './http/app.js';
@@ -30,6 +31,7 @@ async function main(): Promise<void> {
   const sessionCodec = createSessionCodec(env.AUTH_SECRET, env.AUTH_SESSION_TTL);
   const directors = createDirectorProvisionStore(database);
   const administratives = createAdministrativeProvisionStore(database);
+  const teachers = createTeacherProvisionStore(database);
   const startedAt = Date.now();
 
   const authOptions = {
@@ -63,6 +65,10 @@ async function main(): Promise<void> {
     administratives: {
       authenticate: authOptions,
       administratives,
+    },
+    teachers: {
+      authenticate: authOptions,
+      teachers,
     },
   });
 

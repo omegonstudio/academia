@@ -13,6 +13,10 @@ import {
   type DirectorsDependencies,
 } from './routes/directors.js';
 import { createHealthRouter, type HealthDependencies } from './routes/health.js';
+import {
+  createTeachersRouter,
+  type TeachersDependencies,
+} from './routes/teachers.js';
 
 export interface AppDependencies {
   logger: Logger;
@@ -21,6 +25,7 @@ export interface AppDependencies {
   auth: AuthDependencies;
   directors: DirectorsDependencies;
   administratives: AdministrativesDependencies;
+  teachers: TeachersDependencies;
 }
 
 /**
@@ -36,6 +41,7 @@ export function createApp({
   auth,
   directors,
   administratives,
+  teachers,
 }: AppDependencies): Express {
   const app = express();
 
@@ -61,6 +67,7 @@ export function createApp({
   app.use(createAuthRouter(auth));
   app.use(createDirectorsRouter(directors));
   app.use(createAdministrativesRouter(administratives));
+  app.use(createTeachersRouter(teachers));
 
   app.use(notFoundHandler());
   app.use(errorHandler(logger));

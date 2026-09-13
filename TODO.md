@@ -80,9 +80,9 @@ Make access control real and manageable.
 ### Done in Stage 1 (partial)
 - [x] Provision DIRECTOR via `POST /users/directors` (SUPER_ADMIN only). Role assigned server-side; conflicts if the email already holds another role; password never overwritten on reassert. `requireRole` mounted on this route.
 - [x] Provision ADMINISTRATIVE via `POST /users/administratives` (SUPER_ADMIN or DIRECTOR). Same shared provisioning domain/store pattern as DIRECTOR.
+- [x] Provision TEACHER via `POST /users/teachers` (SUPER_ADMIN or DIRECTOR). Same shared provisioning domain/store pattern.
 
 ### TODO
-- [ ] Provision TEACHER.
 - [ ] Provision STUDENT.
 - [ ] Granular permission model (module/action) beyond the role enum.
 - [ ] Director can assign Administrative permissions.

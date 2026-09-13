@@ -6,12 +6,14 @@ export {
   provisionUserRequestSchema,
   provisionDirectorRequestSchema,
   provisionAdministrativeRequestSchema,
+  provisionTeacherRequestSchema,
   type LoginRequest,
   type SessionUser,
   type SessionResponse,
   type ProvisionUserRequest,
   type ProvisionDirectorRequest,
   type ProvisionAdministrativeRequest,
+  type ProvisionTeacherRequest,
 } from './auth.js';
 export {
   healthResponseSchema,
