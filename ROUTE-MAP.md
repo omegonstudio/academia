@@ -68,13 +68,14 @@ API publishes no host port.
 - [x] `POST /users/administratives` — provision ADMINISTRATIVE (SUPER_ADMIN or DIRECTOR)
 - [x] `POST /users/teachers` — provision TEACHER (SUPER_ADMIN or DIRECTOR)
 - [x] `POST /users/students` — provision STUDENT (SUPER_ADMIN or DIRECTOR)
+- [x] Permission model (DB + domain) — `permissions` / `role_permissions` tables; catalog seed; `hasPermission` (no HTTP surface yet)
 - [ ] `/dashboard/settings`
 - [ ] `/dashboard/administratives`
 - [ ] `/dashboard/permissions`
 
 TODO:
-- Real role authorization (requireRole mounted on all role-provision routes; broader matrix still open).
-- Director-managed Administrative permissions.
+- Real role authorization (requireRole mounted on all role-provision routes; broader matrix / `requirePermission` still open).
+- Director-managed Administrative permissions (API + UI).
 - SuperAdmin bootstrap for `omegon.info@gmail.com` (done in Stage 0).
 - Backend authorization tests (all role-provision routes covered; full matrix still open).
 - Audit sensitive permission changes.

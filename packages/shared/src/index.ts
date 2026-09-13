@@ -1,5 +1,18 @@
 export { ROLES, roleSchema, isRole, type Role } from './roles.js';
 export {
+  PERMISSION_MODULES,
+  PERMISSION_ACTIONS,
+  PERMISSION_CATALOG,
+  permissionModuleSchema,
+  permissionActionSchema,
+  isPermissionModule,
+  isPermissionAction,
+  isCatalogPermission,
+  type PermissionModule,
+  type PermissionAction,
+  type PermissionRef,
+} from './permissions.js';
+export {
   loginRequestSchema,
   sessionUserSchema,
   sessionResponseSchema,

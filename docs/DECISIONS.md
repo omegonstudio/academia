@@ -305,3 +305,27 @@ the default holds for the deployment this repository describes.
 from the acceptance checklist as written. The production stack is smoke-tested
 explicitly — including with a password containing `+ / = : @` — because "dev
 works" does not evidence a production claim.
+
+---
+
+## 18. Granular permissions: catalog + RolePermission; SUPER_ADMIN/DIRECTOR bypass
+
+**Context.** Stage 1 needs module/action grants for ADMINISTRATIVE without
+embedding a full ACL on every role. MASTER-PROMPT defines SUPER_ADMIN as
+technical total access and DIRECTOR as operational total access; ADMINISTRATIVE
+only gets what the Director assigns.
+
+**Decision.** Persist a `Permission` catalog (`module` + `action`, unique) and
+`RolePermission` links. Seed the catalog in the migration (no default grants).
+Share the catalog in `@academia/shared`. Domain `hasPermission`:
+
+- unknown (module, action) → deny;
+- `SUPER_ADMIN` / `DIRECTOR` → allow for catalog pairs without reading grants;
+- other roles → allow only when a `RolePermission` row exists.
+
+**Why bypass instead of seeding every grant for Director.** Director's total
+operational access is a product rule, not a row set that must stay in sync with
+catalog growth. Grant rows remain the source of truth for ADMINISTRATIVE.
+
+**Out of scope here.** HTTP `requirePermission`, Director assignment API/UI, and
+mounting checks on every route.

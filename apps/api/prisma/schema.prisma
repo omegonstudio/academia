@@ -1,8 +1,8 @@
 // Academia — database schema.
 //
-// Stage 0 models identity only. Student, Teacher, Course, ClassSession,
-// Material, Payment and Settlement belong to later stages and must not be
-// added here until their stage is being implemented.
+// Stage 0 modelled identity. Stage 1 adds the permission catalog and
+// role ↔ permission grants. Student/Teacher profile entities, courses, classes,
+// materials, payments and settlements belong to later stages.
 //
 // The connection URL is supplied by `prisma7.config.ts` from the environment.
 //
@@ -53,4 +53,35 @@ model User {
 
   @@index([role])
   @@map("users")
+}
+
+/// A grantable (module, action) pair. Catalog rows are seeded by migration.
+model Permission {
+  id String @id @default(uuid()) @db.Uuid
+
+  module String @db.VarChar(64)
+  action String @db.VarChar(32)
+
+  rolePermissions RolePermission[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([module, action])
+  @@map("permissions")
+}
+
+/// Links a Role to a Permission. ADMINISTRATIVE access is driven by this table.
+model RolePermission {
+  id String @id @default(uuid()) @db.Uuid
+
+  role         Role
+  permissionId String @map("permission_id") @db.Uuid
+
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([role, permissionId])
+  @@index([role])
+  @@map("role_permissions")
 }

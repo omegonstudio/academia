@@ -82,9 +82,9 @@ Make access control real and manageable.
 - [x] Provision ADMINISTRATIVE via `POST /users/administratives` (SUPER_ADMIN or DIRECTOR). Same shared provisioning domain/store pattern as DIRECTOR.
 - [x] Provision TEACHER via `POST /users/teachers` (SUPER_ADMIN or DIRECTOR). Same shared provisioning domain/store pattern.
 - [x] Provision STUDENT via `POST /users/students` (SUPER_ADMIN or DIRECTOR). Teachers cannot provision students.
+- [x] Granular permission model (module/action): `Permission` + `RolePermission` in Prisma, catalog in `@academia/shared`, `hasPermission` domain query (SUPER_ADMIN/DIRECTOR bypass catalog; others need grants). No route middleware yet.
 
 ### TODO
-- [ ] Granular permission model (module/action) beyond the role enum.
 - [ ] Director can assign Administrative permissions.
 - [ ] Enforce permissions server-side on every route (mount `requireRole` and permission checks beyond director provision).
 - [ ] Role-aware dashboard content.
