@@ -3,7 +3,15 @@ import { pinoHttp } from 'pino-http';
 import type { Logger } from 'pino';
 import { errorHandler, notFoundHandler } from './middleware/error-handler.js';
 import { cors } from './middleware/cors.js';
+import {
+  createAdministrativesRouter,
+  type AdministrativesDependencies,
+} from './routes/administratives.js';
 import { createAuthRouter, type AuthDependencies } from './routes/auth.js';
+import {
+  createDirectorsRouter,
+  type DirectorsDependencies,
+} from './routes/directors.js';
 import { createHealthRouter, type HealthDependencies } from './routes/health.js';
 
 export interface AppDependencies {
@@ -11,6 +19,8 @@ export interface AppDependencies {
   allowedOrigins: string[];
   health: HealthDependencies;
   auth: AuthDependencies;
+  directors: DirectorsDependencies;
+  administratives: AdministrativesDependencies;
 }
 
 /**
@@ -24,6 +34,8 @@ export function createApp({
   allowedOrigins,
   health,
   auth,
+  directors,
+  administratives,
 }: AppDependencies): Express {
   const app = express();
 
@@ -47,6 +59,8 @@ export function createApp({
 
   app.use(createHealthRouter(health));
   app.use(createAuthRouter(auth));
+  app.use(createDirectorsRouter(directors));
+  app.use(createAdministrativesRouter(administratives));
 
   app.use(notFoundHandler());
   app.use(errorHandler(logger));

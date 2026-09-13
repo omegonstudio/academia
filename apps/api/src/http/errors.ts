@@ -37,6 +37,12 @@ export class NotFoundError extends HttpError {
   }
 }
 
+export class ConflictError extends HttpError {
+  constructor(message = 'The resource conflicts with the current state.') {
+    super(409, 'CONFLICT', message);
+  }
+}
+
 export class TooManyRequestsError extends HttpError {
   constructor(message = 'Too many attempts. Try again later.') {
     super(429, 'TOO_MANY_REQUESTS', message);

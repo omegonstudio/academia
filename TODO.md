@@ -74,17 +74,19 @@ Make access control real and manageable.
 ### Already in place from Stage 0
 - `Role` enum with all five roles, in the database and in `@academia/shared`.
 - Real login/logout/session with an HttpOnly cookie; the user is reloaded per request.
-- `authenticate` and `requireRole` middleware (`requireRole` is written and typed but not yet mounted on a route).
+- `authenticate` and `requireRole` middleware.
 - SUPER_ADMIN provisioned and verified end to end.
 
+### Done in Stage 1 (partial)
+- [x] Provision DIRECTOR via `POST /users/directors` (SUPER_ADMIN only). Role assigned server-side; conflicts if the email already holds another role; password never overwritten on reassert. `requireRole` mounted on this route.
+- [x] Provision ADMINISTRATIVE via `POST /users/administratives` (SUPER_ADMIN or DIRECTOR). Same shared provisioning domain/store pattern as DIRECTOR.
+
 ### TODO
-- [ ] Provision DIRECTOR (creation flow, not just the enum value).
-- [ ] Provision ADMINISTRATIVE.
 - [ ] Provision TEACHER.
 - [ ] Provision STUDENT.
 - [ ] Granular permission model (module/action) beyond the role enum.
 - [ ] Director can assign Administrative permissions.
-- [ ] Enforce permissions server-side on every route (mount `requireRole` and permission checks).
+- [ ] Enforce permissions server-side on every route (mount `requireRole` and permission checks beyond director provision).
 - [ ] Role-aware dashboard content.
 - [ ] Authorization matrix tests, including negative cases per role.
 - [ ] Permission-change audit trail.

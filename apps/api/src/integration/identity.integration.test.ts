@@ -1,5 +1,14 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { createAuthService } from '../domain/identity/auth-service.js';
+import {
+  createAdministrativeProvisionStore,
+  provisionAdministrative,
+} from '../domain/identity/provision-administrative.js';
+import {
+  createDirectorProvisionStore,
+  provisionDirector,
+  RoleConflictError,
+} from '../domain/identity/provision-director.js';
 import { createUserRepository } from '../domain/identity/user-repository.js';
 import { createPrismaClient, isDatabaseReachable, type Database } from '../lib/prisma.js';
 import { hashPassword, verifyPassword } from '../lib/password.js';
@@ -11,7 +20,11 @@ import { bootstrapSuperAdmin } from '../seed/bootstrap.js';
  */
 const DATABASE_URL = process.env['DATABASE_URL'];
 const SUPERADMIN_EMAIL = 'omegon.info@gmail.com';
+const DIRECTOR_EMAIL = 'directora@academia.test';
+const ADMINISTRATIVE_EMAIL = 'admin@academia.test';
 const BOOTSTRAP_PASSWORD = 'bootstrap-password-for-tests';
+const DIRECTOR_PASSWORD = 'director-password-12';
+const ADMINISTRATIVE_PASSWORD = 'admin-password-12';
 
 if (!DATABASE_URL) {
   throw new Error(
@@ -19,6 +32,13 @@ if (!DATABASE_URL) {
       'scripts/test-integration.sh or set the variable explicitly.',
   );
 }
+
+const CLEANUP_EMAILS = [
+  SUPERADMIN_EMAIL,
+  DIRECTOR_EMAIL,
+  ADMINISTRATIVE_EMAIL,
+  'teacher@academia.test',
+];
 
 describe('identity integration', () => {
   let database: Database;
@@ -29,14 +49,14 @@ describe('identity integration', () => {
 
   afterAll(async () => {
     await database.user.deleteMany({
-      where: { email: { in: [SUPERADMIN_EMAIL, 'teacher@academia.test'] } },
+      where: { email: { in: CLEANUP_EMAILS } },
     });
     await database.$disconnect();
   });
 
   beforeEach(async () => {
     await database.user.deleteMany({
-      where: { email: { in: [SUPERADMIN_EMAIL, 'teacher@academia.test'] } },
+      where: { email: { in: CLEANUP_EMAILS } },
     });
   });
 
@@ -202,6 +222,96 @@ describe('identity integration', () => {
       await expect(
         verifyPassword(BOOTSTRAP_PASSWORD, user.passwordHash),
       ).resolves.toBe(true);
+    });
+  });
+
+  describe('Director provisioning', () => {
+    it('persists a DIRECTOR that can authenticate', async () => {
+      const store = createDirectorProvisionStore(database);
+
+      const result = await provisionDirector(store, {
+        email: DIRECTOR_EMAIL,
+        password: DIRECTOR_PASSWORD,
+        name: 'Ana Directora',
+      });
+
+      expect(result.outcome).toBe('created');
+      expect(result.user.role).toBe('DIRECTOR');
+
+      const row = await database.user.findUniqueOrThrow({
+        where: { email: DIRECTOR_EMAIL },
+      });
+      expect(row.role).toBe('DIRECTOR');
+      expect(row.isActive).toBe(true);
+      await expect(verifyPassword(DIRECTOR_PASSWORD, row.passwordHash)).resolves.toBe(
+        true,
+      );
+
+      const service = createAuthService(createUserRepository(database));
+      await expect(
+        service.authenticate(DIRECTOR_EMAIL, DIRECTOR_PASSWORD),
+      ).resolves.toMatchObject({ email: DIRECTOR_EMAIL, role: 'DIRECTOR' });
+    });
+
+    it('refuses to overwrite a SUPER_ADMIN email', async () => {
+      await bootstrapSuperAdmin(database, {
+        email: SUPERADMIN_EMAIL,
+        password: BOOTSTRAP_PASSWORD,
+      });
+
+      const store = createDirectorProvisionStore(database);
+
+      await expect(
+        provisionDirector(store, {
+          email: SUPERADMIN_EMAIL,
+          password: DIRECTOR_PASSWORD,
+        }),
+      ).rejects.toBeInstanceOf(RoleConflictError);
+    });
+  });
+
+  describe('Administrative provisioning', () => {
+    it('persists an ADMINISTRATIVE that can authenticate', async () => {
+      const store = createAdministrativeProvisionStore(database);
+
+      const result = await provisionAdministrative(store, {
+        email: ADMINISTRATIVE_EMAIL,
+        password: ADMINISTRATIVE_PASSWORD,
+        name: 'Operaciones',
+      });
+
+      expect(result.outcome).toBe('created');
+      expect(result.user.role).toBe('ADMINISTRATIVE');
+
+      const row = await database.user.findUniqueOrThrow({
+        where: { email: ADMINISTRATIVE_EMAIL },
+      });
+      expect(row.role).toBe('ADMINISTRATIVE');
+      await expect(
+        verifyPassword(ADMINISTRATIVE_PASSWORD, row.passwordHash),
+      ).resolves.toBe(true);
+
+      const service = createAuthService(createUserRepository(database));
+      await expect(
+        service.authenticate(ADMINISTRATIVE_EMAIL, ADMINISTRATIVE_PASSWORD),
+      ).resolves.toMatchObject({
+        email: ADMINISTRATIVE_EMAIL,
+        role: 'ADMINISTRATIVE',
+      });
+    });
+
+    it('refuses to overwrite a DIRECTOR email', async () => {
+      await provisionDirector(createDirectorProvisionStore(database), {
+        email: DIRECTOR_EMAIL,
+        password: DIRECTOR_PASSWORD,
+      });
+
+      await expect(
+        provisionAdministrative(createAdministrativeProvisionStore(database), {
+          email: DIRECTOR_EMAIL,
+          password: ADMINISTRATIVE_PASSWORD,
+        }),
+      ).rejects.toBeInstanceOf(RoleConflictError);
     });
   });
 });
