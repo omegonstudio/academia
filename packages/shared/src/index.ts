@@ -7,6 +7,7 @@ export {
   provisionDirectorRequestSchema,
   provisionAdministrativeRequestSchema,
   provisionTeacherRequestSchema,
+  provisionStudentRequestSchema,
   type LoginRequest,
   type SessionUser,
   type SessionResponse,
@@ -14,6 +15,7 @@ export {
   type ProvisionDirectorRequest,
   type ProvisionAdministrativeRequest,
   type ProvisionTeacherRequest,
+  type ProvisionStudentRequest,
 } from './auth.js';
 export {
   healthResponseSchema,

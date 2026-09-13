@@ -41,6 +41,7 @@ All public pages: `lang="es"`, one `<h1>`, skip link, landmarks, verified contra
 | `[x]`  | `POST /users/directors` | SUPER_ADMIN only. Provisions a DIRECTOR (role server-assigned). 409 if email has another role. Password never overwritten on reassert. |
 | `[x]`  | `POST /users/administratives` | SUPER_ADMIN or DIRECTOR. Provisions an ADMINISTRATIVE (role server-assigned). Same conflict/reassert rules as DIRECTOR. |
 | `[x]`  | `POST /users/teachers` | SUPER_ADMIN or DIRECTOR. Provisions a TEACHER (role server-assigned). Same conflict/reassert rules. |
+| `[x]`  | `POST /users/students` | SUPER_ADMIN or DIRECTOR. Provisions a STUDENT (role server-assigned). TEACHER not authorized. Same conflict/reassert rules. |
 
 The browser reaches these as `/api/*`, rewritten by Next.js. In production the
 API publishes no host port.
@@ -66,15 +67,16 @@ API publishes no host port.
 - [x] `POST /users/directors` — provision DIRECTOR (SUPER_ADMIN only)
 - [x] `POST /users/administratives` — provision ADMINISTRATIVE (SUPER_ADMIN or DIRECTOR)
 - [x] `POST /users/teachers` — provision TEACHER (SUPER_ADMIN or DIRECTOR)
+- [x] `POST /users/students` — provision STUDENT (SUPER_ADMIN or DIRECTOR)
 - [ ] `/dashboard/settings`
 - [ ] `/dashboard/administratives`
 - [ ] `/dashboard/permissions`
 
 TODO:
-- Real role authorization (requireRole mounted on director/administrative/teacher provision; broader matrix still open).
+- Real role authorization (requireRole mounted on all role-provision routes; broader matrix still open).
 - Director-managed Administrative permissions.
 - SuperAdmin bootstrap for `omegon.info@gmail.com` (done in Stage 0).
-- Backend authorization tests (director/administrative/teacher provision covered; full matrix still open).
+- Backend authorization tests (all role-provision routes covered; full matrix still open).
 - Audit sensitive permission changes.
 
 ## Stage 2 — Students & Teachers

@@ -34,6 +34,7 @@ export interface TestApp {
   directors: InMemoryRoleProvisionStore;
   administratives: InMemoryRoleProvisionStore;
   teachers: InMemoryRoleProvisionStore;
+  students: InMemoryRoleProvisionStore;
 }
 
 function createInMemoryRoleProvisionStore(
@@ -110,6 +111,7 @@ export async function buildTestApp({
   const directors = createInMemoryRoleProvisionStore(users, 'DIRECTOR');
   const administratives = createInMemoryRoleProvisionStore(users, 'ADMINISTRATIVE');
   const teachers = createInMemoryRoleProvisionStore(users, 'TEACHER');
+  const students = createInMemoryRoleProvisionStore(users, 'STUDENT');
   const authService = createAuthService(users);
   const sessionCodec = createSessionCodec(TEST_SECRET, 3600);
 
@@ -145,9 +147,13 @@ export async function buildTestApp({
       authenticate: authOptions,
       teachers,
     },
+    students: {
+      authenticate: authOptions,
+      students,
+    },
   });
 
-  return { app, users, directors, administratives, teachers };
+  return { app, users, directors, administratives, teachers, students };
 }
 
 export async function seedUser(

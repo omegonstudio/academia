@@ -50,3 +50,6 @@ export type ProvisionAdministrativeRequest = ProvisionUserRequest;
 
 export const provisionTeacherRequestSchema = provisionUserRequestSchema;
 export type ProvisionTeacherRequest = ProvisionUserRequest;
+
+export const provisionStudentRequestSchema = provisionUserRequestSchema;
+export type ProvisionStudentRequest = ProvisionUserRequest;

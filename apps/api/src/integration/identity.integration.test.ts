@@ -13,6 +13,10 @@ import {
   createTeacherProvisionStore,
   provisionTeacher,
 } from '../domain/identity/provision-teacher.js';
+import {
+  createStudentProvisionStore,
+  provisionStudent,
+} from '../domain/identity/provision-student.js';
 import { createUserRepository } from '../domain/identity/user-repository.js';
 import { createPrismaClient, isDatabaseReachable, type Database } from '../lib/prisma.js';
 import { hashPassword, verifyPassword } from '../lib/password.js';
@@ -27,10 +31,12 @@ const SUPERADMIN_EMAIL = 'omegon.info@gmail.com';
 const DIRECTOR_EMAIL = 'directora@academia.test';
 const ADMINISTRATIVE_EMAIL = 'admin@academia.test';
 const TEACHER_EMAIL = 'docente@academia.test';
+const STUDENT_EMAIL = 'estudiante@academia.test';
 const BOOTSTRAP_PASSWORD = 'bootstrap-password-for-tests';
 const DIRECTOR_PASSWORD = 'director-password-12';
 const ADMINISTRATIVE_PASSWORD = 'admin-password-12';
 const TEACHER_PASSWORD = 'teacher-password-12';
+const STUDENT_PASSWORD = 'student-password-12';
 
 if (!DATABASE_URL) {
   throw new Error(
@@ -44,6 +50,7 @@ const CLEANUP_EMAILS = [
   DIRECTOR_EMAIL,
   ADMINISTRATIVE_EMAIL,
   TEACHER_EMAIL,
+  STUDENT_EMAIL,
   'teacher@academia.test',
 ];
 
@@ -359,6 +366,48 @@ describe('identity integration', () => {
         provisionTeacher(createTeacherProvisionStore(database), {
           email: DIRECTOR_EMAIL,
           password: TEACHER_PASSWORD,
+        }),
+      ).rejects.toBeInstanceOf(RoleConflictError);
+    });
+  });
+
+  describe('Student provisioning', () => {
+    it('persists a STUDENT that can authenticate', async () => {
+      const store = createStudentProvisionStore(database);
+
+      const result = await provisionStudent(store, {
+        email: STUDENT_EMAIL,
+        password: STUDENT_PASSWORD,
+        name: 'Lucía Estudiante',
+      });
+
+      expect(result.outcome).toBe('created');
+      expect(result.user.role).toBe('STUDENT');
+
+      const row = await database.user.findUniqueOrThrow({
+        where: { email: STUDENT_EMAIL },
+      });
+      expect(row.role).toBe('STUDENT');
+      await expect(verifyPassword(STUDENT_PASSWORD, row.passwordHash)).resolves.toBe(
+        true,
+      );
+
+      const service = createAuthService(createUserRepository(database));
+      await expect(
+        service.authenticate(STUDENT_EMAIL, STUDENT_PASSWORD),
+      ).resolves.toMatchObject({ email: STUDENT_EMAIL, role: 'STUDENT' });
+    });
+
+    it('refuses to overwrite a DIRECTOR email', async () => {
+      await provisionDirector(createDirectorProvisionStore(database), {
+        email: DIRECTOR_EMAIL,
+        password: DIRECTOR_PASSWORD,
+      });
+
+      await expect(
+        provisionStudent(createStudentProvisionStore(database), {
+          email: DIRECTOR_EMAIL,
+          password: STUDENT_PASSWORD,
         }),
       ).rejects.toBeInstanceOf(RoleConflictError);
     });

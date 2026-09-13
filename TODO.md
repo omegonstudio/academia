@@ -81,9 +81,9 @@ Make access control real and manageable.
 - [x] Provision DIRECTOR via `POST /users/directors` (SUPER_ADMIN only). Role assigned server-side; conflicts if the email already holds another role; password never overwritten on reassert. `requireRole` mounted on this route.
 - [x] Provision ADMINISTRATIVE via `POST /users/administratives` (SUPER_ADMIN or DIRECTOR). Same shared provisioning domain/store pattern as DIRECTOR.
 - [x] Provision TEACHER via `POST /users/teachers` (SUPER_ADMIN or DIRECTOR). Same shared provisioning domain/store pattern.
+- [x] Provision STUDENT via `POST /users/students` (SUPER_ADMIN or DIRECTOR). Teachers cannot provision students.
 
 ### TODO
-- [ ] Provision STUDENT.
 - [ ] Granular permission model (module/action) beyond the role enum.
 - [ ] Director can assign Administrative permissions.
 - [ ] Enforce permissions server-side on every route (mount `requireRole` and permission checks beyond director provision).
