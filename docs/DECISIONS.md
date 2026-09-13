@@ -305,3 +305,118 @@ the default holds for the deployment this repository describes.
 from the acceptance checklist as written. The production stack is smoke-tested
 explicitly — including with a password containing `+ / = : @` — because "dev
 works" does not evidence a production claim.
+
+---
+
+## 18. Granular permissions: catalog + RolePermission; SUPER_ADMIN/DIRECTOR bypass
+
+**Context.** Stage 1 needs module/action grants for ADMINISTRATIVE without
+embedding a full ACL on every role. MASTER-PROMPT defines SUPER_ADMIN as
+technical total access and DIRECTOR as operational total access; ADMINISTRATIVE
+only gets what the Director assigns.
+
+**Decision.** Persist a `Permission` catalog (`module` + `action`, unique) and
+`RolePermission` links. Seed the catalog in the migration (no default grants).
+Share the catalog in `@academia/shared`. Domain `hasPermission`:
+
+- unknown (module, action) → deny;
+- `SUPER_ADMIN` / `DIRECTOR` → allow for catalog pairs without reading grants;
+- other roles → allow only when a `RolePermission` row exists.
+
+**Why bypass instead of seeding every grant for Director.** Director's total
+operational access is a product rule, not a row set that must stay in sync with
+catalog growth. Grant rows remain the source of truth for ADMINISTRATIVE.
+
+**Out of scope here.** HTTP `requirePermission`, Director assignment API/UI, and
+mounting checks on every route.
+
+---
+
+## 19. ADMINISTRATIVE grants are role-scoped, managed by SUPER_ADMIN/DIRECTOR
+
+**Context.** Product rule: Director controls Administrative permissions. Grants
+are modelled as `RolePermission` rows for the `ADMINISTRATIVE` role, not per
+user.
+
+**Decision.** Expose configuration endpoints gated with
+`requireRole('SUPER_ADMIN', 'DIRECTOR')`:
+
+- `GET /permissions/catalog`
+- `GET|POST|DELETE /roles/administrative/permissions`
+
+Domain functions only mutate the ADMINISTRATIVE target. Catalog membership is
+validated via shared Zod/`isCatalogPermission` before persistence. Grant and
+revoke are idempotent.
+
+**Still out of scope.** UI, permission-change audit trail, and mounting
+`requirePermission` on academy feature routes.
+
+---
+
+## 20. `requirePermission` delegates to `hasPermission`
+
+**Context.** Feature routes will need granular checks beyond `requireRole`.
+Authorization must stay server-side and must not trust client-supplied
+permission claims.
+
+**Decision.** Add `requirePermission(store, module, action)` middleware that:
+
+- requires `authenticate` to have set `req.user` (else 401);
+- calls `hasPermission` with the server-resolved role (SUPER_ADMIN/DIRECTOR
+  bypass; others need `RolePermission`);
+- responds 403 when denied.
+
+**Out of scope here.** Mounting on every academy route — the helper is ready;
+wiring is a follow-up Stage 1 task.
+
+---
+
+## 21. Permission-management routes use `requirePermission`
+
+**Context.** Catalog and ADMINISTRATIVE grant endpoints were gated only with
+`requireRole('SUPER_ADMIN', 'DIRECTOR')`. Stage 1 now has `requirePermission`
+and catalog pairs `permissions.read` / `permissions.update`.
+
+**Decision.** Replace the role-only guard on those four routes:
+
+- GET `/permissions/catalog` and GET `/roles/administrative/permissions` →
+  `requirePermission(..., 'permissions', 'read')`
+- POST/DELETE `/roles/administrative/permissions` →
+  `requirePermission(..., 'permissions', 'update')`
+
+SUPER_ADMIN/DIRECTOR still pass via `hasPermission` bypass. Callers without the
+grant receive 403.
+
+**Still out of scope.** Mounting on unrelated academy feature routes.
+
+---
+
+## 22. User provisioning gated by `users.create`
+
+**Context.** Provision routes used `requireRole` only. Catalog includes
+`users.create` for creating accounts.
+
+**Decision.** Mount `requirePermission(..., 'users', 'create')` on
+`POST /users/{directors,administratives,teachers,students}`. Keep
+`requireRole('SUPER_ADMIN')` on directors so DIRECTOR cannot provision
+DIRECTOR (bypass would otherwise allow it). Other provision routes rely on
+the SUPER_ADMIN/DIRECTOR permission bypass; callers without `users.create`
+receive 403.
+
+**Still out of scope.** Non-provision academy feature routes.
+
+---
+
+## 23. Permission changes leave an append-only audit row
+
+**Context.** MASTER-PROMPT asks for audit of important administrative actions.
+GRANT/REVOKE of ADMINISTRATIVE permissions is the first mutation surface that
+needs a durable trail.
+
+**Decision.** Persist `PermissionChangeAudit` rows on successful POST/DELETE
+`/roles/administrative/permissions`: actor from `req.user` (server session),
+target role ADMINISTRATIVE, change type GRANT/REVOKE, module/action, and the
+domain outcome (`created`/`exists`/`removed`/`missing`). Forbidden callers do
+not create rows. No list UI in this increment.
+
+**Still out of scope.** Audit of unrelated domain events; audit query API/UI.

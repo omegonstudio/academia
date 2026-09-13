@@ -32,3 +32,24 @@ export const sessionResponseSchema = z.object({
 });
 
 export type SessionResponse = z.infer<typeof sessionResponseSchema>;
+
+/** Shared payload shape for role provisioning (DIRECTOR, ADMINISTRATIVE, TEACHER, …). */
+export const provisionUserRequestSchema = z.object({
+  email: z.string().trim().toLowerCase().pipe(z.email().max(254)),
+  password: z.string().min(12).max(256),
+  name: z.string().trim().min(1).max(120).optional(),
+});
+
+export type ProvisionUserRequest = z.infer<typeof provisionUserRequestSchema>;
+
+export const provisionDirectorRequestSchema = provisionUserRequestSchema;
+export type ProvisionDirectorRequest = ProvisionUserRequest;
+
+export const provisionAdministrativeRequestSchema = provisionUserRequestSchema;
+export type ProvisionAdministrativeRequest = ProvisionUserRequest;
+
+export const provisionTeacherRequestSchema = provisionUserRequestSchema;
+export type ProvisionTeacherRequest = ProvisionUserRequest;
+
+export const provisionStudentRequestSchema = provisionUserRequestSchema;
+export type ProvisionStudentRequest = ProvisionUserRequest;

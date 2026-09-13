@@ -28,7 +28,7 @@ All public pages: `lang="es"`, one `<h1>`, skip link, landmarks, verified contra
 | Status | Route        | Access                                                                 |
 | ------ | ------------ | ---------------------------------------------------------------------- |
 | `[x]`  | `/login`     | Public. `noindex, nofollow`. Redirects to `/dashboard` if already authenticated. |
-| `[x]`  | `/dashboard` | Authenticated only. `noindex, nofollow`. Server-side redirect to `/login` (verified 307). Shows session identity and role; **no academy modules yet**. |
+| `[x]`  | `/dashboard` | Authenticated only. `noindex, nofollow`. Server-side redirect to `/login`. Session identity + **role-aware** copy from server session role. No academy modules yet. |
 
 ### API routes
 
@@ -38,6 +38,14 @@ All public pages: `lang="es"`, one `<h1>`, skip link, landmarks, verified contra
 | `[x]`  | `POST /auth/login` | Zod-validated. Sets HttpOnly cookie. Throttled per IP. Identical 401 for every failure. |
 | `[x]`  | `POST /auth/logout`| 204, clears the cookie.                                                  |
 | `[x]`  | `GET /auth/me`     | Requires a valid session; reloads the user, so revocation is immediate.  |
+| `[x]`  | `POST /users/directors` | SUPER_ADMIN + `requirePermission(users, create)`. Provisions DIRECTOR. |
+| `[x]`  | `POST /users/administratives` | `requirePermission(users, create)`. SUPER_ADMIN/DIRECTOR bypass. |
+| `[x]`  | `POST /users/teachers` | `requirePermission(users, create)`. SUPER_ADMIN/DIRECTOR bypass. |
+| `[x]`  | `POST /users/students` | `requirePermission(users, create)`. SUPER_ADMIN/DIRECTOR bypass; TEACHER denied without grant. |
+| `[x]`  | `GET /permissions/catalog` | `authenticate` + `requirePermission(permissions, read)`. SUPER_ADMIN/DIRECTOR bypass; others need grant. |
+| `[x]`  | `GET /roles/administrative/permissions` | `requirePermission(permissions, read)`. Lists ADMINISTRATIVE grants. |
+| `[x]`  | `POST /roles/administrative/permissions` | `requirePermission(permissions, update)`. Grants to ADMINISTRATIVE (idempotent 201/200). |
+| `[x]`  | `DELETE /roles/administrative/permissions` | `requirePermission(permissions, update)`. Revokes from ADMINISTRATIVE (idempotent 204). |
 
 The browser reaches these as `/api/*`, rewritten by Next.js. In production the
 API publishes no host port.
@@ -54,22 +62,31 @@ API publishes no host port.
 | `[x]`  | Migration `20260912215052_init_identity` | `users` table + `user_role` enum, snake_case. No destructive statements. |
 
 ### Carried forward
-- Role-aware dashboard content → Stage 1.
 - Public teacher directory → later stage, once teacher data exists and privacy is decided.
 - Contact form with persistence → later stage; a form that discarded messages would be a fake feature.
 
 ## Stage 1 — Identity, Roles & Permissions
 
+- [x] `POST /users/directors` — SUPER_ADMIN + `requirePermission(users, create)`
+- [x] `POST /users/administratives` — `requirePermission(users, create)`
+- [x] `POST /users/teachers` — `requirePermission(users, create)`
+- [x] `POST /users/students` — `requirePermission(users, create)`
+- [x] Permission model (DB + domain) — `permissions` / `role_permissions` tables; catalog seed; `hasPermission` (no HTTP surface yet)
+- [x] `GET /permissions/catalog` — `requirePermission(permissions, read)`
+- [x] `GET|POST|DELETE /roles/administrative/permissions` — read / update via `requirePermission`
+- [x] `requirePermission(module, action)` — mounted on permission-management and user-provisioning routes
+- [x] `/dashboard` — role-aware content from server session (no academy modules yet)
+- [x] Permission-change audit trail — DB append on GRANT/REVOKE (no list UI yet)
 - [ ] `/dashboard/settings`
 - [ ] `/dashboard/administratives`
 - [ ] `/dashboard/permissions`
 
 TODO:
-- Real role authorization.
-- Director-managed Administrative permissions.
-- SuperAdmin bootstrap for `omegon.info@gmail.com`.
-- Backend authorization tests.
-- Audit sensitive permission changes.
+- Mount `requirePermission` on remaining academy feature routes.
+- Director-managed Administrative permissions UI (`/dashboard/permissions`).
+- SuperAdmin bootstrap for `omegon.info@gmail.com` (done in Stage 0).
+- Authorization matrix for protected Stage 1 API routes (done in suite `authorization-matrix.test.ts`).
+- Audit sensitive permission changes (GRANT/REVOKE trail done; broader audit later).
 
 ## Stage 2 — Students & Teachers
 

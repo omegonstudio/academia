@@ -1,5 +1,12 @@
 import { evaluateConfiguration, parseEnv } from './config/env.js';
 import { createAuthService } from './domain/identity/auth-service.js';
+import { createAdministrativeProvisionStore } from './domain/identity/provision-administrative.js';
+import { createDirectorProvisionStore } from './domain/identity/provision-director.js';
+import { createStudentProvisionStore } from './domain/identity/provision-student.js';
+import { createTeacherProvisionStore } from './domain/identity/provision-teacher.js';
+import { createAdministrativePermissionStore } from './domain/authorization/administrative-permission-store.js';
+import { createPermissionChangeAuditStore } from './domain/authorization/permission-change-audit-store.js';
+import { createPermissionGrantStore } from './domain/authorization/permission-grant-store.js';
 import { createSessionCodec } from './domain/identity/session.js';
 import { createUserRepository } from './domain/identity/user-repository.js';
 import { createApp } from './http/app.js';
@@ -26,7 +33,21 @@ async function main(): Promise<void> {
   const users = createUserRepository(database);
   const authService = createAuthService(users);
   const sessionCodec = createSessionCodec(env.AUTH_SECRET, env.AUTH_SESSION_TTL);
+  const directors = createDirectorProvisionStore(database);
+  const administratives = createAdministrativeProvisionStore(database);
+  const teachers = createTeacherProvisionStore(database);
+  const students = createStudentProvisionStore(database);
+  const administrativePermissions =
+    createAdministrativePermissionStore(database);
+  const permissionGrants = createPermissionGrantStore(database);
+  const permissionChangeAudits = createPermissionChangeAuditStore(database);
   const startedAt = Date.now();
+
+  const authOptions = {
+    authService,
+    sessionCodec,
+    cookieName: 'academia_session',
+  } as const;
 
   const app = createApp({
     logger,
@@ -45,6 +66,32 @@ async function main(): Promise<void> {
         secure: env.NODE_ENV === 'production',
         ttlSeconds: env.AUTH_SESSION_TTL,
       },
+    },
+    directors: {
+      authenticate: authOptions,
+      directors,
+      permissionGrants,
+    },
+    administratives: {
+      authenticate: authOptions,
+      administratives,
+      permissionGrants,
+    },
+    teachers: {
+      authenticate: authOptions,
+      teachers,
+      permissionGrants,
+    },
+    students: {
+      authenticate: authOptions,
+      students,
+      permissionGrants,
+    },
+    administrativePermissions: {
+      authenticate: authOptions,
+      administrativePermissions,
+      permissionGrants,
+      permissionChangeAudits,
     },
   });
 

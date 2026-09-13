@@ -74,21 +74,24 @@ Make access control real and manageable.
 ### Already in place from Stage 0
 - `Role` enum with all five roles, in the database and in `@academia/shared`.
 - Real login/logout/session with an HttpOnly cookie; the user is reloaded per request.
-- `authenticate` and `requireRole` middleware (`requireRole` is written and typed but not yet mounted on a route).
+- `authenticate` and `requireRole` middleware.
 - SUPER_ADMIN provisioned and verified end to end.
 
-### TODO
-- [ ] Provision DIRECTOR (creation flow, not just the enum value).
-- [ ] Provision ADMINISTRATIVE.
-- [ ] Provision TEACHER.
-- [ ] Provision STUDENT.
-- [ ] Granular permission model (module/action) beyond the role enum.
-- [ ] Director can assign Administrative permissions.
-- [ ] Enforce permissions server-side on every route (mount `requireRole` and permission checks).
-- [ ] Role-aware dashboard content.
-- [ ] Authorization matrix tests, including negative cases per role.
-- [ ] Permission-change audit trail.
+### Done in Stage 1 (partial)
+- [x] Provision DIRECTOR via `POST /users/directors` (SUPER_ADMIN only + `requirePermission(users, create)`).
+- [x] Provision ADMINISTRATIVE via `POST /users/administratives` (`requirePermission(users, create)`; SUPER_ADMIN/DIRECTOR bypass).
+- [x] Provision TEACHER via `POST /users/teachers` (`requirePermission(users, create)`; SUPER_ADMIN/DIRECTOR bypass).
+- [x] Provision STUDENT via `POST /users/students` (`requirePermission(users, create)`; SUPER_ADMIN/DIRECTOR bypass; TEACHER denied without grant).
+- [x] Granular permission model (module/action): `Permission` + `RolePermission` in Prisma, catalog in `@academia/shared`, `hasPermission` domain query (SUPER_ADMIN/DIRECTOR bypass catalog; others need grants).
+- [x] Director (and SUPER_ADMIN) can list the permission catalog and grant/revoke ADMINISTRATIVE RolePermission via API. Gate: `permissions.read` / `permissions.update` via `requirePermission` (SUPER_ADMIN/DIRECTOR bypass).
+- [x] `requirePermission(module, action)` middleware mounted on permission-management and user-provisioning routes.
+- [x] Role-aware `/dashboard` content from the server session role (SUPER_ADMIN, DIRECTOR, ADMINISTRATIVE, TEACHER, STUDENT). No academy modules or fake actions.
+- [x] Authorization matrix tests for every protected Stage 1 API route (positive/negative across all five roles; 403 without grant; client-supplied claims ignored).
+- [x] Permission-change audit trail: append-only `permission_change_audits` on GRANT/REVOKE of ADMINISTRATIVE permissions (actor from session; outcome recorded). No audit UI.
 
+### TODO
+- [ ] Enforce permissions server-side on every remaining academy route (mount `requirePermission` / keep `requireRole` where role gates remain appropriate).
+- [ ] UI for Director → Administrative permissions (`/dashboard/permissions`).
 ### Acceptance criteria
 - Unauthorized API requests fail.
 - UI does not expose inaccessible actions.

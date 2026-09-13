@@ -3,14 +3,39 @@ import { pinoHttp } from 'pino-http';
 import type { Logger } from 'pino';
 import { errorHandler, notFoundHandler } from './middleware/error-handler.js';
 import { cors } from './middleware/cors.js';
+import {
+  createAdministrativesRouter,
+  type AdministrativesDependencies,
+} from './routes/administratives.js';
 import { createAuthRouter, type AuthDependencies } from './routes/auth.js';
+import {
+  createDirectorsRouter,
+  type DirectorsDependencies,
+} from './routes/directors.js';
 import { createHealthRouter, type HealthDependencies } from './routes/health.js';
+import {
+  createStudentsRouter,
+  type StudentsDependencies,
+} from './routes/students.js';
+import {
+  createTeachersRouter,
+  type TeachersDependencies,
+} from './routes/teachers.js';
+import {
+  createAdministrativePermissionsRouter,
+  type AdministrativePermissionsDependencies,
+} from './routes/administrative-permissions.js';
 
 export interface AppDependencies {
   logger: Logger;
   allowedOrigins: string[];
   health: HealthDependencies;
   auth: AuthDependencies;
+  directors: DirectorsDependencies;
+  administratives: AdministrativesDependencies;
+  teachers: TeachersDependencies;
+  students: StudentsDependencies;
+  administrativePermissions: AdministrativePermissionsDependencies;
 }
 
 /**
@@ -24,6 +49,11 @@ export function createApp({
   allowedOrigins,
   health,
   auth,
+  directors,
+  administratives,
+  teachers,
+  students,
+  administrativePermissions,
 }: AppDependencies): Express {
   const app = express();
 
@@ -47,6 +77,11 @@ export function createApp({
 
   app.use(createHealthRouter(health));
   app.use(createAuthRouter(auth));
+  app.use(createDirectorsRouter(directors));
+  app.use(createAdministrativesRouter(administratives));
+  app.use(createTeachersRouter(teachers));
+  app.use(createStudentsRouter(students));
+  app.use(createAdministrativePermissionsRouter(administrativePermissions));
 
   app.use(notFoundHandler());
   app.use(errorHandler(logger));

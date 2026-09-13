@@ -1,6 +1,18 @@
 import type { Express } from 'express';
+import type { PermissionRef, Role } from '@academia/shared';
+import type { PermissionGrantStore } from '../domain/authorization/has-permission.js';
+import type { AdministrativePermissionStore } from '../domain/authorization/manage-administrative-permissions.js';
+import type {
+  PermissionChangeAuditEntry,
+  PermissionChangeAuditStore,
+} from '../domain/authorization/permission-change-audit.js';
 import { createAuthService } from '../domain/identity/auth-service.js';
+import type {
+  ProvisionIdentityRecord,
+  RoleProvisionStore,
+} from '../domain/identity/provision-role.js';
 import { createSessionCodec } from '../domain/identity/session.js';
+import { normalizeEmail } from '../domain/identity/user-repository.js';
 import { createApp } from '../http/app.js';
 import { createLogger } from '../lib/logger.js';
 import { hashPassword } from '../lib/password.js';
@@ -17,22 +29,198 @@ export interface TestAppOptions {
   configurationIssues?: string[];
 }
 
+export interface InMemoryRoleProvisionStore extends RoleProvisionStore {
+  seed(record: ProvisionIdentityRecord & { passwordHash: string }): void;
+  passwordHashes(): Map<string, string>;
+}
+
+export interface InMemoryAdministrativePermissionStore
+  extends AdministrativePermissionStore {
+  clear(): void;
+  /**
+   * Lookup used by requirePermission. Mirrors Prisma RolePermission for
+   * ADMINISTRATIVE only (other roles have no in-memory grants).
+   */
+  asPermissionGrantStore(): PermissionGrantStore;
+}
+
+export interface InMemoryPermissionChangeAuditStore
+  extends PermissionChangeAuditStore {
+  entries(): readonly PermissionChangeAuditEntry[];
+  clear(): void;
+}
+
 export interface TestApp {
   app: Express;
   users: InMemoryUserRepository;
+  directors: InMemoryRoleProvisionStore;
+  administratives: InMemoryRoleProvisionStore;
+  teachers: InMemoryRoleProvisionStore;
+  students: InMemoryRoleProvisionStore;
+  administrativePermissions: InMemoryAdministrativePermissionStore;
+  permissionChangeAudits: InMemoryPermissionChangeAuditStore;
+}
+
+function permissionKey(module: string, action: string): string {
+  return `${module}:${action}`;
+}
+
+function createInMemoryPermissionChangeAuditStore(): InMemoryPermissionChangeAuditStore {
+  const entries: PermissionChangeAuditEntry[] = [];
+
+  return {
+    entries() {
+      return entries;
+    },
+    clear() {
+      entries.length = 0;
+    },
+    async append(entry) {
+      entries.push({ ...entry });
+    },
+  };
+}
+
+function createInMemoryAdministrativePermissionStore(): InMemoryAdministrativePermissionStore {
+  const grants = new Set<string>();
+
+  return {
+    clear() {
+      grants.clear();
+    },
+
+    asPermissionGrantStore() {
+      return {
+        async roleOwns(role, module, action) {
+          if (role !== 'ADMINISTRATIVE') {
+            return false;
+          }
+          return grants.has(permissionKey(module, action));
+        },
+      };
+    },
+
+    async listGranted() {
+      const permissions: PermissionRef[] = [...grants].map((entry) => {
+        const [module, action] = entry.split(':') as [
+          PermissionRef['module'],
+          PermissionRef['action'],
+        ];
+        return { module, action };
+      });
+      return permissions.sort((a, b) =>
+        a.module === b.module
+          ? a.action.localeCompare(b.action)
+          : a.module.localeCompare(b.module),
+      );
+    },
+
+    async grant(module, action) {
+      const key = permissionKey(module, action);
+      if (grants.has(key)) {
+        return 'exists';
+      }
+      grants.add(key);
+      return 'created';
+    },
+
+    async revoke(module, action) {
+      const key = permissionKey(module, action);
+      if (!grants.has(key)) {
+        return 'missing';
+      }
+      grants.delete(key);
+      return 'removed';
+    },
+  };
+}
+
+function createInMemoryRoleProvisionStore(
+  users: InMemoryUserRepository,
+  role: Role,
+): InMemoryRoleProvisionStore {
+  const records = new Map<string, ProvisionIdentityRecord>();
+  const hashes = new Map<string, string>();
+  let seq = 0;
+
+  return {
+    seed(record) {
+      const email = normalizeEmail(record.email);
+      records.set(email, { ...record, email });
+      hashes.set(email, record.passwordHash);
+      users.seed({
+        id: record.id,
+        email,
+        name: record.name,
+        role: record.role,
+        isActive: record.isActive,
+        passwordHash: record.passwordHash,
+      });
+    },
+
+    passwordHashes() {
+      return hashes;
+    },
+
+    async findByEmail(email) {
+      return records.get(normalizeEmail(email)) ?? null;
+    },
+
+    async create({ email, name, passwordHash }) {
+      const normalized = normalizeEmail(email);
+      seq += 1;
+      const record: ProvisionIdentityRecord = {
+        id: `${role.toLowerCase()}-${seq}`,
+        email: normalized,
+        name,
+        role,
+        isActive: true,
+      };
+      records.set(normalized, record);
+      hashes.set(normalized, passwordHash);
+      users.seed({ ...record, passwordHash });
+      return { ...record };
+    },
+
+    async reassertActive(id) {
+      for (const [email, record] of records) {
+        if (record.id !== id) continue;
+        const updated = { ...record, role, isActive: true };
+        records.set(email, updated);
+        const hash = hashes.get(email);
+        if (hash) users.seed({ ...updated, passwordHash: hash });
+        return { ...updated };
+      }
+      throw new Error(`${role} ${id} not found`);
+    },
+  };
 }
 
 /**
  * Builds the real Express stack over test doubles, so route tests cover the
  * actual middleware chain (logging, CORS, validation, error handling) rather
- than a hand-rolled approximation.
+ * than a hand-rolled approximation.
  */
 export async function buildTestApp({
   databaseReachable = true,
   configurationIssues = [],
 }: TestAppOptions = {}): Promise<TestApp> {
   const users = createInMemoryUserRepository();
+  const directors = createInMemoryRoleProvisionStore(users, 'DIRECTOR');
+  const administratives = createInMemoryRoleProvisionStore(users, 'ADMINISTRATIVE');
+  const teachers = createInMemoryRoleProvisionStore(users, 'TEACHER');
+  const students = createInMemoryRoleProvisionStore(users, 'STUDENT');
+  const administrativePermissions = createInMemoryAdministrativePermissionStore();
+  const permissionGrants = administrativePermissions.asPermissionGrantStore();
+  const permissionChangeAudits = createInMemoryPermissionChangeAuditStore();
   const authService = createAuthService(users);
+  const sessionCodec = createSessionCodec(TEST_SECRET, 3600);
+
+  const authOptions = {
+    authService,
+    sessionCodec,
+    cookieName: SESSION_COOKIE,
+  };
 
   const app = createApp({
     logger: createLogger({ level: 'silent' }),
@@ -45,13 +233,49 @@ export async function buildTestApp({
     },
     auth: {
       authService,
-      sessionCodec: createSessionCodec(TEST_SECRET, 3600),
+      sessionCodec,
       cookie: { name: SESSION_COOKIE, secure: false, ttlSeconds: 3600 },
+    },
+    directors: {
+      authenticate: authOptions,
+      directors,
+      permissionGrants,
+    },
+    administratives: {
+      authenticate: authOptions,
+      administratives,
+      permissionGrants,
+    },
+    teachers: {
+      authenticate: authOptions,
+      teachers,
+      permissionGrants,
+    },
+    students: {
+      authenticate: authOptions,
+      students,
+      permissionGrants,
+    },
+    administrativePermissions: {
+      authenticate: authOptions,
+      administrativePermissions,
+      permissionGrants,
+      permissionChangeAudits,
     },
   });
 
-  return { app, users };
+  return {
+    app,
+    users,
+    directors,
+    administratives,
+    teachers,
+    students,
+    administrativePermissions,
+    permissionChangeAudits,
+  };
 }
+
 
 export async function seedUser(
   users: InMemoryUserRepository,
