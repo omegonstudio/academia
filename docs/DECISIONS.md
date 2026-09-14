@@ -618,8 +618,9 @@ whose `startAt` falls in that window. Response is a read model joining
 inclusive civil days. Order: `startAt ASC, id ASC`. Index:
 `(is_active, start_at)`.
 
-**Still out of scope.** Calendar UI; advanced filters; pagination cursors.
-(Ownership reads: #36.)
+**Still out of scope.** Advanced filters; pagination cursors; week/month grid
+widgets; create/edit from calendar UI. (Ownership reads: #36. Calendar UI list:
+`/dashboard/calendar`.)
 
 ---
 

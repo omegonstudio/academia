@@ -33,6 +33,7 @@ All public pages: `lang="es"`, one `<h1>`, skip link, landmarks, verified contra
 | `[x]`  | `/dashboard/students/[id]` | Authenticated. Detalle + edición/desactivación según permiso. |
 | `[x]`  | `/dashboard/teachers` | Authenticated. Lista/crea profesores vía API real (loading/error/vacío). |
 | `[x]`  | `/dashboard/teachers/[id]` | Authenticated. Detalle + edición/desactivación según permiso. |
+| `[x]`  | `/dashboard/calendar` | Authenticated. Calendario mensual de clases vía `GET /classes/calendar` (SSR; loading implícito; error/vacío; ownership en API). |
 
 ### API routes
 
@@ -179,14 +180,15 @@ TODO:
 
 - [ ] `/dashboard/classes`
 - [ ] `/dashboard/classes/[id]`
-- [ ] `/dashboard/calendar`
+- [x] `/dashboard/calendar`
 
 TODO:
 - Class session CRUD (API done: `/classes`; duration from Course.serviceType; optional https `meetingUrl`; Group must have ScheduleOption).
 - 60/90-minute 1:1 + 120-minute group validation (done via serviceType derivation).
 - Weekly generation `POST /groups/:id/classes/generate` — done (ScheduleOption weekday + local HH:mm → timestamptz via academy timezone; idempotent; conflictCount; meetingUrl null).
-- Broader recurrence / RRULE / calendar UI — still open.
+- Broader recurrence / RRULE — still open.
 - Calendar API `GET /classes/calendar` — done (civil range → absolute window; nested Group/Course/Teacher; meetingUrl; Teacher/Student ownership).
+- Calendar UI `/dashboard/calendar` — done (month list via API; no create/edit from UI).
 - Teacher/student membership ownership for class reads — done (Group.teacherId / active Enrollment).
 - Zoom/Google Meet link — manual URL done; automated provisioning still future.
 - Attendance — done (`/classes/:id/attendance`; PRESENT|ABSENT; active Enrollment; Teacher write ownership; Student self-read).

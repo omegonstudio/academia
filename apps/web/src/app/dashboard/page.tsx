@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { LogoutButton } from '@/components/logout-button';
 import { PageHeader } from '@/components/page-header';
@@ -28,6 +29,30 @@ export default async function DashboardPage() {
         title="Panel"
         intro={`Sesión activa como ${roleLabel(user.role)}.`}
       />
+
+      <nav
+        className="mb-8 flex flex-wrap gap-x-4 gap-y-2 text-sm"
+        aria-label="Módulos del panel"
+      >
+        <Link
+          href="/dashboard/students"
+          className="font-medium text-ink underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
+        >
+          Estudiantes
+        </Link>
+        <Link
+          href="/dashboard/teachers"
+          className="font-medium text-ink underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
+        >
+          Profesores
+        </Link>
+        <Link
+          href="/dashboard/calendar"
+          className="font-medium text-ink underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
+        >
+          Calendario
+        </Link>
+      </nav>
 
       <dl className="grid max-w-md gap-3 rounded-lg border border-line bg-surface-muted p-5 text-sm">
         <div className="flex justify-between gap-4">

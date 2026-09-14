@@ -1,9 +1,12 @@
 import {
+  classSessionCalendarResponseSchema,
   sessionResponseSchema,
   studentListResponseSchema,
   studentResponseSchema,
   teacherListResponseSchema,
   teacherResponseSchema,
+  type ClassSessionCalendarEvent,
+  type CivilDate,
   type SessionUser,
   type Student,
   type Teacher,
@@ -184,6 +187,59 @@ export async function fetchTeacher(id: string): Promise<TeacherFetchResult> {
       };
     }
     return { ok: true, teacher: parsed.data.teacher };
+  } catch {
+    return {
+      ok: false,
+      status: 503,
+      message: 'No pudimos conectar con el servidor.',
+    };
+  }
+}
+
+export type CalendarFetchResult =
+  | {
+      ok: true;
+      from: CivilDate;
+      to: CivilDate;
+      classSessions: ClassSessionCalendarEvent[];
+    }
+  | { ok: false; status: number; message: string };
+
+export async function fetchClassSessionCalendar(
+  from: CivilDate,
+  to: CivilDate,
+): Promise<CalendarFetchResult> {
+  try {
+    const query = new URLSearchParams({ from, to });
+    const response = await apiFetch(`/classes/calendar?${query.toString()}`);
+    if (!response.ok) {
+      return {
+        ok: false,
+        status: response.status,
+        message:
+          response.status === 403
+            ? 'No tenés permiso para ver el calendario de clases.'
+            : response.status === 400
+              ? 'El rango de fechas del calendario no es válido.'
+              : 'No pudimos cargar el calendario.',
+      };
+    }
+    const parsed = classSessionCalendarResponseSchema.safeParse(
+      await response.json(),
+    );
+    if (!parsed.success) {
+      return {
+        ok: false,
+        status: 500,
+        message: 'Respuesta inválida del servidor.',
+      };
+    }
+    return {
+      ok: true,
+      from: parsed.data.from,
+      to: parsed.data.to,
+      classSessions: parsed.data.classSessions,
+    };
   } catch {
     return {
       ok: false,
