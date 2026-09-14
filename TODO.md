@@ -154,7 +154,7 @@ Operate real live classes.
 - [x] Recurrence / weekly ClassSession generation (`POST /groups/:id/classes/generate`; ScheduleOption + `getAcademyBusinessConfig`; máx. 90 días; sin UI).
 - [x] Meeting URL (`ClassSession.meetingUrl` https opcional; manual; sin provisioning Zoom/Meet).
 - [x] Calendar API (`GET /classes/calendar?from&to`; rango civil en timezone de academia; lectura enriched; sin UI).
-- [ ] Calendar UI (`/dashboard/calendar`).
+- [x] Calendar UI (`/dashboard/calendar`; mes civil; lista real vía API; ownership del backend).
 - [x] Conflict detection (mismo Teacher; overlap half-open; create/PATCH 409; generate `conflictCount`; lock `teachers FOR UPDATE`).
 - [x] Academy business timezone (`ACADEMY_TIMEZONE` IANA; default `America/Argentina/Buenos_Aires`; vía `getAcademyBusinessConfig`).
 - [ ] Timezones avanzados (por usuario/group; UI de configuración).
