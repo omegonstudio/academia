@@ -231,7 +231,7 @@ describe('ClassSession read ownership', () => {
     expect(empty.body.classSessions).toEqual([]);
   });
 
-  it('does not grant write access to teachers via ownership', async () => {
+  it('does not grant generate access to teachers via ownership', async () => {
     const director = await seedDirector();
     const group = await createGroupWithTeacher(director, {
       courseName: 'Write Course',
@@ -239,7 +239,7 @@ describe('ClassSession read ownership', () => {
       teacherEmail: 'teacher-w@academia.test',
       teacherPassword: 'teacher-password-12',
     });
-    const created = await request(fixture.app)
+    await request(fixture.app)
       .post('/classes')
       .set('Cookie', director)
       .send({ groupId: group.groupId, startAt: '2026-09-14T21:00:00.000Z' });
@@ -249,12 +249,14 @@ describe('ClassSession read ownership', () => {
       'teacher-password-12',
     );
 
+    // ClassSession CRUD write ownership is covered in classes-write-ownership.
+    // Bulk generate stays classes.create only.
     expect(
       (
         await request(fixture.app)
-          .patch(`/classes/${created.body.classSession.id}`)
+          .post(`/groups/${group.groupId}/classes/generate`)
           .set('Cookie', teacherCookie!)
-          .send({ meetingUrl: 'https://meet.google.com/abc-defg-hij' })
+          .send({ from: '2026-10-01', to: '2026-10-31' })
       ).status,
     ).toBe(403);
   });

@@ -51,6 +51,16 @@ export class ClassSessionForbiddenError extends Error {
 }
 
 /**
+ * Write access for ClassSession mutations (POST/PATCH/DELETE).
+ * - `admin`: caller has classes.create / update / delete (incl. bypass).
+ * - `teacher`: Group.teacherId must match (session user → Teacher profile).
+ * Students never write. Generate stays permission-gated separately.
+ */
+export type ClassSessionWriteActor =
+  | { mode: 'admin' }
+  | { mode: 'teacher'; teacherId: string };
+
+/**
  * Read access for ClassSession queries.
  * - `all`: caller has classes.read (admin / granted role).
  * - `teacher`: Group.teacherId must match (session user → Teacher profile).
@@ -268,6 +278,18 @@ function assertGroupReadyForSession(context: ClassSessionGroupContext): void {
   }
   if (context.scheduleOptionActive === false) {
     throw new ClassSessionValidationError('Schedule option is inactive.');
+  }
+}
+
+function assertWritableByActor(
+  actor: ClassSessionWriteActor,
+  groupTeacherId: string | null,
+): void {
+  if (actor.mode === 'admin') return;
+  if (groupTeacherId !== actor.teacherId) {
+    throw new ClassSessionForbiddenError(
+      'You are not allowed to modify class sessions for this group.',
+    );
   }
 }
 
@@ -524,8 +546,10 @@ export async function getClassSession(
 export async function createClassSession(
   store: ClassSessionStore,
   input: CreateClassSessionRequest,
+  actor: ClassSessionWriteActor = { mode: 'admin' },
 ): Promise<ClassSession> {
   const context = await requireGroupContext(store, input.groupId);
+  assertWritableByActor(actor, context.teacherId);
   assertGroupReadyForSession(context);
 
   const startAt = new Date(input.startAt);
@@ -537,6 +561,7 @@ export async function createClassSession(
   return store.withTeacherScheduleLock(context.teacherId, async (locked) => {
     // Re-read in case teacher assignment changed while waiting for the lock.
     const lockedContext = await requireGroupContext(locked, input.groupId);
+    assertWritableByActor(actor, lockedContext.teacherId);
     assertGroupReadyForSession(lockedContext);
     await assertNoTeacherConflict(locked, lockedContext.teacherId, {
       startAt,
@@ -558,11 +583,13 @@ export async function updateClassSession(
   store: ClassSessionStore,
   id: string,
   input: UpdateClassSessionRequest,
+  actor: ClassSessionWriteActor = { mode: 'admin' },
 ): Promise<ClassSession> {
   const existing = await store.findById(id);
   if (!existing) throw new ClassSessionNotFoundError();
 
   const context = await requireGroupContext(store, existing.groupId);
+  assertWritableByActor(actor, context.teacherId);
   const durationMinutes = durationMinutesForServiceType(context.serviceType);
 
   let startAt = existing.startAt;
@@ -587,6 +614,7 @@ export async function updateClassSession(
 
   return store.withTeacherScheduleLock(context.teacherId, async (locked) => {
     const lockedContext = await requireGroupContext(locked, existing.groupId);
+    assertWritableByActor(actor, lockedContext.teacherId);
     assertGroupReadyForSession(lockedContext);
     await assertNoTeacherConflict(
       locked,
@@ -608,9 +636,11 @@ export async function updateClassSession(
 export async function deleteClassSession(
   store: ClassSessionStore,
   id: string,
+  actor: ClassSessionWriteActor = { mode: 'admin' },
 ): Promise<ClassSession> {
   const existing = await store.findById(id);
   if (!existing) throw new ClassSessionNotFoundError();
   const context = await requireGroupContext(store, existing.groupId);
+  assertWritableByActor(actor, context.teacherId);
   return toClassSessionDto(await store.softDelete(id), context);
 }
