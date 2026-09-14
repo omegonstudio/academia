@@ -654,11 +654,9 @@ module or denormalized ownership table.
 - `STUDENT` without that grant → sessions where an **active** Enrollment exists
   for the Student profile on the session’s Group.
 - Filtering happens in the store query (join / `EXISTS`), not post-fetch.
-- Writes (`POST`/`PATCH`/`DELETE`/`generate`) stay permission-gated; ownership
-  does not grant mutation.
 
-**Still out of scope.** Teacher/Student write ownership; calendar UI.
-(Attendance: #37.)
+**Still out of scope.** Advanced calendar filters. (Write ownership: #40.
+Attendance: #37.)
 
 ---
 
@@ -681,8 +679,8 @@ Students never mutate attendance. No nested attendance on ClassSession list/get
 payloads.
 
 **Still out of scope.** JUSTIFIED; attendance.* permissions; enrollment history;
-Student attendance history UX (Stage 7); write ownership for ClassSession CRUD.
-(Class notes: #38.)
+Student attendance history UX (Stage 7). (Class notes: #38. ClassSession write
+ownership: #40.)
 
 ---
 
@@ -720,3 +718,29 @@ Never commit product work directly to `main`. Archive
 `feature/stage-0-foundation-infrastructure` as historical only — no new work.
 Document the scheme in `docs/BRANCHING.md` and mirror it in
 `docs/INFRASTRUCTURE.md`.
+
+---
+
+## 40. ClassSession write ownership (Teacher of Group)
+
+**Context.** Read ownership (#36) and nested Attendance/Notes writes (#37/#38)
+already scope Teachers via `Group.teacherId`. ClassSession
+`POST`/`PATCH`/`DELETE` were still hard-gated on `classes.create|update|delete`
+only, so group Teachers could not manage their own sessions without an admin
+grant.
+
+**Decision.** Resolve a write actor from the session:
+
+- Caller with the matching `classes.*` grant (incl. SUPER_ADMIN/DIRECTOR bypass)
+  → unrestricted admin actor.
+- `TEACHER` without that grant → may mutate only when
+  `ClassSession → Group.teacherId` matches their Teacher profile (same source as
+  reads; not Student→Teacher assignment).
+- `STUDENT` → never.
+- Ownership is checked in the ClassSession domain on create/update/delete
+  (re-checked under the teacher schedule lock). Client `teacherId` is ignored.
+- `POST /groups/:id/classes/generate` stays `requirePermission(classes, create)`
+  only — no Teacher ownership bypass for bulk generation.
+
+**Still out of scope.** Teacher generate ownership; write UI; changing read
+rules.

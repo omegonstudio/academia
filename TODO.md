@@ -160,7 +160,8 @@ Operate real live classes.
 - [ ] Timezones avanzados (por usuario/group; UI de configuración).
 - [x] Attendance (`GET|POST /classes/:id/attendance`, `PATCH .../:studentId`; PRESENT|ABSENT; enrollment activo; Teacher write ownership; Student self-read).
 - [x] Class notes (`GET|POST /classes/:id/notes`, `PATCH|DELETE .../:noteId`; content trim 1–4000; Teacher write ownership; Student read-only).
-- [x] Teacher/Student ownership scoping for ClassSession reads (`Group.teacherId` / active Enrollment; GET list/id/calendar; sin write ownership).
+- [x] Teacher/Student ownership scoping for ClassSession reads (`Group.teacherId` / active Enrollment; GET list/id/calendar).
+- [x] ClassSession write ownership (`POST`/`PATCH`/`DELETE`; admin vía `classes.*`; TEACHER del Group; STUDENT denegado; generate sigue `classes.create`).
 - [x] Unique/idempotencia `(groupId, startAt)` para generación (`@@unique` + `skipDuplicates`).
 - [ ] GiST/EXCLUDE constraint on teacher ranges (requires denormalized `teacherId` on ClassSession — deferred; see #33).
 - [ ] Automated meeting provisioning (Zoom/Meet/Teams APIs) — future; manual `meetingUrl` only.

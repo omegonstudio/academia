@@ -86,11 +86,11 @@ All public pages: `lang="es"`, one `<h1>`, skip link, landmarks, verified contra
 | `[x]`  | `POST /groups/:id/students` | `requirePermission(groups, update)`. Enroll Student activo; máx. 15; sin auto-assignment Teacher. |
 | `[x]`  | `DELETE /groups/:id/students/:studentId` | `requirePermission(groups, update)`. Baja lógica del enrollment. |
 | `[x]`  | `GET /classes` | Auth. `classes.read` → todas; TEACHER → Groups propios; STUDENT → Groups con Enrollment activo. `?groupId=` opcional. |
-| `[x]`  | `POST /classes` | `requirePermission(classes, create)`. `groupId` + `startAt` + `meetingUrl?` (https); `endAt`/duración de Course.serviceType. Overlap Teacher → 409. |
+| `[x]`  | `POST /classes` | Auth. `classes.create` (admin) o TEACHER del Group. `groupId` + `startAt` + `meetingUrl?`; duración de Course.serviceType. Overlap → 409. |
 | `[x]`  | `GET /classes/:id` | Auth. Misma regla ownership que list; IDOR → 403. Incluye meetingUrl. |
-| `[x]`  | `PATCH /classes/:id` | `requirePermission(classes, update)`. `startAt` / `isActive` / `meetingUrl` (null limpia). Overlap → 409 solo al reschedule. |
-| `[x]`  | `DELETE /classes/:id` | `requirePermission(classes, delete)`. Baja lógica (`isActive=false`). |
-| `[x]`  | `POST /groups/:id/classes/generate` | `requirePermission(classes, create)`. `{ from, to }`; ScheduleOption + academy timezone; `generatedCount` / `skippedCount` / `conflictCount`; `meetingUrl=null`; `UNIQUE(groupId, startAt)`. |
+| `[x]`  | `PATCH /classes/:id` | Auth. `classes.update` (admin) o TEACHER del Group. `startAt` / `isActive` / `meetingUrl`. Overlap → 409 al reschedule. |
+| `[x]`  | `DELETE /classes/:id` | Auth. `classes.delete` (admin) o TEACHER del Group. Baja lógica (`isActive=false`). |
+| `[x]`  | `POST /groups/:id/classes/generate` | `requirePermission(classes, create)` solamente (sin bypass por ownership de Teacher). `{ from, to }`; ScheduleOption + academy timezone; `generatedCount` / `skippedCount` / `conflictCount`; `meetingUrl=null`; `UNIQUE(groupId, startAt)`. |
 | `[x]`  | `GET /classes/calendar` | Auth. Mismo ownership que list; `?from&to` civil (academy timezone); active by `startAt`; nested group/course/teacher + meetingUrl; máx. 93 días. |
 | `[x]`  | `GET /classes/:id/attendance` | Auth. Misma ownership de ClassSession; admin/Teacher → todos; STUDENT → solo su fila. Student: `{id,firstName,lastName}`. |
 | `[x]`  | `POST /classes/:id/attendance` | `classes.update` o TEACHER del Group. `{studentId,status}`; enrollment activo; `UNIQUE(classSessionId,studentId)` → 409. |
@@ -190,6 +190,7 @@ TODO:
 - Calendar API `GET /classes/calendar` — done (civil range → absolute window; nested Group/Course/Teacher; meetingUrl; Teacher/Student ownership).
 - Calendar UI `/dashboard/calendar` — done (month list via API; no create/edit from UI).
 - Teacher/student membership ownership for class reads — done (Group.teacherId / active Enrollment).
+- ClassSession write ownership — done (`POST`/`PATCH`/`DELETE`; Teacher of Group; generate stays `classes.create`).
 - Zoom/Google Meet link — manual URL done; automated provisioning still future.
 - Attendance — done (`/classes/:id/attendance`; PRESENT|ABSENT; active Enrollment; Teacher write ownership; Student self-read).
 - Class notes — done (`/classes/:id/notes`; content; Teacher write ownership; Student read-only).
