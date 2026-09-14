@@ -24,6 +24,21 @@ describe('parseEnv', () => {
     expect(env.AUTH_SESSION_TTL).toBe(604_800);
     expect(env.LOAD_SEED_DATA).toBe(false);
     expect(env.SUPERADMIN_EMAIL).toBe('omegon.info@gmail.com');
+    expect(env.ACADEMY_TIMEZONE).toBe('America/Argentina/Buenos_Aires');
+  });
+
+  it('accepts an explicit ACADEMY_TIMEZONE override', () => {
+    const env = parseEnv({
+      ...baseEnv(),
+      ACADEMY_TIMEZONE: 'America/Santiago',
+    });
+    expect(env.ACADEMY_TIMEZONE).toBe('America/Santiago');
+  });
+
+  it('rejects an invalid ACADEMY_TIMEZONE', () => {
+    expect(() =>
+      parseEnv({ ...baseEnv(), ACADEMY_TIMEZONE: '-03:00' }),
+    ).toThrow(/ACADEMY_TIMEZONE/);
   });
 
   it('coerces numeric and boolean strings', () => {

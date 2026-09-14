@@ -60,6 +60,44 @@ All public pages: `lang="es"`, one `<h1>`, skip link, landmarks, verified contra
 | `[x]`  | `GET /teachers/:id` | `teachers.read` o el propio TEACHER (ownership). Sin secretos de User. |
 | `[x]`  | `PATCH /teachers/:id` | `requirePermission(teachers, update)`. |
 | `[x]`  | `DELETE /teachers/:id` | `requirePermission(teachers, delete)`. Baja lógica (`isActive=false`). |
+| `[x]`  | `GET /students/:id/teacher` | `assignments.read` o el propio STUDENT. Asignación actual. |
+| `[x]`  | `POST /students/:id/teacher` | `requirePermission(assignments, create)`. Asigna/reemplaza profesor. TEACHER no puede autoasignarse (actor = sesión). |
+| `[x]`  | `DELETE /students/:id/teacher` | `requirePermission(assignments, update)`. Quita la asignación actual. |
+| `[x]`  | `GET /courses` | `requirePermission(courses, read)`. |
+| `[x]`  | `POST /courses` | `requirePermission(courses, create)`. Requiere `courseType` + `serviceType`. |
+| `[x]`  | `GET /courses/:id` | `requirePermission(courses, read)`. Incluye `courseType` y `durationMinutes` derivado. |
+| `[x]`  | `PATCH /courses/:id` | `requirePermission(courses, update)`. Puede cambiar `courseType` / `serviceType`. |
+| `[x]`  | `DELETE /courses/:id` | `requirePermission(courses, delete)`. Baja lógica (`isActive=false`). |
+| `[x]`  | `GET /groups` | `requirePermission(groups, read)`. |
+| `[x]`  | `POST /groups` | `requirePermission(groups, create)`. Requiere Course existente y activo. |
+| `[x]`  | `GET /groups/:id` | `requirePermission(groups, read)`. |
+| `[x]`  | `PATCH /groups/:id` | `requirePermission(groups, update)`. Incluye `scheduleOptionId` opcional (opción activa). |
+| `[x]`  | `DELETE /groups/:id` | `requirePermission(groups, delete)`. Baja lógica (`isActive=false`). |
+| `[x]`  | `GET /groups/:id/teacher` | `requirePermission(groups, read)`. Teacher actual del grupo. |
+| `[x]`  | `POST /groups/:id/teacher` | `requirePermission(groups, update)`. Asigna/reemplaza teacher (activo). Self-assign TEACHER permitido con permiso. |
+| `[x]`  | `DELETE /groups/:id/teacher` | `requirePermission(groups, update)`. Quita teacher del grupo. |
+| `[x]`  | `GET /schedule-options` | `requirePermission(schedules, read)`. Catálogo de franjas semanales (dropdown-ready). |
+| `[x]`  | `POST /schedule-options` | `requirePermission(schedules, create)`. day + start/end HH:mm; label derivado. |
+| `[x]`  | `GET /schedule-options/:id` | `requirePermission(schedules, read)`. |
+| `[x]`  | `PATCH /schedule-options/:id` | `requirePermission(schedules, update)`. |
+| `[x]`  | `DELETE /schedule-options/:id` | `requirePermission(schedules, delete)`. Baja lógica. |
+| `[x]`  | `GET /groups/:id/students` | `requirePermission(groups, read)`. Enrollments activos (ids; sin perfil privado extra). |
+| `[x]`  | `POST /groups/:id/students` | `requirePermission(groups, update)`. Enroll Student activo; máx. 15; sin auto-assignment Teacher. |
+| `[x]`  | `DELETE /groups/:id/students/:studentId` | `requirePermission(groups, update)`. Baja lógica del enrollment. |
+| `[x]`  | `GET /classes` | Auth. `classes.read` → todas; TEACHER → Groups propios; STUDENT → Groups con Enrollment activo. `?groupId=` opcional. |
+| `[x]`  | `POST /classes` | `requirePermission(classes, create)`. `groupId` + `startAt` + `meetingUrl?` (https); `endAt`/duración de Course.serviceType. Overlap Teacher → 409. |
+| `[x]`  | `GET /classes/:id` | Auth. Misma regla ownership que list; IDOR → 403. Incluye meetingUrl. |
+| `[x]`  | `PATCH /classes/:id` | `requirePermission(classes, update)`. `startAt` / `isActive` / `meetingUrl` (null limpia). Overlap → 409 solo al reschedule. |
+| `[x]`  | `DELETE /classes/:id` | `requirePermission(classes, delete)`. Baja lógica (`isActive=false`). |
+| `[x]`  | `POST /groups/:id/classes/generate` | `requirePermission(classes, create)`. `{ from, to }`; ScheduleOption + academy timezone; `generatedCount` / `skippedCount` / `conflictCount`; `meetingUrl=null`; `UNIQUE(groupId, startAt)`. |
+| `[x]`  | `GET /classes/calendar` | Auth. Mismo ownership que list; `?from&to` civil (academy timezone); active by `startAt`; nested group/course/teacher + meetingUrl; máx. 93 días. |
+| `[x]`  | `GET /classes/:id/attendance` | Auth. Misma ownership de ClassSession; admin/Teacher → todos; STUDENT → solo su fila. Student: `{id,firstName,lastName}`. |
+| `[x]`  | `POST /classes/:id/attendance` | `classes.update` o TEACHER del Group. `{studentId,status}`; enrollment activo; `UNIQUE(classSessionId,studentId)` → 409. |
+| `[x]`  | `PATCH /classes/:id/attendance/:studentId` | Misma escritura que POST. Solo `status` PRESENT↔ABSENT. Sin DELETE. |
+| `[x]`  | `GET /classes/:id/notes` | Auth. Misma ownership de ClassSession; lista `createdAt ASC, id ASC`. |
+| `[x]`  | `POST /classes/:id/notes` | `classes.update` o TEACHER del Group. `{content}` trim 1–4000. |
+| `[x]`  | `PATCH /classes/:id/notes/:noteId` | Misma escritura. Solo `content`; note debe pertenecer a `:id`. |
+| `[x]`  | `DELETE /classes/:id/notes/:noteId` | Misma escritura. Hard delete 204. |
 
 The browser reaches these as `/api/*`, rewritten by Next.js. In production the
 API publishes no host port.
@@ -126,12 +164,16 @@ TODO:
 - [ ] `/dashboard/groups/[id]`
 
 TODO:
-- Student → teacher assignment.
-- Prevent teacher self-assignment.
-- 1:1 service configuration.
-- Group max 15 validation.
-- Teacher-training course/group model.
-- Enrollment history.
+- Student → teacher assignment (API done: `GET|POST|DELETE /students/:id/teacher`; current link only; no history UI).
+- Prevent teacher self-assignment (done: actor TEACHER blocked server-side).
+- Course + Group foundation (API done: `/courses` + `/groups` CRUD; soft delete; no UI; no schedule/enrollment yet).
+- Group → Teacher (API done: `GET|POST|DELETE /groups/:id/teacher`).
+- ScheduleOption foundation (API done: `/schedule-options` CRUD; Group.scheduleOptionId via PATCH).
+- Enrollment model (API done: `GET|POST /groups/:id/students`, `DELETE .../:studentId`; soft deactivate).
+- Group max 15 (done: domain + FOR UPDATE; 15th ok / 16th rejected).
+- 1:1 / Group service configuration (done: `Course.serviceType` + derived `durationMinutes`).
+- Teacher-training course/group model (done: `Course.courseType` REGULAR | TEACHER_TRAINING).
+- Weekly group schedule foundation (catalog done; ClassSession/calendar still Stage 4).
 
 ## Stage 4 — Classes & Calendar
 
@@ -140,15 +182,17 @@ TODO:
 - [ ] `/dashboard/calendar`
 
 TODO:
-- 60/90-minute 1:1 classes.
-- 120-minute group classes.
-- Recurrence support where appropriate.
-- Teacher/student membership.
-- Zoom/Google Meet link.
-- Attendance.
-- Class notes.
-- Conflict detection.
-- Timezone handling.
+- Class session CRUD (API done: `/classes`; duration from Course.serviceType; optional https `meetingUrl`; Group must have ScheduleOption).
+- 60/90-minute 1:1 + 120-minute group validation (done via serviceType derivation).
+- Weekly generation `POST /groups/:id/classes/generate` — done (ScheduleOption weekday + local HH:mm → timestamptz via academy timezone; idempotent; conflictCount; meetingUrl null).
+- Broader recurrence / RRULE / calendar UI — still open.
+- Calendar API `GET /classes/calendar` — done (civil range → absolute window; nested Group/Course/Teacher; meetingUrl; Teacher/Student ownership).
+- Teacher/student membership ownership for class reads — done (Group.teacherId / active Enrollment).
+- Zoom/Google Meet link — manual URL done; automated provisioning still future.
+- Attendance — done (`/classes/:id/attendance`; PRESENT|ABSENT; active Enrollment; Teacher write ownership; Student self-read).
+- Class notes — done (`/classes/:id/notes`; content; Teacher write ownership; Student read-only).
+- Conflict detection — done (same Teacher overlap; create/PATCH 409; generate skips conflicts).
+- Timezone handling beyond single academy business zone.
 
 ## Stage 5 — Materials
 

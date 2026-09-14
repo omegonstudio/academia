@@ -56,6 +56,8 @@ services:
       SUPERADMIN_EMAIL: ${SUPERADMIN_EMAIL:-omegon.info@gmail.com}
       SUPERADMIN_PASSWORD: ${SUPERADMIN_PASSWORD:-}
       LOAD_SEED_DATA: ${LOAD_SEED_DATA:-false}
+      # Academy business IANA timezone (ScheduleOption local → ClassSession timestamptz).
+      ACADEMY_TIMEZONE: ${ACADEMY_TIMEZONE:-America/Argentina/Buenos_Aires}
     depends_on:
       db:
         condition: service_healthy

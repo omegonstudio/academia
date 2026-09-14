@@ -9,6 +9,15 @@ import { createPermissionChangeAuditStore } from './domain/authorization/permiss
 import { createPermissionGrantStore } from './domain/authorization/permission-grant-store.js';
 import { createStudentStore } from './domain/students/student-store.js';
 import { createTeacherStore } from './domain/teachers/teacher-store.js';
+import { createTeacherAssignmentStore } from './domain/assignments/assignment-store.js';
+import { createCourseStore } from './domain/courses/course-store.js';
+import { createGroupStore } from './domain/groups/group-store.js';
+import { createEnrollmentStore } from './domain/enrollments/enrollment-store.js';
+import { createScheduleOptionStore } from './domain/schedules/schedule-option-store.js';
+import { getAcademyBusinessConfig } from './domain/academy/academy-config.js';
+import { createClassSessionStore } from './domain/classes/class-session-store.js';
+import { createAttendanceStore } from './domain/attendance/attendance-store.js';
+import { createClassNoteStore } from './domain/class-notes/class-note-store.js';
 import { createSessionCodec } from './domain/identity/session.js';
 import { createUserRepository } from './domain/identity/user-repository.js';
 import { createApp } from './http/app.js';
@@ -45,6 +54,14 @@ async function main(): Promise<void> {
   const permissionChangeAudits = createPermissionChangeAuditStore(database);
   const studentProfiles = createStudentStore(database);
   const teacherProfiles = createTeacherStore(database);
+  const teacherAssignments = createTeacherAssignmentStore(database);
+  const courses = createCourseStore(database);
+  const groups = createGroupStore(database);
+  const enrollments = createEnrollmentStore(database);
+  const scheduleOptions = createScheduleOptionStore(database);
+  const classSessions = createClassSessionStore(database);
+  const attendances = createAttendanceStore(database);
+  const classNotes = createClassNoteStore(database);
   const startedAt = Date.now();
 
   const authOptions = {
@@ -99,6 +116,39 @@ async function main(): Promise<void> {
     teacherRegistry: {
       authenticate: authOptions,
       teachers: teacherProfiles,
+      permissionGrants,
+    },
+    studentTeacherAssignment: {
+      authenticate: authOptions,
+      assignments: teacherAssignments,
+      permissionGrants,
+    },
+    courses: {
+      authenticate: authOptions,
+      courses,
+      permissionGrants,
+    },
+    groups: {
+      authenticate: authOptions,
+      groups,
+      enrollments,
+      classSessions,
+      academy: getAcademyBusinessConfig(env),
+      permissionGrants,
+    },
+    scheduleOptions: {
+      authenticate: authOptions,
+      scheduleOptions,
+      permissionGrants,
+    },
+    classSessions: {
+      authenticate: authOptions,
+      classSessions,
+      attendances,
+      classNotes,
+      teachers: teacherProfiles,
+      students: studentProfiles,
+      academy: getAcademyBusinessConfig(env),
       permissionGrants,
     },
     administrativePermissions: {

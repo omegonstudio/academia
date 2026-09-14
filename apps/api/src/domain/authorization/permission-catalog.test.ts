@@ -23,6 +23,10 @@ describe('PERMISSION_CATALOG', () => {
     expect(isCatalogPermission('students', 'read')).toBe(true);
     expect(isCatalogPermission('students', 'delete')).toBe(true);
     expect(isCatalogPermission('teachers', 'delete')).toBe(true);
+    expect(isCatalogPermission('courses', 'read')).toBe(true);
+    expect(isCatalogPermission('groups', 'delete')).toBe(true);
+    expect(isCatalogPermission('schedules', 'read')).toBe(true);
+    expect(isCatalogPermission('classes', 'delete')).toBe(true);
     expect(isCatalogPermission('students', 'archive')).toBe(false);
   });
 });

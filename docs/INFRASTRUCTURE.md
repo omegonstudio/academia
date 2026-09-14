@@ -221,7 +221,9 @@ they attach to.
 
 ## CI
 
-`.github/workflows/ci.yml` runs on every pull request and push to `main`:
+`.github/workflows/ci.yml` runs on every pull request and on pushes to `main`
+(and should also cover `dev` once that branch is protected — see
+`docs/BRANCHING.md`):
 
 | Job                | What it proves                                                     |
 | ------------------ | ------------------------------------------------------------------ |
@@ -236,8 +238,13 @@ fails the run on error.
 ## Production deployment
 
 ```
-feature/*  →  Pull Request  →  CI  →  review  →  main  →  Production workflow
+feature/stage-N-*  →  PR →  CI  →  review  →  dev
+dev                →  PR →  CI  →  review  →  main  →  Production workflow
 ```
+
+Never commit product work directly to `main`. Stage work integrates on `dev`
+first; promote a finished Stage (or explicit slice) with a PR `dev` → `main`.
+Full rules: `docs/BRANCHING.md`.
 
 `.github/workflows/production.yml` triggers only on push to `main` or a manual
 dispatch. It calls `ci.yml` as a reusable workflow, so deployment cannot happen

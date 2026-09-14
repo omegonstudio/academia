@@ -1,4 +1,8 @@
 import { z } from 'zod';
+import {
+  DEFAULT_ACADEMY_TIMEZONE,
+  ianaTimeZoneSchema,
+} from '@academia/shared';
 
 /**
  * Environment contract for the API.
@@ -89,6 +93,12 @@ export const envSchema = z.object({
   SUPERADMIN_PASSWORD: z.string().min(12).optional(),
 
   LOAD_SEED_DATA: booleanFromEnv,
+
+  /**
+   * Academy business IANA timezone. Configuration — not class-generation logic.
+   * ScheduleOption local times convert to ClassSession timestamptz via this value.
+   */
+  ACADEMY_TIMEZONE: ianaTimeZoneSchema.default(DEFAULT_ACADEMY_TIMEZONE),
 });
 
 export type Env = z.infer<typeof envSchema>;

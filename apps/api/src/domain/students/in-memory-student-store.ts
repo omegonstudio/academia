@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import type { Role, StudentLevel } from '@academia/shared';
 import { normalizeEmail } from '../identity/user-repository.js';
 import type { StudentRecord, StudentStore } from './student-service.js';
@@ -29,7 +30,6 @@ export function createInMemoryStudentStore(deps: {
   ) => void;
 }): InMemoryStudentStore {
   const byId = new Map<string, StudentRecord>();
-  let seq = 0;
 
   function clone(record: StudentRecord): StudentRecord {
     return {
@@ -42,7 +42,6 @@ export function createInMemoryStudentStore(deps: {
   return {
     clear() {
       byId.clear();
-      seq = 0;
     },
 
     async list() {
@@ -80,7 +79,6 @@ export function createInMemoryStudentStore(deps: {
     },
 
     async createWithNewUser(input) {
-      seq += 1;
       const user = deps.createUser({
         email: normalizeEmail(input.email),
         name: `${input.firstName} ${input.lastName}`.trim(),
@@ -90,7 +88,7 @@ export function createInMemoryStudentStore(deps: {
       });
       const now = new Date();
       const record: StudentRecord = {
-        id: `student-${seq}`,
+        id: randomUUID(),
         userId: user.id,
         email: user.email,
         firstName: input.firstName,
@@ -108,14 +106,13 @@ export function createInMemoryStudentStore(deps: {
       const user = deps.findUserById(input.userId);
       if (!user) throw new Error(`user ${input.userId} not found`);
 
-      seq += 1;
       deps.updateUser(input.userId, {
         name: `${input.firstName} ${input.lastName}`.trim(),
         isActive: input.isActive,
       });
       const now = new Date();
       const record: StudentRecord = {
-        id: `student-${seq}`,
+        id: randomUUID(),
         userId: input.userId,
         email: user.email,
         firstName: input.firstName,

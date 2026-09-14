@@ -3,7 +3,8 @@
 // Stage 0 modelled identity. Stage 1 adds the permission catalog,
 // role ↔ permission grants, and an audit trail for permission changes.
 // Stage 2 adds academic Student and Teacher profiles (1:1 with User).
-// Courses, classes, materials, payments and settlements belong to later stages.
+// Stage 3–4: assignment, Course/Group, ScheduleOption, Enrollment, ClassSession.
+// Recurrence, calendar, materials, payments belong to later increments.
 //
 // The connection URL is supplied by `prisma7.config.ts` from the environment.
 //
@@ -101,6 +102,10 @@ model Student {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
+  teacherAssignment TeacherAssignment?
+  enrollments       Enrollment[]
+  attendances       Attendance[]
+
   @@index([isActive])
   @@index([lastName, firstName])
   @@map("students")
@@ -127,10 +132,198 @@ model Teacher {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
+  studentAssignments TeacherAssignment[]
+  groups             Group[]
+
   @@index([isActive])
   @@index([availability])
   @@index([lastName, firstName])
   @@map("teachers")
+}
+
+/// Current Student → Teacher link. One active teacher per student; no history yet.
+model TeacherAssignment {
+  id String @id @default(uuid()) @db.Uuid
+
+  studentId String @unique @map("student_id") @db.Uuid
+  student   Student @relation(fields: [studentId], references: [id], onDelete: Restrict)
+
+  teacherId String @map("teacher_id") @db.Uuid
+  teacher   Teacher @relation(fields: [teacherId], references: [id], onDelete: Restrict)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([teacherId])
+  @@map("teacher_assignments")
+}
+
+/// Academic offering. serviceType = duration; courseType = educational purpose.
+model Course {
+  id String @id @default(uuid()) @db.Uuid
+
+  name        String  @db.VarChar(120)
+  description String? @db.VarChar(500)
+
+  /// REGULAR | TEACHER_TRAINING — validated in the application layer.
+  courseType String @map("course_type") @db.VarChar(32)
+
+  /// ONE_TO_ONE_60 | ONE_TO_ONE_90 | GROUP_120 — validated in the application layer.
+  serviceType String @map("service_type") @db.VarChar(32)
+
+  isActive Boolean @default(true) @map("is_active")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  groups Group[]
+
+  @@index([isActive])
+  @@index([name])
+  @@index([courseType])
+  @@index([serviceType])
+  @@map("courses")
+}
+
+/// Cohort/instance of a Course. Current teacher and weekly slot via optional FKs.
+model Group {
+  id String @id @default(uuid()) @db.Uuid
+
+  courseId String @map("course_id") @db.Uuid
+  course   Course @relation(fields: [courseId], references: [id], onDelete: Restrict)
+
+  name String @db.VarChar(120)
+
+  teacherId String?  @map("teacher_id") @db.Uuid
+  teacher   Teacher? @relation(fields: [teacherId], references: [id], onDelete: Restrict)
+
+  scheduleOptionId String?         @map("schedule_option_id") @db.Uuid
+  scheduleOption   ScheduleOption? @relation(fields: [scheduleOptionId], references: [id], onDelete: Restrict)
+
+  isActive Boolean @default(true) @map("is_active")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  enrollments Enrollment[]
+  classSessions ClassSession[]
+
+  @@index([courseId])
+  @@index([teacherId])
+  @@index([scheduleOptionId])
+  @@index([isActive])
+  @@map("groups")
+}
+
+/// Concrete class occurrence. Duration comes from Group → Course.serviceType.
+model ClassSession {
+  id String @id @default(uuid()) @db.Uuid
+
+  groupId String @map("group_id") @db.Uuid
+  group   Group  @relation(fields: [groupId], references: [id], onDelete: Restrict)
+
+  /// Instant start/end (timestamptz). endAt must match Course duration.
+  startAt DateTime @map("start_at") @db.Timestamptz(3)
+  endAt   DateTime @map("end_at") @db.Timestamptz(3)
+
+  /// Optional external meeting room URL (https). Manual; no provider integration.
+  meetingUrl String? @map("meeting_url") @db.VarChar(2048)
+
+  isActive Boolean @default(true) @map("is_active")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  attendances Attendance[]
+  notes       ClassNote[]
+
+  @@unique([groupId, startAt])
+  @@index([groupId, startAt])
+  @@index([isActive, startAt])
+  @@index([isActive])
+  @@map("class_sessions")
+}
+
+/// Private text note for one ClassSession. Hard delete; no author in MVP.
+model ClassNote {
+  id String @id @default(uuid()) @db.Uuid
+
+  classSessionId String       @map("class_session_id") @db.Uuid
+  classSession   ClassSession @relation(fields: [classSessionId], references: [id], onDelete: Restrict)
+
+  content String @db.VarChar(4000)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([classSessionId, createdAt])
+  @@map("class_notes")
+}
+
+/// Student presence for one ClassSession. No soft delete — change status instead.
+model Attendance {
+  id String @id @default(uuid()) @db.Uuid
+
+  classSessionId String       @map("class_session_id") @db.Uuid
+  classSession   ClassSession @relation(fields: [classSessionId], references: [id], onDelete: Restrict)
+
+  studentId String  @map("student_id") @db.Uuid
+  student   Student @relation(fields: [studentId], references: [id], onDelete: Restrict)
+
+  /// PRESENT | ABSENT — validated in the application layer.
+  status String @db.VarChar(16)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([classSessionId, studentId])
+  @@index([classSessionId])
+  @@index([studentId])
+  @@map("attendances")
+}
+
+/// Student membership in a Group. Soft-deactivate; max 15 active per group (domain).
+model Enrollment {
+  id String @id @default(uuid()) @db.Uuid
+
+  groupId String @map("group_id") @db.Uuid
+  group   Group  @relation(fields: [groupId], references: [id], onDelete: Restrict)
+
+  studentId String  @map("student_id") @db.Uuid
+  student   Student @relation(fields: [studentId], references: [id], onDelete: Restrict)
+
+  isActive Boolean @default(true) @map("is_active")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([groupId, studentId])
+  @@index([groupId, isActive])
+  @@index([studentId])
+  @@map("enrollments")
+}
+
+/// Reusable weekly time slot for dropdown selection (not a ClassSession).
+model ScheduleOption {
+  id String @id @default(uuid()) @db.Uuid
+
+  /// MONDAY…SUNDAY — validated in the application layer.
+  day String @db.VarChar(16)
+
+  /// HH:mm — validated in the application layer. No timezone.
+  startTime String @map("start_time") @db.VarChar(5)
+  endTime   String @map("end_time") @db.VarChar(5)
+
+  isActive Boolean @default(true) @map("is_active")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  groups Group[]
+
+  @@index([isActive])
+  @@index([day, startTime])
+  @@map("schedule_options")
 }
 
 /// Links a Role to a Permission. ADMINISTRATIVE access is driven by this table.

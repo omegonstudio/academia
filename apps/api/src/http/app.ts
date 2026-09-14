@@ -26,6 +26,26 @@ import {
   type TeacherRegistryDependencies,
 } from './routes/teacher-registry.js';
 import {
+  createStudentTeacherAssignmentRouter,
+  type StudentTeacherAssignmentDependencies,
+} from './routes/student-teacher-assignment.js';
+import {
+  createCoursesRouter,
+  type CoursesDependencies,
+} from './routes/courses.js';
+import {
+  createGroupsRouter,
+  type GroupsDependencies,
+} from './routes/groups.js';
+import {
+  createScheduleOptionsRouter,
+  type ScheduleOptionsDependencies,
+} from './routes/schedule-options.js';
+import {
+  createClassSessionsRouter,
+  type ClassSessionsDependencies,
+} from './routes/classes.js';
+import {
   createTeachersRouter,
   type TeachersDependencies,
 } from './routes/teachers.js';
@@ -45,6 +65,11 @@ export interface AppDependencies {
   students: StudentsDependencies;
   studentRegistry: StudentRegistryDependencies;
   teacherRegistry: TeacherRegistryDependencies;
+  studentTeacherAssignment: StudentTeacherAssignmentDependencies;
+  courses: CoursesDependencies;
+  groups: GroupsDependencies;
+  scheduleOptions: ScheduleOptionsDependencies;
+  classSessions: ClassSessionsDependencies;
   administrativePermissions: AdministrativePermissionsDependencies;
 }
 
@@ -65,6 +90,11 @@ export function createApp({
   students,
   studentRegistry,
   teacherRegistry,
+  studentTeacherAssignment,
+  courses,
+  groups,
+  scheduleOptions,
+  classSessions,
   administrativePermissions,
 }: AppDependencies): Express {
   const app = express();
@@ -95,6 +125,11 @@ export function createApp({
   app.use(createStudentsRouter(students));
   app.use(createStudentRegistryRouter(studentRegistry));
   app.use(createTeacherRegistryRouter(teacherRegistry));
+  app.use(createStudentTeacherAssignmentRouter(studentTeacherAssignment));
+  app.use(createCoursesRouter(courses));
+  app.use(createGroupsRouter(groups));
+  app.use(createScheduleOptionsRouter(scheduleOptions));
+  app.use(createClassSessionsRouter(classSessions));
   app.use(createAdministrativePermissionsRouter(administrativePermissions));
 
   app.use(notFoundHandler());

@@ -4,9 +4,9 @@ name: CI
 # Deployment lives in production.yml and is deliberately not triggered here.
 on:
   pull_request:
-    branches: [main]
+    branches: [main, dev]
   push:
-    branches: [main]
+    branches: [main, dev]
   workflow_dispatch:
   # Lets production.yml reuse these exact checks as its deployment gate instead
   # of duplicating them.

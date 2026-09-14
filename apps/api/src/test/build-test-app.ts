@@ -1,5 +1,6 @@
 import type { Express } from 'express';
-import type { PermissionRef, Role } from '@academia/shared';
+import type { PermissionRef, Role, Weekday } from '@academia/shared';
+import { DEFAULT_ACADEMY_TIMEZONE } from '@academia/shared';
 import type { PermissionGrantStore } from '../domain/authorization/has-permission.js';
 import type { AdministrativePermissionStore } from '../domain/authorization/manage-administrative-permissions.js';
 import type {
@@ -10,6 +11,22 @@ import { createInMemoryStudentStore } from '../domain/students/in-memory-student
 import type { InMemoryStudentStore } from '../domain/students/in-memory-student-store.js';
 import { createInMemoryTeacherStore } from '../domain/teachers/in-memory-teacher-store.js';
 import type { InMemoryTeacherStore } from '../domain/teachers/in-memory-teacher-store.js';
+import { createInMemoryTeacherAssignmentStore } from '../domain/assignments/in-memory-assignment-store.js';
+import type { TeacherAssignmentStore } from '../domain/assignments/assignment-service.js';
+import { createInMemoryCourseStore } from '../domain/courses/in-memory-course-store.js';
+import type { InMemoryCourseStore } from '../domain/courses/in-memory-course-store.js';
+import { createInMemoryGroupStore } from '../domain/groups/in-memory-group-store.js';
+import type { InMemoryGroupStore } from '../domain/groups/in-memory-group-store.js';
+import { createInMemoryEnrollmentStore } from '../domain/enrollments/in-memory-enrollment-store.js';
+import type { InMemoryEnrollmentStore } from '../domain/enrollments/in-memory-enrollment-store.js';
+import { createInMemoryScheduleOptionStore } from '../domain/schedules/in-memory-schedule-option-store.js';
+import type { InMemoryScheduleOptionStore } from '../domain/schedules/in-memory-schedule-option-store.js';
+import { createInMemoryClassSessionStore } from '../domain/classes/in-memory-class-session-store.js';
+import type { InMemoryClassSessionStore } from '../domain/classes/in-memory-class-session-store.js';
+import { createInMemoryAttendanceStore } from '../domain/attendance/in-memory-attendance-store.js';
+import type { InMemoryAttendanceStore } from '../domain/attendance/in-memory-attendance-store.js';
+import { createInMemoryClassNoteStore } from '../domain/class-notes/in-memory-class-note-store.js';
+import type { InMemoryClassNoteStore } from '../domain/class-notes/in-memory-class-note-store.js';
 import { createAuthService } from '../domain/identity/auth-service.js';
 import type {
   ProvisionIdentityRecord,
@@ -42,10 +59,15 @@ export interface InMemoryAdministrativePermissionStore
   extends AdministrativePermissionStore {
   clear(): void;
   /**
-   * Lookup used by requirePermission. Mirrors Prisma RolePermission for
-   * ADMINISTRATIVE only (other roles have no in-memory grants).
+   * Lookup used by requirePermission. ADMINISTRATIVE grants use `grant()`;
+   * other roles can receive temporary grants via `grantRole()` in tests.
    */
   asPermissionGrantStore(): PermissionGrantStore;
+  grantRole(
+    role: Role,
+    module: PermissionRef['module'],
+    action: PermissionRef['action'],
+  ): void;
 }
 
 export interface InMemoryPermissionChangeAuditStore
@@ -63,6 +85,14 @@ export interface TestApp {
   students: InMemoryRoleProvisionStore;
   studentRegistry: InMemoryStudentStore;
   teacherRegistry: InMemoryTeacherStore;
+  assignments: TeacherAssignmentStore;
+  courses: InMemoryCourseStore;
+  groups: InMemoryGroupStore;
+  enrollments: InMemoryEnrollmentStore;
+  scheduleOptions: InMemoryScheduleOptionStore;
+  classSessions: InMemoryClassSessionStore;
+  attendances: InMemoryAttendanceStore;
+  classNotes: InMemoryClassNoteStore;
   administrativePermissions: InMemoryAdministrativePermissionStore;
   permissionChangeAudits: InMemoryPermissionChangeAuditStore;
 }
@@ -89,21 +119,33 @@ function createInMemoryPermissionChangeAuditStore(): InMemoryPermissionChangeAud
 
 function createInMemoryAdministrativePermissionStore(): InMemoryAdministrativePermissionStore {
   const grants = new Set<string>();
+  const roleGrants = new Map<Role, Set<string>>();
 
   return {
     clear() {
       grants.clear();
+      roleGrants.clear();
     },
 
     asPermissionGrantStore() {
       return {
         async roleOwns(role, module, action) {
-          if (role !== 'ADMINISTRATIVE') {
-            return false;
+          const key = permissionKey(module, action);
+          if (role === 'ADMINISTRATIVE' && grants.has(key)) {
+            return true;
           }
-          return grants.has(permissionKey(module, action));
+          return roleGrants.get(role)?.has(key) ?? false;
         },
       };
+    },
+
+    grantRole(role, module, action) {
+      let set = roleGrants.get(role);
+      if (!set) {
+        set = new Set();
+        roleGrants.set(role, set);
+      }
+      set.add(permissionKey(module, action));
     },
 
     async listGranted() {
@@ -271,6 +313,155 @@ export async function buildTestApp({
   };
   const studentRegistry = createInMemoryStudentStore(userBridge);
   const teacherRegistry = createInMemoryTeacherStore(userBridge);
+  const assignmentMemory = createInMemoryTeacherAssignmentStore();
+  const assignments: TeacherAssignmentStore = {
+    findByStudentId: (studentId) => assignmentMemory.findByStudentId(studentId),
+    upsert: (studentId, teacherId) =>
+      assignmentMemory.upsert(studentId, teacherId),
+    deleteByStudentId: (studentId) =>
+      assignmentMemory.deleteByStudentId(studentId),
+    async findStudent(id) {
+      const row = await studentRegistry.findById(id);
+      return row
+        ? { id: row.id, userId: row.userId, isActive: row.isActive }
+        : null;
+    },
+    async findTeacher(id) {
+      const row = await teacherRegistry.findById(id);
+      return row
+        ? { id: row.id, userId: row.userId, isActive: row.isActive }
+        : null;
+    },
+  };
+  const courses = createInMemoryCourseStore();
+  const scheduleOptions = createInMemoryScheduleOptionStore();
+  const groups = createInMemoryGroupStore({
+    findCourse: async (id) => {
+      const row = await courses.findById(id);
+      return row ? { id: row.id, isActive: row.isActive } : null;
+    },
+    findTeacher: async (id) => {
+      const row = await teacherRegistry.findById(id);
+      return row ? { id: row.id, isActive: row.isActive } : null;
+    },
+    findScheduleOption: async (id) => {
+      const row = await scheduleOptions.findById(id);
+      return row ? { id: row.id, isActive: row.isActive } : null;
+    },
+  });
+  const enrollments = createInMemoryEnrollmentStore({
+    findGroup: async (id) => {
+      const row = await groups.findById(id);
+      return row ? { id: row.id, isActive: row.isActive } : null;
+    },
+    findStudent: async (id) => {
+      const row = await studentRegistry.findById(id);
+      return row ? { id: row.id, isActive: row.isActive } : null;
+    },
+  });
+  const classSessions = createInMemoryClassSessionStore({
+    findGroupContext: async (groupId) => {
+      const group = await groups.findById(groupId);
+      if (!group) return null;
+      const course = await courses.findById(group.courseId);
+      if (!course) return null;
+      let scheduleOptionActive: boolean | null = null;
+      let scheduleDay: Weekday | null = null;
+      let scheduleStartTime: string | null = null;
+      if (group.scheduleOptionId) {
+        const option = await scheduleOptions.findById(group.scheduleOptionId);
+        scheduleOptionActive = option ? option.isActive : null;
+        scheduleDay = option?.day ?? null;
+        scheduleStartTime = option?.startTime ?? null;
+      }
+      return {
+        id: group.id,
+        isActive: group.isActive,
+        teacherId: group.teacherId,
+        scheduleOptionId: group.scheduleOptionId,
+        serviceType: course.serviceType,
+        courseIsActive: course.isActive,
+        scheduleOptionActive,
+        scheduleDay,
+        scheduleStartTime,
+      };
+    },
+    resolveCalendarMeta: async (groupId) => {
+      const group = await groups.findById(groupId);
+      if (!group) return null;
+      const course = await courses.findById(group.courseId);
+      if (!course) return null;
+      let teacher: {
+        id: string;
+        firstName: string;
+        lastName: string;
+      } | null = null;
+      if (group.teacherId) {
+        const row = await teacherRegistry.findById(group.teacherId);
+        if (row) {
+          teacher = {
+            id: row.id,
+            firstName: row.firstName,
+            lastName: row.lastName,
+          };
+        }
+      }
+      return {
+        name: group.name,
+        course: {
+          id: course.id,
+          name: course.name,
+          serviceType: course.serviceType,
+          courseType: course.courseType,
+        },
+        teacher,
+      };
+    },
+    hasActiveEnrollment: async (groupId, studentId) => {
+      const row = await enrollments.findByGroupAndStudent(groupId, studentId);
+      return row?.isActive === true;
+    },
+  });
+  const attendances = createInMemoryAttendanceStore({
+    findClassSession: async (id) => {
+      const session = await classSessions.findById(id);
+      if (!session) return null;
+      const group = await groups.findById(session.groupId);
+      return {
+        id: session.id,
+        groupId: session.groupId,
+        isActive: session.isActive,
+        teacherId: group?.teacherId ?? null,
+      };
+    },
+    findStudent: async (id) => {
+      const row = await studentRegistry.findById(id);
+      if (!row) return null;
+      return {
+        id: row.id,
+        firstName: row.firstName,
+        lastName: row.lastName,
+        isActive: row.isActive,
+      };
+    },
+    hasActiveEnrollment: async (groupId, studentId) => {
+      const row = await enrollments.findByGroupAndStudent(groupId, studentId);
+      return row?.isActive === true;
+    },
+  });
+  const classNotes = createInMemoryClassNoteStore({
+    findClassSession: async (id) => {
+      const session = await classSessions.findById(id);
+      if (!session) return null;
+      const group = await groups.findById(session.groupId);
+      return {
+        id: session.id,
+        groupId: session.groupId,
+        isActive: session.isActive,
+        teacherId: group?.teacherId ?? null,
+      };
+    },
+  });
   const authService = createAuthService(users);
   const sessionCodec = createSessionCodec(TEST_SECRET, 3600);
 
@@ -324,6 +515,39 @@ export async function buildTestApp({
       teachers: teacherRegistry,
       permissionGrants,
     },
+    studentTeacherAssignment: {
+      authenticate: authOptions,
+      assignments,
+      permissionGrants,
+    },
+    courses: {
+      authenticate: authOptions,
+      courses,
+      permissionGrants,
+    },
+    groups: {
+      authenticate: authOptions,
+      groups,
+      enrollments,
+      classSessions,
+      academy: { businessTimezone: DEFAULT_ACADEMY_TIMEZONE },
+      permissionGrants,
+    },
+    scheduleOptions: {
+      authenticate: authOptions,
+      scheduleOptions,
+      permissionGrants,
+    },
+    classSessions: {
+      authenticate: authOptions,
+      classSessions,
+      attendances,
+      classNotes,
+      teachers: teacherRegistry,
+      students: studentRegistry,
+      academy: { businessTimezone: DEFAULT_ACADEMY_TIMEZONE },
+      permissionGrants,
+    },
     administrativePermissions: {
       authenticate: authOptions,
       administrativePermissions,
@@ -341,6 +565,14 @@ export async function buildTestApp({
     students,
     studentRegistry,
     teacherRegistry,
+    assignments,
+    courses,
+    groups,
+    enrollments,
+    scheduleOptions,
+    classSessions,
+    attendances,
+    classNotes,
     administrativePermissions,
     permissionChangeAudits,
   };

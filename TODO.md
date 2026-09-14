@@ -124,14 +124,17 @@ Create the academy's people registry.
 Model who teaches whom and which educational offering they belong to.
 
 ### TODO
-- [ ] Student-teacher assignment.
+- [x] Student-teacher assignment (API `GET|POST|DELETE /students/:id/teacher`; 1 estudiante → 1 profesor actual; sin historial ni UI).
 - [ ] Assignment history.
-- [ ] Prevent teacher self-assignment.
-- [ ] 1:1 service: 60/90 minutes.
-- [ ] Group service: max 15.
-- [ ] Weekly group schedule foundation.
-- [ ] Teacher-training course/group.
-- [ ] Enrollment model.
+- [x] Prevent teacher self-assignment (actor TEACHER no puede asignar un estudiante a su propio perfil; identidad desde sesión).
+- [x] Course + Group foundation (API `/courses` + `/groups` CRUD; Group → Course; soft delete; sin UI / enrollment).
+- [x] Group → Teacher assignment (API `GET|POST|DELETE /groups/:id/teacher`; un teacher actual; sin historial; self-assign TEACHER permitido con `groups.update`).
+- [x] ScheduleOption catalog + Group.scheduleOptionId (API `/schedule-options`; franja semanal estructurada; label derivado; sin ClassSession/calendar).
+- [x] 1:1 / Group service configuration (`Course.serviceType`: ONE_TO_ONE_60 | ONE_TO_ONE_90 | GROUP_120; `durationMinutes` derivado; sin ClassSession).
+- [x] Group service: max 15 (Enrollment activo; rechazo del 16.º; `FOR UPDATE` en transacción).
+- [x] Weekly group schedule foundation (catalog + generate API; calendar UI still Stage 4).
+- [x] Teacher-training course/group (`Course.courseType`: REGULAR | TEACHER_TRAINING; Group hereda vía Course; sin entidades paralelas ni certificación).
+- [x] Enrollment model (API `GET|POST /groups/:id/students` + `DELETE /groups/:id/students/:studentId`; soft deactivate; sin historial ni UI).
 
 ### Acceptance criteria
 - Director can assign a student to a teacher.
@@ -145,16 +148,22 @@ Model who teaches whom and which educational offering they belong to.
 Operate real live classes.
 
 ### TODO
-- [ ] Class session CRUD.
-- [ ] 60/90-minute 1:1 validation.
-- [ ] 120-minute group validation.
-- [ ] Recurrence.
-- [ ] Meeting URL.
-- [ ] Calendar.
-- [ ] Conflict detection.
-- [ ] Timezones.
-- [ ] Attendance.
-- [ ] Class notes.
+- [x] Class session CRUD (API `/classes`; instancia concreta; soft delete; sin UI/recurrence).
+- [x] 60/90-minute 1:1 validation (`Course.serviceType` → duración derivada al crear ClassSession).
+- [x] 120-minute group validation (idem).
+- [x] Recurrence / weekly ClassSession generation (`POST /groups/:id/classes/generate`; ScheduleOption + `getAcademyBusinessConfig`; máx. 90 días; sin UI).
+- [x] Meeting URL (`ClassSession.meetingUrl` https opcional; manual; sin provisioning Zoom/Meet).
+- [x] Calendar API (`GET /classes/calendar?from&to`; rango civil en timezone de academia; lectura enriched; sin UI).
+- [ ] Calendar UI (`/dashboard/calendar`).
+- [x] Conflict detection (mismo Teacher; overlap half-open; create/PATCH 409; generate `conflictCount`; lock `teachers FOR UPDATE`).
+- [x] Academy business timezone (`ACADEMY_TIMEZONE` IANA; default `America/Argentina/Buenos_Aires`; vía `getAcademyBusinessConfig`).
+- [ ] Timezones avanzados (por usuario/group; UI de configuración).
+- [x] Attendance (`GET|POST /classes/:id/attendance`, `PATCH .../:studentId`; PRESENT|ABSENT; enrollment activo; Teacher write ownership; Student self-read).
+- [x] Class notes (`GET|POST /classes/:id/notes`, `PATCH|DELETE .../:noteId`; content trim 1–4000; Teacher write ownership; Student read-only).
+- [x] Teacher/Student ownership scoping for ClassSession reads (`Group.teacherId` / active Enrollment; GET list/id/calendar; sin write ownership).
+- [x] Unique/idempotencia `(groupId, startAt)` para generación (`@@unique` + `skipDuplicates`).
+- [ ] GiST/EXCLUDE constraint on teacher ranges (requires denormalized `teacherId` on ClassSession — deferred; see #33).
+- [ ] Automated meeting provisioning (Zoom/Meet/Teams APIs) — future; manual `meetingUrl` only.
 
 ### Acceptance criteria
 - Teacher and student see the same scheduled class.
