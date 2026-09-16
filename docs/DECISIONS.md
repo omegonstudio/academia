@@ -578,7 +578,8 @@ deleted rows with the same key still block re-insert. Client cannot supply
 duration, instants, teacher, schedule, or timezone.
 
 **Still out of scope.** RRULE; overwriting soft-deleted sessions.
-(Calendar UI: shipped Stage 4 `/dashboard/calendar`.)
+(Calendar UI: shipped Stage 4 `/dashboard/calendar`. Generate UI: shipped
+`/dashboard/classes`.)
 (Conflict detection: #33. Read ownership: #36.)
 
 ---
@@ -745,8 +746,8 @@ grant.
 - `POST /groups/:id/classes/generate` stays `requirePermission(classes, create)`
   only — no Teacher ownership bypass for bulk generation.
 
-**Still out of scope.** Teacher generate ownership; generate/attendance/notes UI;
-changing read rules. (ClassSession write UI: `/dashboard/classes` + `[id]`.)
+**Still out of scope.** Teacher generate ownership; attendance/notes changes;
+changing read rules. (ClassSession write UI + generate UI: `/dashboard/classes`.)
 
 ---
 

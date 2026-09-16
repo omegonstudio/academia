@@ -2,12 +2,14 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { CreateClassSessionForm } from '@/components/create-class-session-form';
+import { GenerateClassSessionsForm } from '@/components/generate-class-sessions-form';
 import { PageHeader } from '@/components/page-header';
 import { fetchClassSessions, fetchGroups, getSession } from '@/lib/api';
 import {
   formatSessionTimeRange,
   serviceTypeLabel,
 } from '@/lib/calendar';
+import { canShowGenerateUi } from '@/lib/class-session-generate';
 
 export const metadata: Metadata = {
   title: 'Clases',
@@ -30,6 +32,7 @@ export default async function ClassesPage() {
   );
 
   const canShowCreate = user.role !== 'STUDENT';
+  const canShowGenerate = canShowGenerateUi(user.role);
 
   return (
     <>
@@ -75,6 +78,12 @@ export default async function ClassesPage() {
       {canShowCreate &&
       (sessionsResult.ok || sessionsResult.status === 403) ? (
         <CreateClassSessionForm
+          groups={groupsResult.ok ? groupsResult.groups : []}
+        />
+      ) : null}
+
+      {canShowGenerate ? (
+        <GenerateClassSessionsForm
           groups={groupsResult.ok ? groupsResult.groups : []}
         />
       ) : null}
