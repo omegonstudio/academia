@@ -40,7 +40,9 @@ All public pages: `lang="es"`, one `<h1>`, skip link, landmarks, verified contra
 | `[x]`  | `/dashboard/groups/[id]` | Authenticated. Detalle grupo: teacher, scheduleOption, enrollment (máx. 15), curso. |
 | `[x]`  | `/dashboard/calendar` | Authenticated. Calendario mensual de clases vía `GET /classes/calendar` (SSR; loading implícito; error/vacío; ownership en API). |
 | `[x]`  | `/dashboard/classes` | Authenticated. Lista clases; create/edit; nombres de grupo vía `GET /groups` cuando hay permiso. Generate semanal: API lista; UI pendiente. |
-| `[x]`  | `/dashboard/classes/[id]` | Authenticated. Detalle + edit/deactivate; Attendance + Notes; Student read-only. |
+| `[x]`  | `/dashboard/administratives` | Authenticated. SUPER_ADMIN/DIRECTOR: aprovisionar ADMINISTRATIVE (`POST /users/administratives`). Sin listado API. |
+| `[x]`  | `/dashboard/permissions` | SUPER_ADMIN/DIRECTOR. Catálogo + grants ADMINISTRATIVE (GET catalog/list; POST/DELETE grant/revoke). |
+| `[x]`  | `/dashboard/settings` | Authenticated. Sesión vía `/auth/me`; sin settings editables Stage 1 (finance diferido). |
 
 ### API routes
 
@@ -141,13 +143,13 @@ API publishes no host port.
 - [x] `/dashboard` — role-aware hub + links to existing modules
 - [x] Permission-change audit trail — DB append on GRANT/REVOKE (no list UI yet)
 - [x] Authorization matrix for **Stage 1** API routes (`authorization-matrix.test.ts`) — not a full multi-module matrix
-- [ ] `/dashboard/settings`
-- [ ] `/dashboard/administratives`
-- [ ] `/dashboard/permissions`
+- [x] `/dashboard/settings` — session/identity; no editable academy config in Stage 1
+- [x] `/dashboard/administratives` — create ADMINISTRATIVE (no list API)
+- [x] `/dashboard/permissions` — catalog + grant/revoke ADMINISTRATIVE
 
 TODO:
-- Director-managed Administrative permissions UI (`/dashboard/permissions`).
 - Expand authorization matrix across all academy modules (Stage 9).
+- Optional: GET list of ADMINISTRATIVE users if a directory is required later.
 
 ## Stage 2 — Students & Teachers — DONE (API + UI)
 

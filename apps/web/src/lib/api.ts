@@ -30,6 +30,8 @@ import {
   type Student,
   type Teacher,
   type TeacherAssignment,
+  permissionListResponseSchema,
+  type PermissionRef,
 } from '@academia/shared';
 import { cookies } from 'next/headers';
 
@@ -733,6 +735,72 @@ export async function fetchGroupTeacher(
       ok: false,
       status: 503,
       missing: false,
+      message: 'No pudimos conectar con el servidor.',
+    };
+  }
+}
+
+export type PermissionListFetchResult =
+  | { ok: true; permissions: PermissionRef[] }
+  | { ok: false; status: number; message: string };
+
+export async function fetchPermissionCatalog(): Promise<PermissionListFetchResult> {
+  try {
+    const response = await apiFetch('/permissions/catalog');
+    if (!response.ok) {
+      return {
+        ok: false,
+        status: response.status,
+        message:
+          response.status === 403
+            ? 'No tenés permiso para ver el catálogo de permisos.'
+            : 'No pudimos cargar el catálogo de permisos.',
+      };
+    }
+    const parsed = permissionListResponseSchema.safeParse(await response.json());
+    if (!parsed.success) {
+      return {
+        ok: false,
+        status: 500,
+        message: 'Respuesta inválida del servidor.',
+      };
+    }
+    return { ok: true, permissions: parsed.data.permissions };
+  } catch {
+    return {
+      ok: false,
+      status: 503,
+      message: 'No pudimos conectar con el servidor.',
+    };
+  }
+}
+
+export async function fetchAdministrativePermissionGrants(): Promise<PermissionListFetchResult> {
+  try {
+    const response = await apiFetch('/roles/administrative/permissions');
+    if (!response.ok) {
+      return {
+        ok: false,
+        status: response.status,
+        message:
+          response.status === 403
+            ? 'No tenés permiso para ver los grants del rol administrativo.'
+            : 'No pudimos cargar los permisos administrativos.',
+      };
+    }
+    const parsed = permissionListResponseSchema.safeParse(await response.json());
+    if (!parsed.success) {
+      return {
+        ok: false,
+        status: 500,
+        message: 'Respuesta inválida del servidor.',
+      };
+    }
+    return { ok: true, permissions: parsed.data.permissions };
+  } catch {
+    return {
+      ok: false,
+      status: 503,
       message: 'No pudimos conectar con el servidor.',
     };
   }

@@ -67,7 +67,7 @@ See `docs/DECISIONS.md` (1) and `docs/LAQQ-REFERENCE.md`.
 - TLS termination is expected from a reverse proxy in front of the stack; not in the Compose file.
 - Migrations are forward-only; reversing a schema change requires a new migration.
 
-## Stage 1 — Identity, Roles & Permissions
+## Stage 1 — Identity, Roles & Permissions — API + UI DONE
 
 ### Objective
 Make access control real and manageable.
@@ -91,17 +91,19 @@ Make access control real and manageable.
 - [x] Role-aware `/dashboard` from server session role; hub links to existing modules (students, teachers, calendar).
 - [x] Authorization matrix tests for **Stage 1** protected API routes (`authorization-matrix.test.ts`; positive/negative across five roles; client claims ignored).
 - [x] Permission-change audit trail: append-only `permission_change_audits` on GRANT/REVOKE of ADMINISTRATIVE permissions (no audit UI).
+- [x] UI `/dashboard/permissions` — Director/SuperAdmin grant/revoke ADMINISTRATIVE from real catalog.
+- [x] UI `/dashboard/administratives` — provision ADMINISTRATIVE (create-only; no list endpoint in API).
+- [x] UI `/dashboard/settings` — session/identity surface (no finance/config APIs in Stage 1).
 
 ### TODO (remaining Stage 1)
-- [ ] UI for Director → Administrative permissions (`/dashboard/permissions`).
-- [ ] `/dashboard/administratives` / `/dashboard/settings` (planned; not built).
 - [ ] Expand authorization-matrix coverage beyond Stage 1 routes → tracked under Stage 9.
+- [ ] List endpoint for ADMINISTRATIVE users (if product needs a directory; not in current API).
 
 ### Acceptance criteria
 - Unauthorized API requests fail. *(met for implemented routes)*
-- UI does not expose inaccessible actions. *(partial: registry forms gated by API; dedicated permissions UI still missing)*
+- UI does not expose inaccessible actions. *(met: Stage 1 admin nav gated to SUPER_ADMIN/DIRECTOR; API remains authority)*
 - Administrative users can only perform granted actions. *(met via grants + bypass rules)*
-- Director controls Administrative permissions. *(API met; UI pending)*
+- Director controls Administrative permissions. *(API + UI met)*
 - SuperAdmin has technical access. *(met)*
 
 ## Stage 2 — Students & Teachers — API + UI DONE

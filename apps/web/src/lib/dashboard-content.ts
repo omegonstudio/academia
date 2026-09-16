@@ -19,19 +19,19 @@ const DASHBOARD_BY_ROLE: Record<Role, DashboardRoleContent> = {
     summary:
       'Este panel es el acceso Omegon a la plataforma: identidad, operación técnica y supervisión del sistema.',
     points: [
-      'Podés aprovisionar dirección y revisar el estado de la academia desde la API.',
-      'Desde el menú del panel podés abrir personas, clases y calendario conectados a la API.',
+      'Podés aprovisionar dirección y administrativos, y revisar permisos desde el panel.',
+      'Desde el menú del panel podés abrir personas, clases, calendario y configuración de sesión.',
       'No hay acciones inventadas aquí: solo la sesión real y el alcance de este rol.',
     ],
   },
   DIRECTOR: {
     heading: 'Dirección de la academia',
     summary:
-      'Este panel es el espacio de quien opera la academia: personal, clases y, más adelante, finanzas y permisos en UI.',
+      'Este panel es el espacio de quien opera la academia: personal, clases, permisos administrativos y, más adelante, finanzas.',
     points: [
-      'Desde la API ya podés aprovisionar personal y gestionar permisos del rol administrativo.',
-      'Estudiantes, profesores, clases y calendario están disponibles en este panel vía API real.',
-      'La UI de permisos administrativos y los módulos de cursos/grupos en pantalla llegan en etapas siguientes.',
+      'Podés aprovisionar administrativos y gestionar sus permisos desde el panel.',
+      'Estudiantes, profesores, clases y calendario están disponibles vía API real.',
+      'La configuración financiera (porcentaje de la academia, pagos) llega en etapas posteriores.',
     ],
   },
   ADMINISTRATIVE: {

@@ -6,6 +6,10 @@ import { PageHeader } from '@/components/page-header';
 import { getSession } from '@/lib/api';
 import { dashboardContentForRole } from '@/lib/dashboard-content';
 import { roleLabel } from '@/lib/roles';
+import {
+  canManageAdministrativePermissionsUi,
+  canProvisionAdministrativeUi,
+} from '@/lib/stage1-identity';
 
 export const metadata: Metadata = {
   title: 'Panel',
@@ -75,6 +79,28 @@ export default async function DashboardPage() {
           className="font-medium text-ink underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
         >
           Calendario
+        </Link>
+        {canManageAdministrativePermissionsUi(user.role) ? (
+          <Link
+            href="/dashboard/permissions"
+            className="font-medium text-ink underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
+          >
+            Permisos
+          </Link>
+        ) : null}
+        {canProvisionAdministrativeUi(user.role) ? (
+          <Link
+            href="/dashboard/administratives"
+            className="font-medium text-ink underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
+          >
+            Administrativos
+          </Link>
+        ) : null}
+        <Link
+          href="/dashboard/settings"
+          className="font-medium text-ink underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
+        >
+          Configuración
         </Link>
       </nav>
 
