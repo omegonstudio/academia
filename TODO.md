@@ -160,7 +160,7 @@ Operate real live classes.
 ### Done
 - [x] Class session CRUD (API `/classes`; instancia concreta; soft delete; UI `/dashboard/classes` + `[id]`).
 - [x] 60/90-minute 1:1 + 120-minute group validation (`Course.serviceType` → duración derivada).
-- [x] Weekly ClassSession generation (`POST /groups/:id/classes/generate`; ScheduleOption + `getAcademyBusinessConfig`; máx. 90 días; sin UI; `classes.create` only).
+- [x] Weekly ClassSession generation (`POST /groups/:id/classes/generate`; ScheduleOption + `getAcademyBusinessConfig`; máx. 90 días; UI en `/dashboard/classes`; `classes.create` only).
 - [x] Meeting URL (`ClassSession.meetingUrl` https opcional; manual; sin provisioning Zoom/Meet).
 - [x] Calendar API (`GET /classes/calendar?from&to`; rango civil en timezone de academia; lectura enriched).
 - [x] Calendar UI (`/dashboard/calendar`; mes civil; lista real vía API; ownership del backend; links a detalle).
@@ -173,13 +173,13 @@ Operate real live classes.
 - [x] ClassSession write ownership (`POST`/`PATCH`/`DELETE`; admin vía `classes.*`; TEACHER del Group; STUDENT denegado; generate sigue `classes.create`).
 - [x] Unique/idempotencia `(groupId, startAt)` para generación (`@@unique` + `skipDuplicates`).
 - [x] Attendance + Notes UI on `/dashboard/classes/[id]` (roster via enrollments when `groups.read`; STUDENT read-only; API authz authoritative).
+- [x] Generate ClassSessions UI on `/dashboard/classes` (`POST /groups/:id/classes/generate`; confirmación; counts; STUDENT oculto).
 
 ### TODO (remaining Stage 4 / deferred)
 - [ ] Timezones avanzados (por usuario/group; UI de configuración).
 - [ ] Broader recurrence / RRULE (beyond weekly generate).
 - [ ] GiST/EXCLUDE constraint on teacher ranges (requires denormalized `teacherId` on ClassSession — deferred; see #33).
 - [ ] Automated meeting provisioning (Zoom/Meet/Teams APIs) — also listed under Future backlog; manual `meetingUrl` only for MVP.
-- [ ] UI for weekly generate (API done; no UI yet).
 
 ### Acceptance criteria — core met; stage not complete
 - Teacher and student can see scheduled classes within ownership scope. *(met via API + calendar + classes UI)*
