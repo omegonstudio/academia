@@ -682,7 +682,7 @@ payloads.
 
 **Still out of scope.** JUSTIFIED; attendance.* permissions; enrollment history;
 Student attendance history UX (Stage 7). (Class notes: #38. ClassSession write
-ownership: #40.)
+ownership: #40. Attendance UI on ClassSession detail: shipped.)
 
 ---
 
@@ -701,7 +701,8 @@ Attendance (#37): reads via ClassSession ownership (#36); writes via
 `:id` is the session; body never relocates a note. Cross-session `noteId` →
 404.
 
-**Still out of scope.** Author; versioning; rich text; UI; notes.* permissions.
+**Still out of scope.** Author; versioning; rich text; notes.* permissions.
+(Notes UI on ClassSession detail: shipped.)
 
 ---
 

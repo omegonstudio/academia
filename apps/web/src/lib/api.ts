@@ -2,6 +2,9 @@ import {
   classSessionCalendarResponseSchema,
   classSessionListResponseSchema,
   classSessionResponseSchema,
+  attendanceListResponseSchema,
+  classNoteListResponseSchema,
+  enrollmentListResponseSchema,
   groupListResponseSchema,
   groupResponseSchema,
   sessionResponseSchema,
@@ -9,9 +12,12 @@ import {
   studentResponseSchema,
   teacherListResponseSchema,
   teacherResponseSchema,
+  type Attendance,
+  type ClassNote,
   type ClassSession,
   type ClassSessionCalendarEvent,
   type CivilDate,
+  type Enrollment,
   type Group,
   type SessionUser,
   type Student,
@@ -399,6 +405,123 @@ export async function fetchGroup(id: string): Promise<GroupFetchResult> {
       };
     }
     return { ok: true, group: parsed.data.group };
+  } catch {
+    return {
+      ok: false,
+      status: 503,
+      message: 'No pudimos conectar con el servidor.',
+    };
+  }
+}
+
+export type GroupEnrollmentsFetchResult =
+  | { ok: true; enrollments: Enrollment[] }
+  | { ok: false; status: number; message: string };
+
+export async function fetchGroupEnrollments(
+  groupId: string,
+): Promise<GroupEnrollmentsFetchResult> {
+  try {
+    const response = await apiFetch(`/groups/${groupId}/students`);
+    if (!response.ok) {
+      return {
+        ok: false,
+        status: response.status,
+        message:
+          response.status === 403
+            ? 'No tenés permiso para ver los estudiantes del grupo.'
+            : response.status === 404
+              ? 'Grupo no encontrado.'
+              : 'No pudimos cargar los estudiantes del grupo.',
+      };
+    }
+    const parsed = enrollmentListResponseSchema.safeParse(await response.json());
+    if (!parsed.success) {
+      return {
+        ok: false,
+        status: 500,
+        message: 'Respuesta inválida del servidor.',
+      };
+    }
+    return { ok: true, enrollments: parsed.data.enrollments };
+  } catch {
+    return {
+      ok: false,
+      status: 503,
+      message: 'No pudimos conectar con el servidor.',
+    };
+  }
+}
+
+export type AttendanceFetchResult =
+  | { ok: true; attendances: Attendance[] }
+  | { ok: false; status: number; message: string };
+
+export async function fetchClassSessionAttendance(
+  classSessionId: string,
+): Promise<AttendanceFetchResult> {
+  try {
+    const response = await apiFetch(`/classes/${classSessionId}/attendance`);
+    if (!response.ok) {
+      return {
+        ok: false,
+        status: response.status,
+        message:
+          response.status === 403
+            ? 'No tenés permiso para ver la asistencia.'
+            : response.status === 404
+              ? 'Clase no encontrada.'
+              : 'No pudimos cargar la asistencia.',
+      };
+    }
+    const parsed = attendanceListResponseSchema.safeParse(await response.json());
+    if (!parsed.success) {
+      return {
+        ok: false,
+        status: 500,
+        message: 'Respuesta inválida del servidor.',
+      };
+    }
+    return { ok: true, attendances: parsed.data.attendances };
+  } catch {
+    return {
+      ok: false,
+      status: 503,
+      message: 'No pudimos conectar con el servidor.',
+    };
+  }
+}
+
+export type ClassNotesFetchResult =
+  | { ok: true; notes: ClassNote[] }
+  | { ok: false; status: number; message: string };
+
+export async function fetchClassSessionNotes(
+  classSessionId: string,
+): Promise<ClassNotesFetchResult> {
+  try {
+    const response = await apiFetch(`/classes/${classSessionId}/notes`);
+    if (!response.ok) {
+      return {
+        ok: false,
+        status: response.status,
+        message:
+          response.status === 403
+            ? 'No tenés permiso para ver las notas.'
+            : response.status === 404
+              ? 'Clase no encontrada.'
+              : 'No pudimos cargar las notas.',
+      };
+    }
+    const parsed = classNoteListResponseSchema.safeParse(await response.json());
+    if (!parsed.success) {
+      return {
+        ok: false,
+        status: 500,
+        message: 'Respuesta inválida del servidor.',
+      };
+    }
+    return { ok: true, notes: parsed.data.notes };
   } catch {
     return {
       ok: false,
