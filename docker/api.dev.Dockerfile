@@ -23,7 +23,9 @@ RUN npm ci
 
 COPY docker/api-dev-entrypoint.sh /usr/local/bin/api-dev-entrypoint.sh
 COPY docker/database-url.mjs /usr/local/lib/academia/database-url.mjs
-RUN chmod +x /usr/local/bin/api-dev-entrypoint.sh
+COPY docker/sync-node-modules.sh /usr/local/lib/academia/sync-node-modules.sh
+RUN chmod +x /usr/local/bin/api-dev-entrypoint.sh \
+    && chmod +x /usr/local/lib/academia/sync-node-modules.sh
 
 EXPOSE 4000
 

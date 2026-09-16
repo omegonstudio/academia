@@ -16,7 +16,7 @@ Public surfaces via Next rewrite:
 | Surface | URL |
 | ------- | --- |
 | OpenAPI JSON | http://localhost:3000/api/openapi.json |
-| Swagger UI | http://localhost:3000/api/docs |
+| Swagger UI | http://localhost:3000/api/docs/ (trailing slash; required for assets) |
 | Health | http://localhost:3000/api/health |
 
 Direct API (Insomnia / curl): replace `/api` with `http://localhost:4000`.

@@ -28,9 +28,17 @@ Requires Docker, Docker Compose and Node.js 22.
 cp .env.example .env      # then edit: set POSTGRES_PASSWORD, AUTH_SECRET, SUPERADMIN_PASSWORD
 npm install
 npm run dev               # builds images, starts db + api + web, waits for health
+                          # (compose: docker-compose.yml + docker-compose.dev.yml)
 ```
 
 Generate local secrets with `openssl rand -base64 48`.
+
+Compose files are **always paired** (base + one override). Using either file alone
+fails with “neither an image nor a build context” — use `npm run dev` or:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build -d
+```
 
 Once up:
 

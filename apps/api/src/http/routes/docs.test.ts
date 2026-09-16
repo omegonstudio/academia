@@ -111,10 +111,13 @@ describe('GET /docs', () => {
   it('returns 200 Swagger UI when docs are enabled', async () => {
     const { app } = await buildTestApp();
 
-    const response = await request(app).get('/docs/');
+    const withSlash = await request(app).get('/docs/');
+    expect(withSlash.status).toBe(200);
+    expect(withSlash.text).toMatch(/swagger/i);
 
-    expect(response.status).toBe(200);
-    expect(response.text).toMatch(/swagger/i);
+    const withoutSlash = await request(app).get('/docs');
+    expect(withoutSlash.status).toBe(200);
+    expect(withoutSlash.text).toMatch(/location\.pathname\.endsWith/);
   });
 
   it('returns 404 when docs are disabled', async () => {
