@@ -3,10 +3,12 @@
 Operational platform for a Spanish-language academy: teacher training, teacher
 network, student assignment, classes, tracking and settlements.
 
-**Current stage: Stage 0 — Foundation + Infrastructure.** The production
-infrastructure is in place; the academy modules are not built yet. See
-[`TODO.md`](TODO.md) for the roadmap and [`ROUTE-MAP.md`](ROUTE-MAP.md) for route
-status.
+**Current stage: Stage 4 — Classes & Calendar (partial).** Core ClassSession API,
+calendar UI, attendance and notes are in place; remaining Stage 4 items include
+classes UI, advanced timezones, GiST and automated meeting provisioning. Stages
+1–3 API foundations are done (Stage 3 UI and assignment history still open). See
+[`TODO.md`](TODO.md) and [`ROUTE-MAP.md`](ROUTE-MAP.md). Branching:
+[`docs/BRANCHING.md`](docs/BRANCHING.md) (`feature/*` → `dev` → `main`).
 
 ## Stack
 

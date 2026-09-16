@@ -10,7 +10,10 @@ import {
 } from '../test/build-test-app.js';
 
 /**
- * Stage 1 authorization matrix for every protected API route that exists today.
+ * Stage 1 authorization matrix for Stage 1 protected API routes
+ * (user provisioning + administrative permission management).
+ * Academy module routes (students, classes, …) have their own suites;
+ * a full cross-module matrix remains Stage 9.
  * Reuses `buildTestApp` — no duplicate app factory.
  */
 

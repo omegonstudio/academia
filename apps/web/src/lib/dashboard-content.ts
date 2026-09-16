@@ -20,18 +20,18 @@ const DASHBOARD_BY_ROLE: Record<Role, DashboardRoleContent> = {
       'Este panel es el acceso Omegon a la plataforma: identidad, operación técnica y supervisión del sistema.',
     points: [
       'Podés aprovisionar dirección y revisar el estado de la academia desde la API.',
-      'Los módulos operativos de la academia se habilitarán en etapas posteriores.',
+      'Desde el menú del panel podés abrir personas, clases y calendario conectados a la API.',
       'No hay acciones inventadas aquí: solo la sesión real y el alcance de este rol.',
     ],
   },
   DIRECTOR: {
     heading: 'Dirección de la academia',
     summary:
-      'Este panel es el espacio de quien opera la academia: personal, permisos administrativos y, más adelante, la operación completa.',
+      'Este panel es el espacio de quien opera la academia: personal, clases y, más adelante, finanzas y permisos en UI.',
     points: [
       'Desde la API ya podés aprovisionar personal y gestionar permisos del rol administrativo.',
-      'Los paneles de estudiantes, docentes, clases y finanzas llegarán en etapas siguientes.',
-      'Mientras tanto, este espacio confirma tu sesión como dirección.',
+      'Estudiantes, profesores, clases y calendario están disponibles en este panel vía API real.',
+      'La UI de permisos administrativos y los módulos de cursos/grupos en pantalla llegan en etapas siguientes.',
     ],
   },
   ADMINISTRATIVE: {
@@ -40,28 +40,28 @@ const DASHBOARD_BY_ROLE: Record<Role, DashboardRoleContent> = {
       'Este panel es para personal administrativo cuyas capacidades las define la dirección mediante permisos.',
     points: [
       'Lo que podrás hacer en la plataforma depende de los permisos que te asigne la dirección.',
-      'Los módulos operativos (personas, clases, finanzas) aún no están en esta pantalla.',
-      'Cuando existan, solo verás acciones respaldadas por permisos reales en el servidor.',
+      'Si tenés grants, personas, clases y calendario responden con datos reales del servidor.',
+      'Solo verás acciones respaldadas por permisos u ownership reales en el backend.',
     ],
   },
   TEACHER: {
     heading: 'Espacio docente',
     summary:
-      'Este panel es el punto de entrada del cuerpo docente: clases, materiales y estudiantes asignados llegarán más adelante.',
+      'Este panel es el punto de entrada del cuerpo docente: tus clases, calendario y, más adelante, materiales y finanzas.',
     points: [
       'Tu rol de docente está activo en la sesión.',
+      'Clases y calendario muestran solo las de tus grupos (ownership en el servidor).',
       'No podés aprovisionar estudiantes ni asignarte alumnado desde aquí.',
-      'Las herramientas de clase y materiales se publicarán cuando el backend correspondiente exista.',
     ],
   },
   STUDENT: {
     heading: 'Espacio del estudiante',
     summary:
-      'Este panel es tu acceso como estudiante: clases, materiales y progreso se mostrarán cuando esos módulos existan.',
+      'Este panel es tu acceso como estudiante: tus clases, calendario y, más adelante, materiales y progreso.',
     points: [
       'Tu sesión confirma el rol de estudiante.',
-      'Solo verás información propia cuando esos datos estén disponibles en el servidor.',
-      'No hay acciones de gestión académica en esta pantalla todavía.',
+      'Clases y calendario muestran solo grupos donde tenés enrollment activo.',
+      'Solo ves información propia cuando el servidor te autoriza.',
     ],
   },
 };
