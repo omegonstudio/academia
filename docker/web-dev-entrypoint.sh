@@ -5,6 +5,10 @@ set -eu
 
 cd /app
 
+# Keep anonymous-volume node_modules in sync with the bind-mounted lockfile.
+# shellcheck source=/dev/null
+. /usr/local/lib/academia/sync-node-modules.sh
+
 echo "[entrypoint] building shared contracts"
 npm run build -w @academia/shared
 

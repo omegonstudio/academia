@@ -338,6 +338,66 @@ describe('ClassSession CRUD', () => {
     expect(adjacent.status).toBe(201);
   });
 
+  it('rejects PATCH that moves a session into another of the same teacher (409)', async () => {
+    const cookie = await seedDirector();
+    const first = await createReadyGroup(cookie, 'ONE_TO_ONE_60');
+
+    const courseB = await request(fixture.app)
+      .post('/courses')
+      .set('Cookie', cookie)
+      .send({
+        name: 'Patch conflict course',
+        courseType: 'REGULAR',
+        serviceType: 'ONE_TO_ONE_60',
+      });
+    const groupB = await request(fixture.app)
+      .post('/groups')
+      .set('Cookie', cookie)
+      .send({
+        courseId: courseB.body.course.id,
+        name: 'Patch conflict group',
+      });
+    await request(fixture.app)
+      .post(`/groups/${groupB.body.group.id}/teacher`)
+      .set('Cookie', cookie)
+      .send({ teacherId: first.teacherId });
+    await request(fixture.app)
+      .patch(`/groups/${groupB.body.group.id}`)
+      .set('Cookie', cookie)
+      .send({ scheduleOptionId: first.scheduleOptionId });
+
+    const sessionA = await request(fixture.app)
+      .post('/classes')
+      .set('Cookie', cookie)
+      .send({
+        groupId: first.groupId,
+        startAt: '2026-09-22T10:00:00.000Z',
+      });
+    expect(sessionA.status).toBe(201);
+
+    const sessionB = await request(fixture.app)
+      .post('/classes')
+      .set('Cookie', cookie)
+      .send({
+        groupId: groupB.body.group.id,
+        startAt: '2026-09-22T12:00:00.000Z',
+      });
+    expect(sessionB.status).toBe(201);
+
+    const conflict = await request(fixture.app)
+      .patch(`/classes/${sessionB.body.classSession.id}`)
+      .set('Cookie', cookie)
+      .send({ startAt: '2026-09-22T10:30:00.000Z' });
+    expect(conflict.status).toBe(409);
+    expect(conflict.body.error.code).toBe('CONFLICT');
+
+    const still = await request(fixture.app)
+      .get(`/classes/${sessionB.body.classSession.id}`)
+      .set('Cookie', cookie);
+    expect(still.status).toBe(200);
+    expect(still.body.classSession.startAt).toBe('2026-09-22T12:00:00.000Z');
+  });
+
   it('accepts https meetingUrl on create/patch and rejects unsafe schemes', async () => {
     const cookie = await seedDirector();
     const { groupId } = await createReadyGroup(cookie, 'GROUP_120');

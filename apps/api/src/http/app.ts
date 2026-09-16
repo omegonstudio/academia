@@ -53,6 +53,7 @@ import {
   createAdministrativePermissionsRouter,
   type AdministrativePermissionsDependencies,
 } from './routes/administrative-permissions.js';
+import { createDocsRouter } from './routes/docs.js';
 
 export interface AppDependencies {
   logger: Logger;
@@ -71,6 +72,8 @@ export interface AppDependencies {
   scheduleOptions: ScheduleOptionsDependencies;
   classSessions: ClassSessionsDependencies;
   administrativePermissions: AdministrativePermissionsDependencies;
+  /** When true, mounts GET /openapi.json and Swagger UI at /docs. */
+  docsEnabled?: boolean;
 }
 
 /**
@@ -96,6 +99,7 @@ export function createApp({
   scheduleOptions,
   classSessions,
   administrativePermissions,
+  docsEnabled = true,
 }: AppDependencies): Express {
   const app = express();
 
@@ -131,6 +135,10 @@ export function createApp({
   app.use(createScheduleOptionsRouter(scheduleOptions));
   app.use(createClassSessionsRouter(classSessions));
   app.use(createAdministrativePermissionsRouter(administrativePermissions));
+
+  if (docsEnabled) {
+    app.use(createDocsRouter());
+  }
 
   app.use(notFoundHandler());
   app.use(errorHandler(logger));

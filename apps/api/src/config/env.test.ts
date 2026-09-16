@@ -25,6 +25,16 @@ describe('parseEnv', () => {
     expect(env.LOAD_SEED_DATA).toBe(false);
     expect(env.SUPERADMIN_EMAIL).toBe('omegon.info@gmail.com');
     expect(env.ACADEMY_TIMEZONE).toBe('America/Argentina/Buenos_Aires');
+    expect(env.API_DOCS_ENABLED).toBeUndefined();
+  });
+
+  it('parses an explicit API_DOCS_ENABLED flag', () => {
+    expect(
+      parseEnv({ ...baseEnv(), API_DOCS_ENABLED: 'true' }).API_DOCS_ENABLED,
+    ).toBe(true);
+    expect(
+      parseEnv({ ...baseEnv(), API_DOCS_ENABLED: 'false' }).API_DOCS_ENABLED,
+    ).toBe(false);
   });
 
   it('accepts an explicit ACADEMY_TIMEZONE override', () => {
