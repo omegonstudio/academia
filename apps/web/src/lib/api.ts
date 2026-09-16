@@ -1,12 +1,18 @@
 import {
   classSessionCalendarResponseSchema,
+  classSessionListResponseSchema,
+  classSessionResponseSchema,
+  groupListResponseSchema,
+  groupResponseSchema,
   sessionResponseSchema,
   studentListResponseSchema,
   studentResponseSchema,
   teacherListResponseSchema,
   teacherResponseSchema,
+  type ClassSession,
   type ClassSessionCalendarEvent,
   type CivilDate,
+  type Group,
   type SessionUser,
   type Student,
   type Teacher,
@@ -240,6 +246,159 @@ export async function fetchClassSessionCalendar(
       to: parsed.data.to,
       classSessions: parsed.data.classSessions,
     };
+  } catch {
+    return {
+      ok: false,
+      status: 503,
+      message: 'No pudimos conectar con el servidor.',
+    };
+  }
+}
+
+export type ClassSessionsFetchResult =
+  | { ok: true; classSessions: ClassSession[] }
+  | { ok: false; status: number; message: string };
+
+export async function fetchClassSessions(
+  groupId?: string,
+): Promise<ClassSessionsFetchResult> {
+  try {
+    const query = groupId
+      ? `?${new URLSearchParams({ groupId }).toString()}`
+      : '';
+    const response = await apiFetch(`/classes${query}`);
+    if (!response.ok) {
+      return {
+        ok: false,
+        status: response.status,
+        message:
+          response.status === 403
+            ? 'No tenés permiso para ver el listado de clases.'
+            : 'No pudimos cargar las clases.',
+      };
+    }
+    const parsed = classSessionListResponseSchema.safeParse(
+      await response.json(),
+    );
+    if (!parsed.success) {
+      return {
+        ok: false,
+        status: 500,
+        message: 'Respuesta inválida del servidor.',
+      };
+    }
+    return { ok: true, classSessions: parsed.data.classSessions };
+  } catch {
+    return {
+      ok: false,
+      status: 503,
+      message: 'No pudimos conectar con el servidor.',
+    };
+  }
+}
+
+export type ClassSessionFetchResult =
+  | { ok: true; classSession: ClassSession }
+  | { ok: false; status: number; message: string };
+
+export async function fetchClassSession(
+  id: string,
+): Promise<ClassSessionFetchResult> {
+  try {
+    const response = await apiFetch(`/classes/${id}`);
+    if (!response.ok) {
+      return {
+        ok: false,
+        status: response.status,
+        message:
+          response.status === 404
+            ? 'Clase no encontrada.'
+            : response.status === 403
+              ? 'No tenés permiso para ver esta clase.'
+              : 'No pudimos cargar la clase.',
+      };
+    }
+    const parsed = classSessionResponseSchema.safeParse(await response.json());
+    if (!parsed.success) {
+      return {
+        ok: false,
+        status: 500,
+        message: 'Respuesta inválida del servidor.',
+      };
+    }
+    return { ok: true, classSession: parsed.data.classSession };
+  } catch {
+    return {
+      ok: false,
+      status: 503,
+      message: 'No pudimos conectar con el servidor.',
+    };
+  }
+}
+
+export type GroupsFetchResult =
+  | { ok: true; groups: Group[] }
+  | { ok: false; status: number; message: string };
+
+export async function fetchGroups(): Promise<GroupsFetchResult> {
+  try {
+    const response = await apiFetch('/groups');
+    if (!response.ok) {
+      return {
+        ok: false,
+        status: response.status,
+        message:
+          response.status === 403
+            ? 'No tenés permiso para ver el listado de grupos.'
+            : 'No pudimos cargar los grupos.',
+      };
+    }
+    const parsed = groupListResponseSchema.safeParse(await response.json());
+    if (!parsed.success) {
+      return {
+        ok: false,
+        status: 500,
+        message: 'Respuesta inválida del servidor.',
+      };
+    }
+    return { ok: true, groups: parsed.data.groups };
+  } catch {
+    return {
+      ok: false,
+      status: 503,
+      message: 'No pudimos conectar con el servidor.',
+    };
+  }
+}
+
+export type GroupFetchResult =
+  | { ok: true; group: Group }
+  | { ok: false; status: number; message: string };
+
+export async function fetchGroup(id: string): Promise<GroupFetchResult> {
+  try {
+    const response = await apiFetch(`/groups/${id}`);
+    if (!response.ok) {
+      return {
+        ok: false,
+        status: response.status,
+        message:
+          response.status === 404
+            ? 'Grupo no encontrado.'
+            : response.status === 403
+              ? 'No tenés permiso para ver este grupo.'
+              : 'No pudimos cargar el grupo.',
+      };
+    }
+    const parsed = groupResponseSchema.safeParse(await response.json());
+    if (!parsed.success) {
+      return {
+        ok: false,
+        status: 500,
+        message: 'Respuesta inválida del servidor.',
+      };
+    }
+    return { ok: true, group: parsed.data.group };
   } catch {
     return {
       ok: false,

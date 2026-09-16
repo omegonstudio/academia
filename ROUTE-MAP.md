@@ -28,12 +28,14 @@ All public pages: `lang="es"`, one `<h1>`, skip link, landmarks, verified contra
 | Status | Route        | Access                                                                 |
 | ------ | ------------ | ---------------------------------------------------------------------- |
 | `[x]`  | `/login`     | Public. `noindex, nofollow`. Redirects to `/dashboard` if already authenticated. |
-| `[x]`  | `/dashboard` | Authenticated only. `noindex, nofollow`. Server-side redirect to `/login`. Session identity + **role-aware** copy from server session role. No academy modules yet. |
+| `[x]`  | `/dashboard` | Authenticated only. `noindex, nofollow`. Server-side redirect to `/login`. Session identity + role-aware hub; nav to students, teachers, classes, calendar. |
 | `[x]`  | `/dashboard/students` | Authenticated. Lista/crea estudiantes vía API real (loading/error/vacío). |
 | `[x]`  | `/dashboard/students/[id]` | Authenticated. Detalle + edición/desactivación según permiso. |
 | `[x]`  | `/dashboard/teachers` | Authenticated. Lista/crea profesores vía API real (loading/error/vacío). |
 | `[x]`  | `/dashboard/teachers/[id]` | Authenticated. Detalle + edición/desactivación según permiso. |
 | `[x]`  | `/dashboard/calendar` | Authenticated. Calendario mensual de clases vía `GET /classes/calendar` (SSR; loading implícito; error/vacío; ownership en API). |
+| `[x]`  | `/dashboard/classes` | Authenticated. Lista clases vía `GET /classes`; create (no STUDENT) vía `POST /classes`; nombres de grupo vía `GET /groups` cuando hay permiso. |
+| `[x]`  | `/dashboard/classes/[id]` | Authenticated. Detalle + edit/deactivate según ownership/permiso API; Student read-only. |
 
 ### API routes
 
@@ -86,11 +88,11 @@ All public pages: `lang="es"`, one `<h1>`, skip link, landmarks, verified contra
 | `[x]`  | `POST /groups/:id/students` | `requirePermission(groups, update)`. Enroll Student activo; máx. 15; sin auto-assignment Teacher. |
 | `[x]`  | `DELETE /groups/:id/students/:studentId` | `requirePermission(groups, update)`. Baja lógica del enrollment. |
 | `[x]`  | `GET /classes` | Auth. `classes.read` → todas; TEACHER → Groups propios; STUDENT → Groups con Enrollment activo. `?groupId=` opcional. |
-| `[x]`  | `POST /classes` | `requirePermission(classes, create)`. `groupId` + `startAt` + `meetingUrl?` (https); `endAt`/duración de Course.serviceType. Overlap Teacher → 409. |
+| `[x]`  | `POST /classes` | Auth. `classes.create` (admin) o TEACHER del Group. `groupId` + `startAt` + `meetingUrl?`; duración de Course.serviceType. Overlap → 409. |
 | `[x]`  | `GET /classes/:id` | Auth. Misma regla ownership que list; IDOR → 403. Incluye meetingUrl. |
-| `[x]`  | `PATCH /classes/:id` | `requirePermission(classes, update)`. `startAt` / `isActive` / `meetingUrl` (null limpia). Overlap → 409 solo al reschedule. |
-| `[x]`  | `DELETE /classes/:id` | `requirePermission(classes, delete)`. Baja lógica (`isActive=false`). |
-| `[x]`  | `POST /groups/:id/classes/generate` | `requirePermission(classes, create)`. `{ from, to }`; ScheduleOption + academy timezone; `generatedCount` / `skippedCount` / `conflictCount`; `meetingUrl=null`; `UNIQUE(groupId, startAt)`. |
+| `[x]`  | `PATCH /classes/:id` | Auth. `classes.update` (admin) o TEACHER del Group. `startAt` / `isActive` / `meetingUrl`. Overlap → 409 al reschedule. |
+| `[x]`  | `DELETE /classes/:id` | Auth. `classes.delete` (admin) o TEACHER del Group. Baja lógica (`isActive=false`). |
+| `[x]`  | `POST /groups/:id/classes/generate` | `requirePermission(classes, create)` solamente (sin bypass por ownership de Teacher). `{ from, to }`; ScheduleOption + academy timezone; `generatedCount` / `skippedCount` / `conflictCount`; `meetingUrl=null`; `UNIQUE(groupId, startAt)`. |
 | `[x]`  | `GET /classes/calendar` | Auth. Mismo ownership que list; `?from&to` civil (academy timezone); active by `startAt`; nested group/course/teacher + meetingUrl; máx. 93 días. |
 | `[x]`  | `GET /classes/:id/attendance` | Auth. Misma ownership de ClassSession; admin/Teacher → todos; STUDENT → solo su fila. Student: `{id,firstName,lastName}`. |
 | `[x]`  | `POST /classes/:id/attendance` | `classes.update` o TEACHER del Group. `{studentId,status}`; enrollment activo; `UNIQUE(classSessionId,studentId)` → 409. |
@@ -124,39 +126,34 @@ API publishes no host port.
 - [x] `POST /users/administratives` — `requirePermission(users, create)`
 - [x] `POST /users/teachers` — `requirePermission(users, create)`
 - [x] `POST /users/students` — `requirePermission(users, create)`
-- [x] Permission model (DB + domain) — `permissions` / `role_permissions` tables; catalog seed; `hasPermission` (no HTTP surface yet)
+- [x] Permission model (DB + domain + HTTP) — `permissions` / `role_permissions`; catalog; `hasPermission`; admin grant/revoke API
 - [x] `GET /permissions/catalog` — `requirePermission(permissions, read)`
 - [x] `GET|POST|DELETE /roles/administrative/permissions` — read / update via `requirePermission`
-- [x] `requirePermission(module, action)` — mounted on permission-management and user-provisioning routes
-- [x] `/dashboard` — role-aware content from server session (no academy modules yet)
+- [x] `requirePermission(module, action)` — mounted on permission-management and user-provisioning; academy routes use `requirePermission` and/or ownership
+- [x] `/dashboard` — role-aware hub + links to existing modules
 - [x] Permission-change audit trail — DB append on GRANT/REVOKE (no list UI yet)
+- [x] Authorization matrix for **Stage 1** API routes (`authorization-matrix.test.ts`) — not a full multi-module matrix
 - [ ] `/dashboard/settings`
 - [ ] `/dashboard/administratives`
 - [ ] `/dashboard/permissions`
 
 TODO:
-- Mount `requirePermission` on remaining academy feature routes.
 - Director-managed Administrative permissions UI (`/dashboard/permissions`).
-- SuperAdmin bootstrap for `omegon.info@gmail.com` (done in Stage 0).
-- Authorization matrix for protected Stage 1 API routes (done in suite `authorization-matrix.test.ts`).
-- Audit sensitive permission changes (GRANT/REVOKE trail done; broader audit later).
+- Expand authorization matrix across all academy modules (Stage 9).
 
-## Stage 2 — Students & Teachers
+## Stage 2 — Students & Teachers — DONE (API + UI)
 
 - [x] `/dashboard/students`
 - [x] `/dashboard/students/[id]`
 - [x] `/dashboard/teachers`
 - [x] `/dashboard/teachers/[id]`
 
-TODO:
-- Student CRUD (API + UI done; soft delete; ownership read for STUDENT).
-- Teacher CRUD (API + UI done; soft delete; availability; ownership read for TEACHER).
-- Levels (Student/Teacher CEFR done).
-- Status (Student/Teacher active/inactive done).
-- Basic profiles (Student/Teacher done).
-- Ownership/access rules (own-read for STUDENT and TEACHER done).
+Done:
+- Student CRUD (API + UI; soft delete; ownership read for STUDENT).
+- Teacher CRUD (API + UI; soft delete; availability; ownership read for TEACHER).
+- Levels (CEFR), active/inactive, basic profiles, own-read ownership tests.
 
-## Stage 3 — Assignments & Academic Structure
+## Stage 3 — Assignments & Academic Structure — API DONE (UI pending)
 
 - [ ] `/dashboard/assignments`
 - [ ] `/dashboard/courses`
@@ -164,37 +161,41 @@ TODO:
 - [ ] `/dashboard/groups`
 - [ ] `/dashboard/groups/[id]`
 
+Done (API only unless noted):
+- Student → teacher assignment (`GET|POST|DELETE /students/:id/teacher`; current link only; no history).
+- Prevent teacher self-assignment (actor TEACHER blocked server-side).
+- Course + Group CRUD (soft delete; **sin UI**).
+- Group → Teacher (`GET|POST|DELETE /groups/:id/teacher`).
+- ScheduleOption CRUD + Group.scheduleOptionId.
+- Enrollment (`GET|POST /groups/:id/students`, `DELETE .../:studentId`; soft deactivate; max 15).
+- `Course.serviceType` + derived `durationMinutes`; `Course.courseType` REGULAR | TEACHER_TRAINING.
+- Weekly schedule **catalog** (ScheduleOption). ClassSession generate/calendar → Stage 4.
+
 TODO:
-- Student → teacher assignment (API done: `GET|POST|DELETE /students/:id/teacher`; current link only; no history UI).
-- Prevent teacher self-assignment (done: actor TEACHER blocked server-side).
-- Course + Group foundation (API done: `/courses` + `/groups` CRUD; soft delete; no UI; no schedule/enrollment yet).
-- Group → Teacher (API done: `GET|POST|DELETE /groups/:id/teacher`).
-- ScheduleOption foundation (API done: `/schedule-options` CRUD; Group.scheduleOptionId via PATCH).
-- Enrollment model (API done: `GET|POST /groups/:id/students`, `DELETE .../:studentId`; soft deactivate).
-- Group max 15 (done: domain + FOR UPDATE; 15th ok / 16th rejected).
-- 1:1 / Group service configuration (done: `Course.serviceType` + derived `durationMinutes`).
-- Teacher-training course/group model (done: `Course.courseType` REGULAR | TEACHER_TRAINING).
-- Weekly group schedule foundation (catalog done; ClassSession/calendar still Stage 4).
+- Assignment history.
+- UI for assignments / courses / groups.
 
-## Stage 4 — Classes & Calendar
+## Stage 4 — Classes & Calendar — CORE DONE (partial)
 
-- [ ] `/dashboard/classes`
-- [ ] `/dashboard/classes/[id]`
+- [x] `/dashboard/classes`
+- [x] `/dashboard/classes/[id]`
 - [x] `/dashboard/calendar`
 
-TODO:
-- Class session CRUD (API done: `/classes`; duration from Course.serviceType; optional https `meetingUrl`; Group must have ScheduleOption).
-- 60/90-minute 1:1 + 120-minute group validation (done via serviceType derivation).
-- Weekly generation `POST /groups/:id/classes/generate` — done (ScheduleOption weekday + local HH:mm → timestamptz via academy timezone; idempotent; conflictCount; meetingUrl null).
-- Broader recurrence / RRULE — still open.
-- Calendar API `GET /classes/calendar` — done (civil range → absolute window; nested Group/Course/Teacher; meetingUrl; Teacher/Student ownership).
-- Calendar UI `/dashboard/calendar` — done (month list via API; no create/edit from UI).
-- Teacher/student membership ownership for class reads — done (Group.teacherId / active Enrollment).
-- Zoom/Google Meet link — manual URL done; automated provisioning still future.
-- Attendance — done (`/classes/:id/attendance`; PRESENT|ABSENT; active Enrollment; Teacher write ownership; Student self-read).
-- Class notes — done (`/classes/:id/notes`; content; Teacher write ownership; Student read-only).
-- Conflict detection — done (same Teacher overlap; create/PATCH 409; generate skips conflicts).
-- Timezone handling beyond single academy business zone.
+Done:
+- ClassSession CRUD API (`/classes`; duration from serviceType; optional https `meetingUrl`; ScheduleOption required on Group).
+- Weekly generation `POST /groups/:id/classes/generate` (idempotent; conflictCount; `classes.create` only).
+- Calendar API `GET /classes/calendar` + Calendar UI `/dashboard/calendar`.
+- Class Sessions UI: list + detail create/edit/soft-delete (API ownership; no generate UI; no attendance/notes UI).
+- Read + write ownership (Teacher of Group / active Enrollment; generate stays permission-gated).
+- Attendance + Class notes APIs.
+- Conflict detection; academy business timezone; `UNIQUE(groupId, startAt)`.
+
+TODO / deferred:
+- Broader RRULE / advanced recurrence.
+- Advanced timezones (per user/group).
+- GiST/EXCLUDE (see #33).
+- Automated meeting provisioning (Future backlog; manual URL only for MVP).
+- Generate / attendance / notes UI (API done; dedicated UX later / Stages 7–8).
 
 ## Stage 5 — Materials
 
@@ -213,16 +214,19 @@ TODO:
 - [ ] `/dashboard/finance`
 - [ ] `/dashboard/finance/students/[id]`
 - [ ] `/dashboard/finance/teachers/[id]`
+- [ ] Academy revenue-split settings surface (exact route TBD; Director/SuperAdmin write only)
 
 TODO:
+- Persist current academy `academyPercentage` ∈ {20, 30, 40, 50}; default 40.
+- Derive teacher share as `100 - academyPercentage` (pairs 20/80, 30/70, 40/60, 50/50 only).
+- Mutation: SUPER_ADMIN + DIRECTOR only (not ADMINISTRATIVE / TEACHER / STUDENT).
+- Freeze: historical financial operations keep frozen share; later config changes do not rewrite them (#41). Exact freeze trigger TBD at implementation.
 - Student price.
 - Payment status.
-- Academy 15%.
-- Teacher 85%.
 - Period-based settlement.
 - Settlement status.
 - Basic reporting.
-- Tests for financial calculations.
+- Tests for financial calculations under each allowed pair (+ freeze immutability).
 - Keep automated payouts as future scope.
 
 ## Stage 7 — Student Experience
@@ -254,7 +258,7 @@ TODO:
 - Class notes.
 - Attendance.
 - Material management.
-- 85% earnings visibility.
+- Earnings visibility driven by academy revenue-split config (derived teacher %).
 - Prevent access to other teachers' students.
 
 ## Stage 9 — Production Hardening

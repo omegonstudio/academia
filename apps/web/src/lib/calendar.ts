@@ -2,6 +2,7 @@ import {
   DEFAULT_ACADEMY_TIMEZONE,
   type CivilDate,
   type ClassSessionCalendarEvent,
+  type CourseServiceType,
 } from '@academia/shared';
 
 /** Academy business zone for calendar civil ranges and display (matches API default). */
@@ -168,9 +169,7 @@ export function groupSessionsByCivilDay(
     .map(([day, daySessions]) => ({ day, sessions: daySessions }));
 }
 
-export function serviceTypeLabel(
-  serviceType: ClassSessionCalendarEvent['group']['course']['serviceType'],
-): string {
+export function serviceTypeLabel(serviceType: CourseServiceType): string {
   switch (serviceType) {
     case 'ONE_TO_ONE_60':
       return '1:1 · 60 min';
@@ -181,4 +180,42 @@ export function serviceTypeLabel(
     default:
       return serviceType;
   }
+}
+
+/**
+ * Value for `<input type="datetime-local">` in academy business timezone.
+ * Format: `YYYY-MM-DDTHH:mm`.
+ */
+export function isoToAcademyDatetimeLocalValue(
+  isoInstant: string,
+  timeZone: string = CALENDAR_DISPLAY_TIMEZONE,
+): string {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(new Date(isoInstant));
+  const map = Object.fromEntries(
+    parts.filter((p) => p.type !== 'literal').map((p) => [p.type, p.value]),
+  );
+  return `${map['year']}-${map['month']}-${map['day']}T${map['hour']}:${map['minute']}`;
+}
+
+/**
+ * Parses a datetime-local string as civil wall time in the academy timezone.
+ * Returns null when the value is incomplete or not parseable as YYYY-MM-DDTHH:mm.
+ */
+export function parseAcademyDatetimeLocalValue(
+  value: string,
+): { date: CivilDate; timeOfDay: string } | null {
+  const match = /^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2})$/.exec(value.trim());
+  if (!match) return null;
+  return {
+    date: match[1] as CivilDate,
+    timeOfDay: match[2]!,
+  };
 }

@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   civilMonthRange,
+  isoToAcademyDatetimeLocalValue,
+  parseAcademyDatetimeLocalValue,
   resolveCivilMonthFromSearchParams,
   shiftCivilMonth,
   todayCivilDate,
@@ -51,5 +53,19 @@ describe('calendar civil helpers', () => {
         return { year: year!, month: month! };
       })(),
     );
+  });
+
+  it('round-trips academy datetime-local values', () => {
+    const iso = '2026-09-14T18:30:00.000Z';
+    const local = isoToAcademyDatetimeLocalValue(
+      iso,
+      'America/Argentina/Buenos_Aires',
+    );
+    expect(local).toBe('2026-09-14T15:30');
+    expect(parseAcademyDatetimeLocalValue(local)).toEqual({
+      date: '2026-09-14',
+      timeOfDay: '15:30',
+    });
+    expect(parseAcademyDatetimeLocalValue('bad')).toBeNull();
   });
 });

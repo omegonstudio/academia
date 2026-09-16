@@ -128,8 +128,12 @@ When payments do arrive, the boundary is already decided:
 ```
 Student → Payment domain → Payment provider adapter → Mercado Pago | Stripe
                                      ↓
-                            Finance (academy 15% / teacher 85%)
+                            Finance (academyPercentage ∈ {20,30,40,50};
+                                     default 40; teacher = 100 − academy)
 ```
 
-Providers are never called from the frontend, and the 15/85 split lives in the
-backend domain with tests.
+Providers are never called from the frontend. The split is academy-level
+current config (SUPER_ADMIN/DIRECTOR mutate only); historical financial
+operations use Freeze (frozen share on the record; later config changes do not
+rewrite them). Money math lives in the backend Finance domain with tests. See
+`docs/DECISIONS.md` (41).

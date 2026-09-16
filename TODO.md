@@ -77,34 +77,38 @@ Make access control real and manageable.
 - `authenticate` and `requireRole` middleware.
 - SUPER_ADMIN provisioned and verified end to end.
 
-### Done in Stage 1 (partial)
+### Done
 - [x] Provision DIRECTOR via `POST /users/directors` (SUPER_ADMIN only + `requirePermission(users, create)`).
 - [x] Provision ADMINISTRATIVE via `POST /users/administratives` (`requirePermission(users, create)`; SUPER_ADMIN/DIRECTOR bypass).
 - [x] Provision TEACHER via `POST /users/teachers` (`requirePermission(users, create)`; SUPER_ADMIN/DIRECTOR bypass).
 - [x] Provision STUDENT via `POST /users/students` (`requirePermission(users, create)`; SUPER_ADMIN/DIRECTOR bypass; TEACHER denied without grant).
 - [x] Granular permission model (module/action): `Permission` + `RolePermission` in Prisma, catalog in `@academia/shared`, `hasPermission` domain query (SUPER_ADMIN/DIRECTOR bypass catalog; others need grants).
-- [x] Director (and SUPER_ADMIN) can list the permission catalog and grant/revoke ADMINISTRATIVE RolePermission via API. Gate: `permissions.read` / `permissions.update` via `requirePermission` (SUPER_ADMIN/DIRECTOR bypass).
-- [x] `requirePermission(module, action)` middleware mounted on permission-management and user-provisioning routes.
-- [x] Role-aware `/dashboard` content from the server session role (SUPER_ADMIN, DIRECTOR, ADMINISTRATIVE, TEACHER, STUDENT). No academy modules or fake actions.
-- [x] Authorization matrix tests for every protected Stage 1 API route (positive/negative across all five roles; 403 without grant; client-supplied claims ignored).
-- [x] Permission-change audit trail: append-only `permission_change_audits` on GRANT/REVOKE of ADMINISTRATIVE permissions (actor from session; outcome recorded). No audit UI.
+- [x] HTTP surface for permissions: `GET /permissions/catalog` + `GET|POST|DELETE /roles/administrative/permissions`.
+- [x] Director (and SUPER_ADMIN) can grant/revoke ADMINISTRATIVE RolePermission. Gate: `permissions.read` / `permissions.update` via `requirePermission` (SUPER_ADMIN/DIRECTOR bypass).
+- [x] `requirePermission(module, action)` on permission-management and user-provisioning routes.
+- [x] Academy feature routes (Stages 2–4) enforce authz server-side via `requirePermission` and/or ownership scopes (not UI-only).
+- [x] Role-aware `/dashboard` from server session role; hub links to existing modules (students, teachers, calendar).
+- [x] Authorization matrix tests for **Stage 1** protected API routes (`authorization-matrix.test.ts`; positive/negative across five roles; client claims ignored).
+- [x] Permission-change audit trail: append-only `permission_change_audits` on GRANT/REVOKE of ADMINISTRATIVE permissions (no audit UI).
 
-### TODO
-- [ ] Enforce permissions server-side on every remaining academy route (mount `requirePermission` / keep `requireRole` where role gates remain appropriate).
+### TODO (remaining Stage 1)
 - [ ] UI for Director → Administrative permissions (`/dashboard/permissions`).
-### Acceptance criteria
-- Unauthorized API requests fail.
-- UI does not expose inaccessible actions.
-- Administrative users can only perform granted actions.
-- Director controls Administrative permissions.
-- SuperAdmin has technical access.
+- [ ] `/dashboard/administratives` / `/dashboard/settings` (planned; not built).
+- [ ] Expand authorization-matrix coverage beyond Stage 1 routes → tracked under Stage 9.
 
-## Stage 2 — Students & Teachers
+### Acceptance criteria
+- Unauthorized API requests fail. *(met for implemented routes)*
+- UI does not expose inaccessible actions. *(partial: registry forms gated by API; dedicated permissions UI still missing)*
+- Administrative users can only perform granted actions. *(met via grants + bypass rules)*
+- Director controls Administrative permissions. *(API met; UI pending)*
+- SuperAdmin has technical access. *(met)*
+
+## Stage 2 — Students & Teachers — API + UI DONE
 
 ### Objective
 Create the academy's people registry.
 
-### TODO
+### Done
 - [x] Student CRUD (API `/students` + UI `/dashboard/students` + `[id]`; perfil 1:1 con User; baja lógica).
 - [x] Teacher CRUD (API `/teachers` + UI `/dashboard/teachers` + `[id]`; perfil 1:1 con User; availability; baja lógica).
 - [x] Level field (CEFR A1–C2 on Student and Teacher).
@@ -113,63 +117,74 @@ Create the academy's people registry.
 - [x] Teacher status/availability foundation (`AVAILABLE` | `UNAVAILABLE` | `LIMITED`).
 - [x] Access-control tests (registry suites + ownership for STUDENT and TEACHER).
 
-### Acceptance criteria
-- Director/Admin with permission can manage records.
-- Teachers cannot see unrelated private data.
-- Students can only see their own private data.
+### TODO
+- *(none for Stage 2 MVP registry — later UX polish lives in Stages 7–8)*
 
-## Stage 3 — Assignments & Academic Structure
+### Acceptance criteria — met
+- Director/Admin with permission can manage records.
+- Teachers cannot see unrelated private data (own-read ownership).
+- Students can only see their own private data (own-read ownership).
+
+## Stage 3 — Assignments & Academic Structure — API DONE (UI pending)
 
 ### Objective
 Model who teaches whom and which educational offering they belong to.
 
-### TODO
-- [x] Student-teacher assignment (API `GET|POST|DELETE /students/:id/teacher`; 1 estudiante → 1 profesor actual; sin historial ni UI).
-- [ ] Assignment history.
-- [x] Prevent teacher self-assignment (actor TEACHER no puede asignar un estudiante a su propio perfil; identidad desde sesión).
-- [x] Course + Group foundation (API `/courses` + `/groups` CRUD; Group → Course; soft delete; sin UI / enrollment).
+### Done
+- [x] Student-teacher assignment (API `GET|POST|DELETE /students/:id/teacher`; 1 estudiante → 1 profesor **actual**; sin historial).
+- [x] Prevent teacher self-assignment (actor TEACHER blocked server-side; identidad desde sesión).
+- [x] Course + Group foundation (API `/courses` + `/groups` CRUD; Group → Course; soft delete; **sin UI**).
 - [x] Group → Teacher assignment (API `GET|POST|DELETE /groups/:id/teacher`; un teacher actual; sin historial; self-assign TEACHER permitido con `groups.update`).
-- [x] ScheduleOption catalog + Group.scheduleOptionId (API `/schedule-options`; franja semanal estructurada; label derivado; sin ClassSession/calendar).
-- [x] 1:1 / Group service configuration (`Course.serviceType`: ONE_TO_ONE_60 | ONE_TO_ONE_90 | GROUP_120; `durationMinutes` derivado; sin ClassSession).
-- [x] Group service: max 15 (Enrollment activo; rechazo del 16.º; `FOR UPDATE` en transacción).
-- [x] Weekly group schedule foundation (catalog + generate API; calendar UI still Stage 4).
+- [x] ScheduleOption catalog + Group.scheduleOptionId (API `/schedule-options`; franja semanal estructurada; label derivado).
+- [x] 1:1 / Group service configuration (`Course.serviceType`: ONE_TO_ONE_60 | ONE_TO_ONE_90 | GROUP_120; `durationMinutes` derivado).
+- [x] Group capacity max 15 (Enrollment activo; rechazo del 16.º; `FOR UPDATE` en transacción).
 - [x] Teacher-training course/group (`Course.courseType`: REGULAR | TEACHER_TRAINING; Group hereda vía Course; sin entidades paralelas ni certificación).
 - [x] Enrollment model (API `GET|POST /groups/:id/students` + `DELETE /groups/:id/students/:studentId`; soft deactivate; sin historial ni UI).
+- [x] Weekly schedule **catalog** foundation (ScheduleOption; ClassSession generate/calendar → Stage 4).
+
+### TODO
+- [ ] Assignment history (reemplazos no conservan filas históricas).
+- [ ] UI `/dashboard/assignments`, `/dashboard/courses`, `/dashboard/groups` (+ `[id]`).
 
 ### Acceptance criteria
-- Director can assign a student to a teacher.
-- Assignment is persisted and auditable.
-- Teacher cannot create an assignment for themselves.
-- Group cannot exceed 15 students.
+- Director can assign a student to a teacher. *(met)*
+- Assignment is persisted as the **current** link (not a historical audit trail). *(met; history deferred)*
+- Teacher cannot create an assignment for themselves. *(met)*
+- Group cannot exceed 15 active students. *(met)*
 
-## Stage 4 — Classes & Calendar
+## Stage 4 — Classes & Calendar — CORE API + CALENDAR UI DONE (partial stage)
 
 ### Objective
 Operate real live classes.
 
-### TODO
-- [x] Class session CRUD (API `/classes`; instancia concreta; soft delete; sin UI/recurrence).
-- [x] 60/90-minute 1:1 validation (`Course.serviceType` → duración derivada al crear ClassSession).
-- [x] 120-minute group validation (idem).
-- [x] Recurrence / weekly ClassSession generation (`POST /groups/:id/classes/generate`; ScheduleOption + `getAcademyBusinessConfig`; máx. 90 días; sin UI).
+### Done
+- [x] Class session CRUD (API `/classes`; instancia concreta; soft delete; UI `/dashboard/classes` + `[id]`).
+- [x] 60/90-minute 1:1 + 120-minute group validation (`Course.serviceType` → duración derivada).
+- [x] Weekly ClassSession generation (`POST /groups/:id/classes/generate`; ScheduleOption + `getAcademyBusinessConfig`; máx. 90 días; sin UI; `classes.create` only).
 - [x] Meeting URL (`ClassSession.meetingUrl` https opcional; manual; sin provisioning Zoom/Meet).
-- [x] Calendar API (`GET /classes/calendar?from&to`; rango civil en timezone de academia; lectura enriched; sin UI).
-- [x] Calendar UI (`/dashboard/calendar`; mes civil; lista real vía API; ownership del backend).
+- [x] Calendar API (`GET /classes/calendar?from&to`; rango civil en timezone de academia; lectura enriched).
+- [x] Calendar UI (`/dashboard/calendar`; mes civil; lista real vía API; ownership del backend; links a detalle).
+- [x] Class Sessions UI (`/dashboard/classes` + `[id]`; create/edit/soft-delete; datos reales; authz en API).
 - [x] Conflict detection (mismo Teacher; overlap half-open; create/PATCH 409; generate `conflictCount`; lock `teachers FOR UPDATE`).
 - [x] Academy business timezone (`ACADEMY_TIMEZONE` IANA; default `America/Argentina/Buenos_Aires`; vía `getAcademyBusinessConfig`).
-- [ ] Timezones avanzados (por usuario/group; UI de configuración).
 - [x] Attendance (`GET|POST /classes/:id/attendance`, `PATCH .../:studentId`; PRESENT|ABSENT; enrollment activo; Teacher write ownership; Student self-read).
 - [x] Class notes (`GET|POST /classes/:id/notes`, `PATCH|DELETE .../:noteId`; content trim 1–4000; Teacher write ownership; Student read-only).
-- [x] Teacher/Student ownership scoping for ClassSession reads (`Group.teacherId` / active Enrollment; GET list/id/calendar; sin write ownership).
+- [x] ClassSession read ownership (`Group.teacherId` / active Enrollment; GET list/id/calendar).
+- [x] ClassSession write ownership (`POST`/`PATCH`/`DELETE`; admin vía `classes.*`; TEACHER del Group; STUDENT denegado; generate sigue `classes.create`).
 - [x] Unique/idempotencia `(groupId, startAt)` para generación (`@@unique` + `skipDuplicates`).
-- [ ] GiST/EXCLUDE constraint on teacher ranges (requires denormalized `teacherId` on ClassSession — deferred; see #33).
-- [ ] Automated meeting provisioning (Zoom/Meet/Teams APIs) — future; manual `meetingUrl` only.
 
-### Acceptance criteria
-- Teacher and student see the same scheduled class.
-- Meeting link opens the configured external classroom.
-- Attendance and notes persist.
-- Invalid durations are rejected.
+### TODO (remaining Stage 4 / deferred)
+- [ ] Timezones avanzados (por usuario/group; UI de configuración).
+- [ ] Broader recurrence / RRULE (beyond weekly generate).
+- [ ] GiST/EXCLUDE constraint on teacher ranges (requires denormalized `teacherId` on ClassSession — deferred; see #33).
+- [ ] Automated meeting provisioning (Zoom/Meet/Teams APIs) — also listed under Future backlog; manual `meetingUrl` only for MVP.
+- [ ] UI for weekly generate / attendance / notes (API done; dedicated UX later — Stages 7–8 for learner/teacher flows).
+
+### Acceptance criteria — core met; stage not complete
+- Teacher and student can see scheduled classes within ownership scope. *(met via API + calendar + classes UI)*
+- Meeting link opens the configured external classroom when `meetingUrl` is set. *(met)*
+- Attendance and notes persist. *(met via API; no dedicated UX yet — Stages 7–8)*
+- Invalid durations are rejected. *(met)*
 
 ## Stage 5 — Materials
 
@@ -193,25 +208,50 @@ Make class material available in context.
 ## Stage 6 — Finance
 
 ### Objective
-Track the academy's 15% and teacher's 85%.
+Track payments and settlements using the academy's **configurable** revenue split
+(not a hardcoded 40/60 forever).
+
+### Business rule — revenue split (academy config)
+- Single **current** academy setting: `academyPercentage` ∈ `{20, 30, 40, 50}`.
+- Default: **40** (Teacher **60**).
+- Teacher share is always derived: `teacherPercentage = 100 - academyPercentage`.
+  Do not allow two independent writable percentages.
+- Allowed pairs only: 20/80, 30/70, 40/60, 50/50.
+- Who may **change** the config: **SUPER_ADMIN** and **DIRECTOR** only.
+  ADMINISTRATIVE, TEACHER and STUDENT cannot modify it.
+- This is academy-wide current configuration prepared for Finance (same family as
+  other academy business config). Payments, settlements, money math and finance
+  UI are **not** started until this stage is actively implemented.
+- **Freeze (decided, #41):** financial operations that must keep a historical
+  split freeze the applicable percentage on that record; later academy-config
+  changes do not rewrite frozen rows. Exact freeze trigger timing is left to
+  Stage 6 implementation design (not invented here).
 
 ### TODO
+- [ ] Academy revenue-split configuration (persist current `academyPercentage`;
+      validate allowed set; derive teacher %; mutate only SUPER_ADMIN/DIRECTOR).
 - [ ] Student pricing.
-- [ ] Payment record.
+- [ ] Payment record (apply Freeze principle for historical share — #41).
 - [ ] Payment status.
-- [ ] Academy share.
-- [ ] Teacher share.
-- [ ] Monthly/period settlement.
+- [ ] Academy share (from configured / frozen `academyPercentage` as applicable).
+- [ ] Teacher share (derived `100 - academyPercentage`).
+- [ ] Monthly/period settlement (respect Freeze on historical operations).
 - [ ] Settlement status.
-- [ ] Financial dashboard.
-- [ ] Calculation tests.
+- [ ] Financial dashboard / Director UI to select among the four pairs.
+- [ ] Calculation tests (each allowed pair + default 40/60; reject illegal %;
+      frozen rows unaffected by later config changes).
 
 ### Acceptance criteria
-For a $100 input:
-- academy = $15
-- teacher = $85
-
-No floating-point/rounding bug may alter the intended settlement.
+- Director (and SuperAdmin) can select exactly one of the four allowed splits;
+  default is academy 40% / teacher 60%.
+- Teacher percentage is never an independent writable value.
+- ADMINISTRATIVE / TEACHER / STUDENT cannot change the split.
+- For a $100 input under the **active** config, shares match that config
+  (e.g. default → academy $40, teacher $60).
+- Already-frozen financial operations keep their frozen split after a config
+  change (Freeze — #41).
+- No floating-point/rounding bug may alter the intended settlement.
+- Payments remain decoupled from Finance domain logic.
 
 ## Stage 7 — Student UX
 

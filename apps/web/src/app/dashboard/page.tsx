@@ -47,6 +47,12 @@ export default async function DashboardPage() {
           Profesores
         </Link>
         <Link
+          href="/dashboard/classes"
+          className="font-medium text-ink underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
+        >
+          Clases
+        </Link>
+        <Link
           href="/dashboard/calendar"
           className="font-medium text-ink underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
         >

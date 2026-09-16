@@ -13,6 +13,7 @@ import {
   type ClassSessionCalendarResponse,
   type ClassSessionListResponse,
   type ClassSessionResponse,
+  type PermissionAction,
   type SessionUser,
 } from '@academia/shared';
 import { Router } from 'express';
@@ -55,6 +56,7 @@ import {
   updateClassSession,
   type ClassSessionReadScope,
   type ClassSessionStore,
+  type ClassSessionWriteActor,
 } from '../../domain/classes/class-session-service.js';
 import type { StudentStore } from '../../domain/students/student-service.js';
 import type { TeacherStore } from '../../domain/teachers/teacher-service.js';
@@ -68,7 +70,6 @@ import {
   authenticate,
   type AuthenticateOptions,
 } from '../middleware/authenticate.js';
-import { requirePermission } from '../middleware/require-permission.js';
 
 export interface ClassSessionsDependencies {
   authenticate: AuthenticateOptions;
@@ -113,16 +114,18 @@ async function resolveClassSessionReadScope(
 }
 
 /**
- * Nested write ownership for Attendance / ClassNotes:
- * classes.update → admin; TEACHER of the Group → teacher actor.
+ * Write ownership for ClassSession CRUD and nested Attendance / Notes.
+ * Admin path: explicit classes.* grant (or SUPER_ADMIN/DIRECTOR bypass).
+ * TEACHER without that grant → Group.teacherId must match.
  * Students never write. Session identity only.
  */
-async function resolveClassSessionWriteActor(
+async function resolveClassOwnedWriteActor(
   grants: PermissionGrantStore,
   user: SessionUser,
   teachers: TeacherStore,
-): Promise<AttendanceWriteActor | null> {
-  if (await hasPermission(grants, user.role, 'classes', 'update')) {
+  adminAction: Extract<PermissionAction, 'create' | 'update' | 'delete'>,
+): Promise<ClassSessionWriteActor | null> {
+  if (await hasPermission(grants, user.role, 'classes', adminAction)) {
     return { mode: 'admin' };
   }
   if (user.role === 'TEACHER') {
@@ -131,6 +134,15 @@ async function resolveClassSessionWriteActor(
     return { mode: 'teacher', teacherId: teacher.id };
   }
   return null;
+}
+
+/** Nested Attendance / Notes writes use classes.update as the admin grant. */
+async function resolveClassSessionWriteActor(
+  grants: PermissionGrantStore,
+  user: SessionUser,
+  teachers: TeacherStore,
+): Promise<AttendanceWriteActor | null> {
+  return resolveClassOwnedWriteActor(grants, user, teachers, 'update');
 }
 
 export function createClassSessionsRouter({
@@ -229,43 +241,53 @@ export function createClassSessionsRouter({
     },
   );
 
-  router.post(
-    '/classes',
-    authenticate(authOptions),
-    requirePermission(permissionGrants, 'classes', 'create'),
-    (req, res, next) => {
-      void (async () => {
-        try {
-          const parsed = createClassSessionRequestSchema.safeParse(req.body);
-          if (!parsed.success) {
-            throw new BadRequestError(
-              'Valid groupId and startAt (ISO datetime) are required.',
-            );
-          }
-          const classSession = await createClassSession(
-            classSessions,
-            parsed.data,
-          );
-          const body: ClassSessionResponse = { classSession };
-          res.status(201).json(body);
-        } catch (error) {
-          if (error instanceof ClassSessionConflictError) {
-            next(new ConflictError(error.message));
-            return;
-          }
-          if (error instanceof ClassSessionValidationError) {
-            if (error.message === 'Group not found.') {
-              next(new NotFoundError(error.message));
-              return;
-            }
-            next(new BadRequestError(error.message));
-            return;
-          }
-          next(error);
+  router.post('/classes', authenticate(authOptions), (req, res, next) => {
+    void (async () => {
+      try {
+        const actor = await resolveClassOwnedWriteActor(
+          permissionGrants,
+          req.user!,
+          teachers,
+          'create',
+        );
+        if (!actor) {
+          throw new ForbiddenError();
         }
-      })();
-    },
-  );
+
+        const parsed = createClassSessionRequestSchema.safeParse(req.body);
+        if (!parsed.success) {
+          throw new BadRequestError(
+            'Valid groupId and startAt (ISO datetime) are required.',
+          );
+        }
+        const classSession = await createClassSession(
+          classSessions,
+          parsed.data,
+          actor,
+        );
+        const body: ClassSessionResponse = { classSession };
+        res.status(201).json(body);
+      } catch (error) {
+        if (error instanceof ClassSessionForbiddenError) {
+          next(new ForbiddenError(error.message));
+          return;
+        }
+        if (error instanceof ClassSessionConflictError) {
+          next(new ConflictError(error.message));
+          return;
+        }
+        if (error instanceof ClassSessionValidationError) {
+          if (error.message === 'Group not found.') {
+            next(new NotFoundError(error.message));
+            return;
+          }
+          next(new BadRequestError(error.message));
+          return;
+        }
+        next(error);
+      }
+    })();
+  });
 
   router.get('/classes/:id', authenticate(authOptions), (req, res, next) => {
     void (async () => {
@@ -304,69 +326,94 @@ export function createClassSessionsRouter({
     })();
   });
 
-  router.patch(
-    '/classes/:id',
-    authenticate(authOptions),
-    requirePermission(permissionGrants, 'classes', 'update'),
-    (req, res, next) => {
-      void (async () => {
-        try {
-          const id = pathId(req.params['id']);
-          if (!id) throw new BadRequestError('Class session id is required.');
-          const parsed = updateClassSessionRequestSchema.safeParse(req.body);
-          if (!parsed.success) {
-            throw new BadRequestError(
-              'Provide at least one of startAt, isActive, or meetingUrl.',
-            );
-          }
-          const classSession = await updateClassSession(
-            classSessions,
-            id,
-            parsed.data,
-          );
-          const body: ClassSessionResponse = { classSession };
-          res.status(200).json(body);
-        } catch (error) {
-          if (error instanceof ClassSessionNotFoundError) {
-            next(new NotFoundError(error.message));
-            return;
-          }
-          if (error instanceof ClassSessionConflictError) {
-            next(new ConflictError(error.message));
-            return;
-          }
-          if (error instanceof ClassSessionValidationError) {
-            next(new BadRequestError(error.message));
-            return;
-          }
-          next(error);
-        }
-      })();
-    },
-  );
+  router.patch('/classes/:id', authenticate(authOptions), (req, res, next) => {
+    void (async () => {
+      try {
+        const id = pathId(req.params['id']);
+        if (!id) throw new BadRequestError('Class session id is required.');
 
-  router.delete(
-    '/classes/:id',
-    authenticate(authOptions),
-    requirePermission(permissionGrants, 'classes', 'delete'),
-    (req, res, next) => {
-      void (async () => {
-        try {
-          const id = pathId(req.params['id']);
-          if (!id) throw new BadRequestError('Class session id is required.');
-          const classSession = await deleteClassSession(classSessions, id);
-          const body: ClassSessionResponse = { classSession };
-          res.status(200).json(body);
-        } catch (error) {
-          if (error instanceof ClassSessionNotFoundError) {
-            next(new NotFoundError(error.message));
-            return;
-          }
-          next(error);
+        const actor = await resolveClassOwnedWriteActor(
+          permissionGrants,
+          req.user!,
+          teachers,
+          'update',
+        );
+        if (!actor) {
+          throw new ForbiddenError();
         }
-      })();
-    },
-  );
+
+        const parsed = updateClassSessionRequestSchema.safeParse(req.body);
+        if (!parsed.success) {
+          throw new BadRequestError(
+            'Provide at least one of startAt, isActive, or meetingUrl.',
+          );
+        }
+        const classSession = await updateClassSession(
+          classSessions,
+          id,
+          parsed.data,
+          actor,
+        );
+        const body: ClassSessionResponse = { classSession };
+        res.status(200).json(body);
+      } catch (error) {
+        if (error instanceof ClassSessionNotFoundError) {
+          next(new NotFoundError(error.message));
+          return;
+        }
+        if (error instanceof ClassSessionForbiddenError) {
+          next(new ForbiddenError(error.message));
+          return;
+        }
+        if (error instanceof ClassSessionConflictError) {
+          next(new ConflictError(error.message));
+          return;
+        }
+        if (error instanceof ClassSessionValidationError) {
+          next(new BadRequestError(error.message));
+          return;
+        }
+        next(error);
+      }
+    })();
+  });
+
+  router.delete('/classes/:id', authenticate(authOptions), (req, res, next) => {
+    void (async () => {
+      try {
+        const id = pathId(req.params['id']);
+        if (!id) throw new BadRequestError('Class session id is required.');
+
+        const actor = await resolveClassOwnedWriteActor(
+          permissionGrants,
+          req.user!,
+          teachers,
+          'delete',
+        );
+        if (!actor) {
+          throw new ForbiddenError();
+        }
+
+        const classSession = await deleteClassSession(
+          classSessions,
+          id,
+          actor,
+        );
+        const body: ClassSessionResponse = { classSession };
+        res.status(200).json(body);
+      } catch (error) {
+        if (error instanceof ClassSessionNotFoundError) {
+          next(new NotFoundError(error.message));
+          return;
+        }
+        if (error instanceof ClassSessionForbiddenError) {
+          next(new ForbiddenError(error.message));
+          return;
+        }
+        next(error);
+      }
+    })();
+  });
 
   router.get(
     '/classes/:id/attendance',

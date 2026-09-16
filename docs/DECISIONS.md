@@ -522,7 +522,8 @@ until timezone policy exists. Module `classes` (incl. `delete`) owns CRUD.
 Foundation writes still gate on `classes.*` grants. Read ownership for
 Teacher/Student: #36.
 
-**Still out of scope.** Attendance, notes, calendar UI.
+**Still out of scope.** Attendance, notes. (Calendar UI: shipped Stage 4
+`/dashboard/calendar`.)
 (Timezone: #31. Weekly generation: #32. Conflict detection: #33.
 Meeting URL: #35. Read ownership: #36.)
 
@@ -576,7 +577,8 @@ source of truth). Permission: existing `classes.create`. Idempotency:
 deleted rows with the same key still block re-insert. Client cannot supply
 duration, instants, teacher, schedule, or timezone.
 
-**Still out of scope.** Calendar UI; RRULE; overwriting soft-deleted sessions.
+**Still out of scope.** RRULE; overwriting soft-deleted sessions.
+(Calendar UI: shipped Stage 4 `/dashboard/calendar`.)
 (Conflict detection: #33. Read ownership: #36.)
 
 ---
@@ -600,8 +602,8 @@ need `teacher_id` on `class_sessions`. Instead: transaction +
 connection (same pattern as enrollment max-15). Documented limit: no GiST
 exclusion without denormalization.
 
-**Still out of scope.** Denormalized teacherId / GiST exclude; calendar UI;
-inactive-session resurrection into overlaps.
+**Still out of scope.** Denormalized teacherId / GiST exclude; inactive-session
+resurrection into overlaps. (Calendar UI: shipped Stage 4 `/dashboard/calendar`.)
 
 ---
 
@@ -654,11 +656,9 @@ module or denormalized ownership table.
 - `STUDENT` without that grant → sessions where an **active** Enrollment exists
   for the Student profile on the session’s Group.
 - Filtering happens in the store query (join / `EXISTS`), not post-fetch.
-- Writes (`POST`/`PATCH`/`DELETE`/`generate`) stay permission-gated; ownership
-  does not grant mutation.
 
-**Still out of scope.** Teacher/Student write ownership; calendar UI.
-(Attendance: #37.)
+**Still out of scope.** Advanced calendar filters. (Write ownership: #40.
+Attendance: #37.)
 
 ---
 
@@ -681,8 +681,8 @@ Students never mutate attendance. No nested attendance on ClassSession list/get
 payloads.
 
 **Still out of scope.** JUSTIFIED; attendance.* permissions; enrollment history;
-Student attendance history UX (Stage 7); write ownership for ClassSession CRUD.
-(Class notes: #38.)
+Student attendance history UX (Stage 7). (Class notes: #38. ClassSession write
+ownership: #40.)
 
 ---
 
@@ -720,3 +720,69 @@ Never commit product work directly to `main`. Archive
 `feature/stage-0-foundation-infrastructure` as historical only — no new work.
 Document the scheme in `docs/BRANCHING.md` and mirror it in
 `docs/INFRASTRUCTURE.md`.
+
+---
+
+## 40. ClassSession write ownership (Teacher of Group)
+
+**Context.** Read ownership (#36) and nested Attendance/Notes writes (#37/#38)
+already scope Teachers via `Group.teacherId`. ClassSession
+`POST`/`PATCH`/`DELETE` were still hard-gated on `classes.create|update|delete`
+only, so group Teachers could not manage their own sessions without an admin
+grant.
+
+**Decision.** Resolve a write actor from the session:
+
+- Caller with the matching `classes.*` grant (incl. SUPER_ADMIN/DIRECTOR bypass)
+  → unrestricted admin actor.
+- `TEACHER` without that grant → may mutate only when
+  `ClassSession → Group.teacherId` matches their Teacher profile (same source as
+  reads; not Student→Teacher assignment).
+- `STUDENT` → never.
+- Ownership is checked in the ClassSession domain on create/update/delete
+  (re-checked under the teacher schedule lock). Client `teacherId` is ignored.
+- `POST /groups/:id/classes/generate` stays `requirePermission(classes, create)`
+  only — no Teacher ownership bypass for bulk generation.
+
+**Still out of scope.** Teacher generate ownership; generate/attendance/notes UI;
+changing read rules. (ClassSession write UI: `/dashboard/classes` + `[id]`.)
+
+---
+
+## 41. Academy revenue split is configurable (not a fixed 15/85 or 40/60)
+
+**Context.** Product rules and `MASTER-PROMPT.md` originally fixed academy/
+teacher shares at 15/85; later roadmap text drifted to a hardcoded 40/60. The
+Director must be able to choose among a closed set of pairs, with a clear
+default, without allowing inconsistent independent percentages. Finance
+(payments, settlements, dashboards) is still not implemented.
+
+**Decision.**
+
+- Store a single **current** academy setting: `academyPercentage`.
+- Allowed values only: `20 | 30 | 40 | 50`. Default: `40`.
+- Teacher share is always derived: `teacherPercentage = 100 - academyPercentage`
+  (pairs 20/80, 30/70, 40/60, 50/50). Never two independent writable percentages.
+- Who may **mutate** the setting: **SUPER_ADMIN** and **DIRECTOR** only.
+  ADMINISTRATIVE, TEACHER and STUDENT cannot change it (role gate, not an
+  Administrative grant).
+- This is academy-wide **current** business configuration prepared for the
+  Finance domain (Payments remain decoupled; money math still lives server-side
+  when Stage 6 is implemented).
+
+**Historical share — Freeze (adopted).**
+
+When a financial operation must keep its historical split, the applicable
+percentage is **frozen on that financial record**. Later changes to the
+academy's current `academyPercentage` must **not** rewrite already-frozen
+operations retrospectively.
+
+This decides the principle (Freeze vs living config). It does **not** define
+the exact lifecycle moment when freeze occurs (e.g. payment create vs settlement
+close); that remains for Stage 6 implementation design when Finance models
+exist.
+
+**Still out of scope.** Payment records; settlements; finance UI; money
+calculations; percentage history tables beyond the freeze-on-record principle;
+Administrative grants for this setting; options other than 20/30/40/50;
+exact freeze trigger timing.

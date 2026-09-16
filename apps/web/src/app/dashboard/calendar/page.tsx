@@ -98,7 +98,12 @@ export default async function CalendarPage({
                   return (
                     <li key={session.id} className="py-4">
                       <p className="font-medium text-ink">
-                        {session.group.course.name} · {session.group.name}
+                        <Link
+                          href={`/dashboard/classes/${session.id}`}
+                          className="underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
+                        >
+                          {session.group.course.name} · {session.group.name}
+                        </Link>
                       </p>
                       <p className="mt-1 text-sm text-ink-muted">
                         {formatSessionTimeRange(session.startAt, session.endAt)}
@@ -132,6 +137,10 @@ export default async function CalendarPage({
       <p className="mt-8 text-sm text-ink-muted">
         <Link href="/dashboard" className="underline">
           Volver al panel
+        </Link>
+        {' · '}
+        <Link href="/dashboard/classes" className="underline">
+          Ver listado de clases
         </Link>
       </p>
     </>
