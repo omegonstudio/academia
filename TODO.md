@@ -173,6 +173,7 @@ Operate real live classes.
 - [x] ClassSession write ownership (`POST`/`PATCH`/`DELETE`; admin vía `classes.*`; TEACHER del Group; STUDENT denegado; generate sigue `classes.create`).
 - [x] Unique/idempotencia `(groupId, startAt)` para generación (`@@unique` + `skipDuplicates`).
 - [x] Attendance + Notes UI on `/dashboard/classes/[id]` (roster via enrollments when `groups.read`; STUDENT read-only; API authz authoritative).
+- [x] Automated coverage for smoke gaps: enrollment 16th → 400 (HTTP asserts); teacher overlap create/PATCH 409 + generate `conflictCount` (HTTP); ADMINISTRATIVE positive grants on students/teachers/courses/groups/classes (+ attendance/notes via `classes.update`).
 
 ### TODO (remaining Stage 4 / deferred)
 - [ ] Timezones avanzados (por usuario/group; UI de configuración).
@@ -180,7 +181,7 @@ Operate real live classes.
 - [ ] GiST/EXCLUDE constraint on teacher ranges (requires denormalized `teacherId` on ClassSession — deferred; see #33).
 - [ ] Automated meeting provisioning (Zoom/Meet/Teams APIs) — also listed under Future backlog; manual `meetingUrl` only for MVP.
 - [ ] UI for weekly generate (API done; no UI yet).
-
+- [ ] Browser E2E (Playwright/Cypress) — out of unit/API smoke scope.
 ### Acceptance criteria — core met; stage not complete
 - Teacher and student can see scheduled classes within ownership scope. *(met via API + calendar + classes UI)*
 - Meeting link opens the configured external classroom when `meetingUrl` is set. *(met)*

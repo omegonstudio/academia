@@ -216,7 +216,19 @@ describe('Group enrollment', () => {
       .set('Cookie', cookie)
       .send({ studentId: overflowId });
     expect(overflow.status).toBe(400);
+    expect(overflow.body.error.code).toBe('BAD_REQUEST');
     expect(overflow.body.error.message).toMatch(/full/);
+
+    const afterOverflow = await request(fixture.app)
+      .get(`/groups/${groupId}/students`)
+      .set('Cookie', cookie);
+    expect(afterOverflow.status).toBe(200);
+    expect(afterOverflow.body.enrollments).toHaveLength(15);
+    expect(
+      afterOverflow.body.enrollments.map(
+        (row: { studentId: string }) => row.studentId,
+      ),
+    ).not.toContain(overflowId);
   });
 
   it('does not grant TEACHER enrollment mutation without groups.update', async () => {
