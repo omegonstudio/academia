@@ -1,18 +1,50 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
+import { ClassSessionAttendancePanel } from '@/components/class-session-attendance-panel';
 import { ClassSessionDetailActions } from '@/components/class-session-detail-actions';
+import { ClassSessionNotesPanel } from '@/components/class-session-notes-panel';
 import { PageHeader } from '@/components/page-header';
-import { fetchClassSession, fetchGroup, getSession } from '@/lib/api';
+import {
+  fetchClassSession,
+  fetchClassSessionAttendance,
+  fetchClassSessionNotes,
+  fetchGroup,
+  fetchGroupEnrollments,
+  fetchStudents,
+  getSession,
+} from '@/lib/api';
 import {
   formatSessionTimeRange,
   serviceTypeLabel,
 } from '@/lib/calendar';
+import {
+  buildAttendanceRoster,
+  canMutateAttendanceUi,
+  type AttendanceRosterRow,
+} from '@/lib/class-session-attendance';
+import { canMutateNotesUi } from '@/lib/class-session-notes';
 
 export const metadata: Metadata = {
   title: 'Clase',
   robots: { index: false, follow: false },
 };
+
+function enrichRosterNames(
+  rows: AttendanceRosterRow[],
+  namesByStudentId: Map<string, { firstName: string; lastName: string }>,
+): AttendanceRosterRow[] {
+  return rows.map((row) => {
+    if (row.firstName && row.lastName) return row;
+    const named = namesByStudentId.get(row.studentId);
+    if (!named) return row;
+    return {
+      ...row,
+      firstName: named.firstName,
+      lastName: named.lastName,
+    };
+  });
+}
 
 export default async function ClassSessionDetailPage({
   params,
@@ -42,11 +74,44 @@ export default async function ClassSessionDetailPage({
   }
 
   const { classSession } = result;
-  const groupResult = await fetchGroup(classSession.groupId);
+  const [groupResult, attendanceResult, notesResult, enrollmentsResult, studentsResult] =
+    await Promise.all([
+      fetchGroup(classSession.groupId),
+      fetchClassSessionAttendance(classSession.id),
+      fetchClassSessionNotes(classSession.id),
+      fetchGroupEnrollments(classSession.groupId),
+      fetchStudents(),
+    ]);
+
   const groupName = groupResult.ok ? groupResult.group.name : null;
   const title = groupName
     ? `${groupName}`
     : `Clase · ${formatSessionTimeRange(classSession.startAt, classSession.endAt)}`;
+
+  const canWriteAttendance = canMutateAttendanceUi(user.role);
+  const canWriteNotes = canMutateNotesUi(user.role);
+
+  const namesByStudentId = new Map(
+    studentsResult.ok
+      ? studentsResult.students.map(
+          (student) =>
+            [
+              student.id,
+              { firstName: student.firstName, lastName: student.lastName },
+            ] as const,
+        )
+      : [],
+  );
+
+  const attendanceRows = attendanceResult.ok
+    ? enrichRosterNames(
+        buildAttendanceRoster({
+          enrollments: enrollmentsResult.ok ? enrollmentsResult.enrollments : null,
+          attendances: attendanceResult.attendances,
+        }),
+        namesByStudentId,
+      )
+    : [];
 
   return (
     <>
@@ -105,6 +170,43 @@ export default async function ClassSessionDetailPage({
       {user.role !== 'STUDENT' ? (
         <ClassSessionDetailActions classSession={classSession} />
       ) : null}
+
+      {!attendanceResult.ok ? (
+        <section className="mt-10 max-w-lg" aria-labelledby="attendance-heading">
+          <h2 id="attendance-heading" className="text-lg font-semibold text-ink">
+            Asistencia
+          </h2>
+          <p role="alert" className="mt-3 text-sm text-danger">
+            {attendanceResult.message}
+          </p>
+        </section>
+      ) : (
+        <ClassSessionAttendancePanel
+          classSessionId={classSession.id}
+          sessionActive={classSession.isActive}
+          canWrite={canWriteAttendance}
+          enrollmentsUnavailable={!enrollmentsResult.ok}
+          initialRows={attendanceRows}
+        />
+      )}
+
+      {!notesResult.ok ? (
+        <section className="mt-10 max-w-lg" aria-labelledby="notes-heading">
+          <h2 id="notes-heading" className="text-lg font-semibold text-ink">
+            Notas de la clase
+          </h2>
+          <p role="alert" className="mt-3 text-sm text-danger">
+            {notesResult.message}
+          </p>
+        </section>
+      ) : (
+        <ClassSessionNotesPanel
+          classSessionId={classSession.id}
+          sessionActive={classSession.isActive}
+          canWrite={canWriteNotes}
+          initialNotes={notesResult.notes}
+        />
+      )}
 
       <p className="mt-8 text-sm">
         <Link href="/dashboard/classes" className="underline">

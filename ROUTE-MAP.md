@@ -35,7 +35,7 @@ All public pages: `lang="es"`, one `<h1>`, skip link, landmarks, verified contra
 | `[x]`  | `/dashboard/teachers/[id]` | Authenticated. Detalle + edición/desactivación según permiso. |
 | `[x]`  | `/dashboard/calendar` | Authenticated. Calendario mensual de clases vía `GET /classes/calendar` (SSR; loading implícito; error/vacío; ownership en API). |
 | `[x]`  | `/dashboard/classes` | Authenticated. Lista clases vía `GET /classes`; create (no STUDENT) vía `POST /classes`; nombres de grupo vía `GET /groups` cuando hay permiso. |
-| `[x]`  | `/dashboard/classes/[id]` | Authenticated. Detalle + edit/deactivate según ownership/permiso API; Student read-only. |
+| `[x]`  | `/dashboard/classes/[id]` | Authenticated. Detalle + edit/deactivate según ownership/permiso API; Student read-only. Attendance + Notes panels vía APIs existentes. |
 
 ### API routes
 
@@ -185,9 +185,9 @@ Done:
 - ClassSession CRUD API (`/classes`; duration from serviceType; optional https `meetingUrl`; ScheduleOption required on Group).
 - Weekly generation `POST /groups/:id/classes/generate` (idempotent; conflictCount; `classes.create` only).
 - Calendar API `GET /classes/calendar` + Calendar UI `/dashboard/calendar`.
-- Class Sessions UI: list + detail create/edit/soft-delete (API ownership; no generate UI; no attendance/notes UI).
+- Class Sessions UI: list + detail create/edit/soft-delete; Attendance + Notes panels on detail (API ownership).
 - Read + write ownership (Teacher of Group / active Enrollment; generate stays permission-gated).
-- Attendance + Class notes APIs.
+- Attendance + Class notes APIs + UI on `/dashboard/classes/[id]`.
 - Conflict detection; academy business timezone; `UNIQUE(groupId, startAt)`.
 
 TODO / deferred:
@@ -195,7 +195,7 @@ TODO / deferred:
 - Advanced timezones (per user/group).
 - GiST/EXCLUDE (see #33).
 - Automated meeting provisioning (Future backlog; manual URL only for MVP).
-- Generate / attendance / notes UI (API done; dedicated UX later / Stages 7–8).
+- Generate UI (API done; no UI yet).
 
 ## Stage 5 — Materials
 
