@@ -39,7 +39,7 @@ All public pages: `lang="es"`, one `<h1>`, skip link, landmarks, verified contra
 | `[x]`  | `/dashboard/groups` | Authenticated. Lista/crea grupos ligados a Course activo. |
 | `[x]`  | `/dashboard/groups/[id]` | Authenticated. Detalle grupo: teacher, scheduleOption, enrollment (máx. 15), curso. |
 | `[x]`  | `/dashboard/calendar` | Authenticated. Calendario mensual de clases vía `GET /classes/calendar` (SSR; loading implícito; error/vacío; ownership en API). |
-| `[x]`  | `/dashboard/classes` | Authenticated. Lista clases; create; generate semanal (`POST /groups/:id/classes/generate`); nombres de grupo vía `GET /groups` cuando hay permiso. |
+| `[x]`  | `/dashboard/classes` | Authenticated. Lista clases; create/edit; nombres de grupo vía `GET /groups` cuando hay permiso. Generate semanal: API lista; UI pendiente. |
 | `[x]`  | `/dashboard/classes/[id]` | Authenticated. Detalle + edit/deactivate; Attendance + Notes; Student read-only. |
 
 ### API routes
@@ -106,6 +106,8 @@ All public pages: `lang="es"`, one `<h1>`, skip link, landmarks, verified contra
 | `[x]`  | `POST /classes/:id/notes` | `classes.update` o TEACHER del Group. `{content}` trim 1–4000. |
 | `[x]`  | `PATCH /classes/:id/notes/:noteId` | Misma escritura. Solo `content`; note debe pertenecer a `:id`. |
 | `[x]`  | `DELETE /classes/:id/notes/:noteId` | Misma escritura. Hard delete 204. |
+| `[x]`  | `GET /openapi.json` | OpenAPI 3 document (schemas from Zod). Gated by `API_DOCS_ENABLED` (off by default in production). |
+| `[x]`  | `GET /docs` | Swagger UI; consumes the in-process OpenAPI doc; cookie session via same-origin `/api`. |
 
 The browser reaches these as `/api/*`, rewritten by Next.js. In production the
 API publishes no host port.
@@ -120,6 +122,7 @@ API publishes no host port.
 | `[x]`  | `robots.txt`                             | Disallows `/dashboard/`, `/login/`, `/api/`.                |
 | `[x]`  | `sitemap.xml`                            | Public routes only.                                         |
 | `[x]`  | Migration `20260912215052_init_identity` | `users` table + `user_role` enum, snake_case. No destructive statements. |
+| `[x]`  | OpenAPI + Swagger (`/openapi.json`, `/docs`) | Cookie-session Try it out; `API_DOCS_ENABLED`; smoke: `docs/API-SMOKE.md`. |
 
 ### Carried forward
 - Public teacher directory → later stage, once teacher data exists and privacy is decided.
@@ -186,7 +189,7 @@ TODO:
 
 Done:
 - ClassSession CRUD API (`/classes`; duration from serviceType; optional https `meetingUrl`; ScheduleOption required on Group).
-- Weekly generation `POST /groups/:id/classes/generate` (idempotent; conflictCount; `classes.create` only).
+- Weekly generation `POST /groups/:id/classes/generate` (idempotent; conflictCount; `classes.create` only; UI deferred).
 - Calendar API `GET /classes/calendar` + Calendar UI `/dashboard/calendar`.
 - Class Sessions UI: list + detail create/edit/soft-delete; Attendance + Notes panels on detail (API ownership).
 - Read + write ownership (Teacher of Group / active Enrollment; generate stays permission-gated).

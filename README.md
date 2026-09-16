@@ -38,7 +38,10 @@ Once up:
 | ------------------------------- | --------------------------------------- |
 | http://localhost:3000           | Web (public site)                       |
 | http://localhost:3000/login     | Login                                   |
-| http://localhost:4000/health    | API health contract                     |
+| http://localhost:3000/api/health | API health via Next rewrite            |
+| http://localhost:3000/api/docs  | Swagger UI (dev; gated in production)   |
+| http://localhost:3000/api/openapi.json | OpenAPI 3 document                |
+| http://localhost:4000/health    | API health (direct, development only)   |
 | localhost:5433                  | PostgreSQL (host port, development only) |
 
 ```bash
@@ -78,6 +81,7 @@ npm run db:seed           # run the SuperAdmin bootstrap
 | [docs/BACKUP-RESTORE.md](docs/BACKUP-RESTORE.md)     | Backup strategy, retention, restore drill      |
 | [docs/ACCESSIBILITY.md](docs/ACCESSIBILITY.md)        | WCAG 2.2 AA baseline and token contrast        |
 | [docs/DECISIONS.md](docs/DECISIONS.md)               | Architecture decisions and their rationale     |
+| [docs/API-SMOKE.md](docs/API-SMOKE.md)               | Manual API smoke + Insomnia/Swagger cookie flow |
 | [docs/LAQQ-REFERENCE.md](docs/LAQQ-REFERENCE.md)     | Which LaQQ patterns were adopted, and which not |
 | [MASTER-PROMPT.md](MASTER-PROMPT.md)                 | Product brief and infrastructure requirements  |
 

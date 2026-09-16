@@ -48,6 +48,7 @@ export const SESSION_COOKIE = 'academia_session';
 export interface TestAppOptions {
   databaseReachable?: boolean;
   configurationIssues?: string[];
+  docsEnabled?: boolean;
 }
 
 export interface InMemoryRoleProvisionStore extends RoleProvisionStore {
@@ -252,6 +253,7 @@ function createInMemoryRoleProvisionStore(
 export async function buildTestApp({
   databaseReachable = true,
   configurationIssues = [],
+  docsEnabled = true,
 }: TestAppOptions = {}): Promise<TestApp> {
   const users = createInMemoryUserRepository();
   const directors = createInMemoryRoleProvisionStore(users, 'DIRECTOR');
@@ -554,6 +556,7 @@ export async function buildTestApp({
       permissionGrants,
       permissionChangeAudits,
     },
+    docsEnabled,
   });
 
   return {

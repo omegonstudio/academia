@@ -43,6 +43,7 @@ See `docs/DECISIONS.md` (1) and `docs/LAQQ-REFERENCE.md`.
 - [x] WCAG 2.2 AA baseline: skip link, landmarks, focus ring, labels, `role="alert"`, reduced motion.
 - [x] 88 tests (77 unit + 11 integration).
 - [x] `ROUTE-MAP.md` and `TODO.md` updated to the real state.
+- [x] OpenAPI 3 (`GET /openapi.json`) + Swagger UI (`GET /docs`) via `/api/*`; cookie session; `API_DOCS_ENABLED`; smoke `docs/API-SMOKE.md`.
 
 ### Acceptance criteria — all verified
 - [x] Development comes up reproducibly from empty volumes; all three services report healthy.
