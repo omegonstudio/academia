@@ -95,6 +95,19 @@ export const envSchema = z.object({
   LOAD_SEED_DATA: booleanFromEnv,
 
   /**
+   * OpenAPI + Swagger UI gate.
+   *
+   * Optional: when unset, docs are enabled outside production and disabled in
+   * production (`isApiDocsEnabled`). Set explicitly to force either state.
+   */
+  API_DOCS_ENABLED: z
+    .enum(['true', 'false'])
+    .optional()
+    .transform((value) =>
+      value === undefined ? undefined : value === 'true',
+    ),
+
+  /**
    * Academy business IANA timezone. Configuration — not class-generation logic.
    * ScheduleOption local times convert to ClassSession timestamptz via this value.
    */

@@ -46,14 +46,27 @@ docker-compose.prod.yml    production override
 Always combined, which the scripts do for you:
 
 ```bash
-docker compose -f docker-compose.yml -f docker-compose.dev.yml  up
-docker compose -f docker-compose.yml -f docker-compose.prod.yml up
+# Preferred (sets COMPOSE_PROJECT_NAME=academia-dev, waits for healthy):
+npm run dev
+
+# Equivalent raw compose (never use either file alone):
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build -d
+docker compose -f docker-compose.yml -f docker-compose.prod.yml up --build -d
 ```
 
-The base file defines the topology, environment wiring and healthchecks once; the
-overrides carry only what genuinely differs. Each service receives only the
-variables it needs — the web container is never given `DATABASE_URL` or
-`AUTH_SECRET`.
+Running `docker compose config` or `docker compose -f docker-compose.dev.yml …`
+**alone** fails with `has neither an image nor a build context` — that is expected:
+the base file owns health/env wiring; the override owns `build`/`ports`/`volumes`.
+
+### Dev `node_modules` anonymous volumes
+
+`docker-compose.dev.yml` bind-mounts sources and `package-lock.json`, and keeps
+`/app/node_modules` in anonymous volumes so the host install cannot fight the
+container. Those volumes are seeded once from the image. After dependency
+changes, the API/web **dev entrypoints** compare a hash of `package-lock.json`
+and re-run `npm ci` when it drifts (`docker/sync-node-modules.sh`). Rebuild +
+recreate the service after adding packages (`npm run dev`, or recreate `api`/`web`);
+do **not** delete the named PostgreSQL volume.
 
 Startup is ordered by health, not by luck: `db` healthy → `api` healthy → `web`.
 

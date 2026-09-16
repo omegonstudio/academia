@@ -1,3 +1,4 @@
+import { isApiDocsEnabled } from './config/docs-enabled.js';
 import { evaluateConfiguration, parseEnv } from './config/env.js';
 import { createAuthService } from './domain/identity/auth-service.js';
 import { createAdministrativeProvisionStore } from './domain/identity/provision-administrative.js';
@@ -157,6 +158,7 @@ async function main(): Promise<void> {
       permissionGrants,
       permissionChangeAudits,
     },
+    docsEnabled: isApiDocsEnabled(env),
   });
 
   const server = app.listen(env.API_PORT, () => {

@@ -28,14 +28,19 @@ All public pages: `lang="es"`, one `<h1>`, skip link, landmarks, verified contra
 | Status | Route        | Access                                                                 |
 | ------ | ------------ | ---------------------------------------------------------------------- |
 | `[x]`  | `/login`     | Public. `noindex, nofollow`. Redirects to `/dashboard` if already authenticated. |
-| `[x]`  | `/dashboard` | Authenticated only. `noindex, nofollow`. Server-side redirect to `/login`. Session identity + role-aware hub; nav to students, teachers, classes, calendar. |
+| `[x]`  | `/dashboard` | Authenticated only. `noindex, nofollow`. Server-side redirect to `/login`. Session identity + role-aware hub; nav to students, teachers, assignments, courses, groups, classes, calendar. |
 | `[x]`  | `/dashboard/students` | Authenticated. Lista/crea estudiantes vía API real (loading/error/vacío). |
 | `[x]`  | `/dashboard/students/[id]` | Authenticated. Detalle + edición/desactivación según permiso. |
 | `[x]`  | `/dashboard/teachers` | Authenticated. Lista/crea profesores vía API real (loading/error/vacío). |
 | `[x]`  | `/dashboard/teachers/[id]` | Authenticated. Detalle + edición/desactivación según permiso. |
+| `[x]`  | `/dashboard/assignments` | Authenticated. Asignación estudiante→profesor actual (sin historial); API `/students/:id/teacher`. |
+| `[x]`  | `/dashboard/courses` | Authenticated. Lista/crea cursos; `courseType` + `serviceType`; duración derivada (no editable). |
+| `[x]`  | `/dashboard/courses/[id]` | Authenticated. Detalle + edición/desactivación de curso. |
+| `[x]`  | `/dashboard/groups` | Authenticated. Lista/crea grupos ligados a Course activo. |
+| `[x]`  | `/dashboard/groups/[id]` | Authenticated. Detalle grupo: teacher, scheduleOption, enrollment (máx. 15), curso. |
 | `[x]`  | `/dashboard/calendar` | Authenticated. Calendario mensual de clases vía `GET /classes/calendar` (SSR; loading implícito; error/vacío; ownership en API). |
-| `[x]`  | `/dashboard/classes` | Authenticated. Lista clases vía `GET /classes`; create (no STUDENT) vía `POST /classes`; generate (no STUDENT; API `classes.create`) vía `POST /groups/:id/classes/generate`; nombres de grupo vía `GET /groups` cuando hay permiso. |
-| `[x]`  | `/dashboard/classes/[id]` | Authenticated. Detalle + edit/deactivate según ownership/permiso API; Student read-only. Attendance + Notes panels vía APIs existentes. |
+| `[x]`  | `/dashboard/classes` | Authenticated. Lista clases; create/edit; nombres de grupo vía `GET /groups` cuando hay permiso. Generate semanal: API lista; UI pendiente. |
+| `[x]`  | `/dashboard/classes/[id]` | Authenticated. Detalle + edit/deactivate; Attendance + Notes; Student read-only. |
 
 ### API routes
 
@@ -101,6 +106,8 @@ All public pages: `lang="es"`, one `<h1>`, skip link, landmarks, verified contra
 | `[x]`  | `POST /classes/:id/notes` | `classes.update` o TEACHER del Group. `{content}` trim 1–4000. |
 | `[x]`  | `PATCH /classes/:id/notes/:noteId` | Misma escritura. Solo `content`; note debe pertenecer a `:id`. |
 | `[x]`  | `DELETE /classes/:id/notes/:noteId` | Misma escritura. Hard delete 204. |
+| `[x]`  | `GET /openapi.json` | OpenAPI 3 document (schemas from Zod). Gated by `API_DOCS_ENABLED` (off by default in production). |
+| `[x]`  | `GET /docs` | Swagger UI; consumes the in-process OpenAPI doc; cookie session via same-origin `/api`. |
 
 The browser reaches these as `/api/*`, rewritten by Next.js. In production the
 API publishes no host port.
@@ -115,6 +122,7 @@ API publishes no host port.
 | `[x]`  | `robots.txt`                             | Disallows `/dashboard/`, `/login/`, `/api/`.                |
 | `[x]`  | `sitemap.xml`                            | Public routes only.                                         |
 | `[x]`  | Migration `20260912215052_init_identity` | `users` table + `user_role` enum, snake_case. No destructive statements. |
+| `[x]`  | OpenAPI + Swagger (`/openapi.json`, `/docs`) | Cookie-session Try it out; `API_DOCS_ENABLED`; smoke: `docs/API-SMOKE.md`. |
 
 ### Carried forward
 - Public teacher directory → later stage, once teacher data exists and privacy is decided.
@@ -153,27 +161,25 @@ Done:
 - Teacher CRUD (API + UI; soft delete; availability; ownership read for TEACHER).
 - Levels (CEFR), active/inactive, basic profiles, own-read ownership tests.
 
-## Stage 3 — Assignments & Academic Structure — API DONE (UI pending)
+## Stage 3 — Assignments & Academic Structure — API + UI DONE (history deferred)
 
-- [ ] `/dashboard/assignments`
-- [ ] `/dashboard/courses`
-- [ ] `/dashboard/courses/[id]`
-- [ ] `/dashboard/groups`
-- [ ] `/dashboard/groups/[id]`
+- [x] `/dashboard/assignments`
+- [x] `/dashboard/courses`
+- [x] `/dashboard/courses/[id]`
+- [x] `/dashboard/groups`
+- [x] `/dashboard/groups/[id]`
 
-Done (API only unless noted):
-- Student → teacher assignment (`GET|POST|DELETE /students/:id/teacher`; current link only; no history).
+Done:
+- Student → teacher assignment UI + API (current link only; no history).
 - Prevent teacher self-assignment (actor TEACHER blocked server-side).
-- Course + Group CRUD (soft delete; **sin UI**).
-- Group → Teacher (`GET|POST|DELETE /groups/:id/teacher`).
-- ScheduleOption CRUD + Group.scheduleOptionId.
-- Enrollment (`GET|POST /groups/:id/students`, `DELETE .../:studentId`; soft deactivate; max 15).
+- Course + Group CRUD UI + API (soft delete; courseType + serviceType; duration derived).
+- Group → Teacher UI + API.
+- ScheduleOption selection on Group (`scheduleOptionId`; catalog labels).
+- Enrollment UI + API (soft deactivate; max 15; capacity display).
 - `Course.serviceType` + derived `durationMinutes`; `Course.courseType` REGULAR | TEACHER_TRAINING.
-- Weekly schedule **catalog** (ScheduleOption). ClassSession generate/calendar → Stage 4.
 
 TODO:
 - Assignment history.
-- UI for assignments / courses / groups.
 
 ## Stage 4 — Classes & Calendar — CORE DONE (partial)
 
@@ -183,7 +189,7 @@ TODO:
 
 Done:
 - ClassSession CRUD API (`/classes`; duration from serviceType; optional https `meetingUrl`; ScheduleOption required on Group).
-- Weekly generation `POST /groups/:id/classes/generate` (idempotent; conflictCount; `classes.create` only) + Generate UI on `/dashboard/classes`.
+- Weekly generation `POST /groups/:id/classes/generate` (idempotent; conflictCount; `classes.create` only; UI deferred).
 - Calendar API `GET /classes/calendar` + Calendar UI `/dashboard/calendar`.
 - Class Sessions UI: list + detail create/edit/soft-delete; Attendance + Notes panels on detail (API ownership).
 - Read + write ownership (Teacher of Group / active Enrollment; generate stays permission-gated).

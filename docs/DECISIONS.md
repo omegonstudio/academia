@@ -788,3 +788,32 @@ exist.
 calculations; percentage history tables beyond the freeze-on-record principle;
 Administrative grants for this setting; options other than 20/30/40/50;
 exact freeze trigger timing.
+
+---
+
+## 42. OpenAPI + Swagger UI behind the existing `/api` rewrite (cookie session)
+
+**Context.** Stages 0–4 APIs are implemented and tested. Operators and
+developers need a maintained contract surface and a Try-it-out UI without a
+second auth mechanism. The browser already reaches the API through the Next.js
+`/api/*` rewrite with an HttpOnly `academia_session` cookie.
+
+**Decision.**
+
+- Serve `GET /openapi.json` and Swagger UI at `/docs` from the Express API.
+- Reach them as `/api/openapi.json` and `/api/docs` via the existing rewrite
+  (no new Next routes required).
+- Build the OpenAPI document in-process from `@academia/shared` Zod schemas
+  (`z.toJSONSchema`, OpenAPI 3.0 target) plus an explicit paths map aligned with
+  `ROUTE-MAP.md` and the mounted routers — not a parallel schema stack.
+- Document auth as cookie `academia_session` only. Swagger uses
+  `withCredentials` and same-origin `/api` server entry so Try it out reuses the
+  existing session after login. No Bearer/JWT for docs.
+- Gate with `API_DOCS_ENABLED`: explicit `true`/`false` wins; when unset,
+  enabled outside production and **disabled in production** by default.
+- Manual smoke + Insomnia import instructions live in `docs/API-SMOKE.md`.
+
+**Still out of scope.** Materials/Finance endpoints; changing auth; generating
+docs from runtime route introspection frameworks; public unauthenticated docs
+in production without an explicit enable flag.
+

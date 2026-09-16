@@ -15,7 +15,9 @@ COPY apps/web/package.json ./apps/web/
 RUN npm ci
 
 COPY docker/web-dev-entrypoint.sh /usr/local/bin/web-dev-entrypoint.sh
-RUN chmod +x /usr/local/bin/web-dev-entrypoint.sh
+COPY docker/sync-node-modules.sh /usr/local/lib/academia/sync-node-modules.sh
+RUN chmod +x /usr/local/bin/web-dev-entrypoint.sh \
+    && chmod +x /usr/local/lib/academia/sync-node-modules.sh
 
 EXPOSE 3000
 

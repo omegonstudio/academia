@@ -4,7 +4,9 @@
 #   - the database port is published so host tooling (psql, prisma) can reach it
 #   - sources are bind-mounted for hot reload
 #   - node_modules and build caches live in anonymous volumes so the container's
-#     installs are not shadowed by the host's
+#     installs are not shadowed by the host's. Those volumes are seeded once;
+#     after dependency changes the API/web entrypoints re-run `npm ci` when
+#     package-lock.json's hash drifts (see docker/sync-node-modules.sh).
 #   - images are built from the .dev Dockerfiles, which keep the dev toolchain
 
 services:

@@ -13,7 +13,9 @@ import {
  * Stage 1 authorization matrix for Stage 1 protected API routes
  * (user provisioning + administrative permission management).
  * Academy module routes (students, classes, …) have their own suites;
- * a full cross-module matrix remains Stage 9.
+ * ADMINISTRATIVE positive grants for academy modules live in
+ * `administrative-academy-grants.test.ts`. A full cross-module matrix
+ * remains Stage 9.
  * Reuses `buildTestApp` — no duplicate app factory.
  */
 

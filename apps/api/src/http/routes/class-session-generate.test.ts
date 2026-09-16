@@ -173,4 +173,75 @@ describe('POST /groups/:id/classes/generate', () => {
     );
     expect(withExtras.body.classSessions[0].durationMinutes).toBe(120);
   });
+
+  it('skips generated slots that overlap another group of the same teacher (conflictCount)', async () => {
+    const cookie = await seedDirector();
+    const groupId = await createReadyGroup(cookie);
+
+    const teacherList = await request(fixture.app)
+      .get('/teachers')
+      .set('Cookie', cookie);
+    const teacherId = teacherList.body.teachers[0].id as string;
+
+    const otherCourse = await request(fixture.app)
+      .post('/courses')
+      .set('Cookie', cookie)
+      .send({
+        name: 'Conflict blocker course',
+        courseType: 'REGULAR',
+        serviceType: 'ONE_TO_ONE_60',
+      });
+    const otherGroup = await request(fixture.app)
+      .post('/groups')
+      .set('Cookie', cookie)
+      .send({
+        courseId: otherCourse.body.course.id,
+        name: 'Conflict blocker group',
+      });
+    await request(fixture.app)
+      .post(`/groups/${otherGroup.body.group.id}/teacher`)
+      .set('Cookie', cookie)
+      .send({ teacherId });
+
+    const option = await request(fixture.app)
+      .get('/schedule-options')
+      .set('Cookie', cookie);
+    const scheduleOptionId = option.body.scheduleOptions[0].id as string;
+    await request(fixture.app)
+      .patch(`/groups/${otherGroup.body.group.id}`)
+      .set('Cookie', cookie)
+      .send({ scheduleOptionId });
+
+    // Block Monday 2026-09-21 18:00 local (21:00Z) with a 60-min session —
+    // overlaps the GROUP_120 generated window 21:00–23:00Z.
+    const blocker = await request(fixture.app)
+      .post('/classes')
+      .set('Cookie', cookie)
+      .send({
+        groupId: otherGroup.body.group.id,
+        startAt: '2026-09-21T21:00:00.000Z',
+      });
+    expect(blocker.status).toBe(201);
+
+    const generated = await request(fixture.app)
+      .post(`/groups/${groupId}/classes/generate`)
+      .set('Cookie', cookie)
+      .send({ from: '2026-09-14', to: '2026-09-28' });
+
+    expect(generated.status).toBe(200);
+    // Mondays in range: 14, 21, 28 → one conflict on 21
+    expect(generated.body.conflictCount).toBe(1);
+    expect(generated.body.generatedCount).toBe(2);
+    expect(generated.body.skippedCount).toBe(0);
+    expect(
+      generated.body.classSessions.map(
+        (row: { startAt: string }) => row.startAt,
+      ),
+    ).toEqual(['2026-09-14T21:00:00.000Z', '2026-09-28T21:00:00.000Z']);
+
+    const listed = await request(fixture.app)
+      .get(`/classes?groupId=${groupId}`)
+      .set('Cookie', cookie);
+    expect(listed.body.classSessions).toHaveLength(2);
+  });
 });

@@ -43,6 +43,7 @@ See `docs/DECISIONS.md` (1) and `docs/LAQQ-REFERENCE.md`.
 - [x] WCAG 2.2 AA baseline: skip link, landmarks, focus ring, labels, `role="alert"`, reduced motion.
 - [x] 88 tests (77 unit + 11 integration).
 - [x] `ROUTE-MAP.md` and `TODO.md` updated to the real state.
+- [x] OpenAPI 3 (`GET /openapi.json`) + Swagger UI (`GET /docs`) via `/api/*`; cookie session; `API_DOCS_ENABLED`; smoke `docs/API-SMOKE.md`.
 
 ### Acceptance criteria — all verified
 - [x] Development comes up reproducibly from empty volumes; all three services report healthy.
@@ -125,29 +126,28 @@ Create the academy's people registry.
 - Teachers cannot see unrelated private data (own-read ownership).
 - Students can only see their own private data (own-read ownership).
 
-## Stage 3 — Assignments & Academic Structure — API DONE (UI pending)
+## Stage 3 — Assignments & Academic Structure — API + UI DONE (history deferred)
 
 ### Objective
 Model who teaches whom and which educational offering they belong to.
 
 ### Done
-- [x] Student-teacher assignment (API `GET|POST|DELETE /students/:id/teacher`; 1 estudiante → 1 profesor **actual**; sin historial).
+- [x] Student-teacher assignment (API `GET|POST|DELETE /students/:id/teacher`; UI `/dashboard/assignments`; 1 estudiante → 1 profesor **actual**; sin historial).
 - [x] Prevent teacher self-assignment (actor TEACHER blocked server-side; identidad desde sesión).
-- [x] Course + Group foundation (API `/courses` + `/groups` CRUD; Group → Course; soft delete; **sin UI**).
-- [x] Group → Teacher assignment (API `GET|POST|DELETE /groups/:id/teacher`; un teacher actual; sin historial; self-assign TEACHER permitido con `groups.update`).
-- [x] ScheduleOption catalog + Group.scheduleOptionId (API `/schedule-options`; franja semanal estructurada; label derivado).
-- [x] 1:1 / Group service configuration (`Course.serviceType`: ONE_TO_ONE_60 | ONE_TO_ONE_90 | GROUP_120; `durationMinutes` derivado).
-- [x] Group capacity max 15 (Enrollment activo; rechazo del 16.º; `FOR UPDATE` en transacción).
-- [x] Teacher-training course/group (`Course.courseType`: REGULAR | TEACHER_TRAINING; Group hereda vía Course; sin entidades paralelas ni certificación).
-- [x] Enrollment model (API `GET|POST /groups/:id/students` + `DELETE /groups/:id/students/:studentId`; soft deactivate; sin historial ni UI).
+- [x] Course + Group foundation (API `/courses` + `/groups` CRUD; UI `/dashboard/courses` + `/dashboard/groups` (+ `[id]`); soft delete).
+- [x] Group → Teacher assignment (API + UI on Group detail; un teacher actual; sin historial; self-assign TEACHER permitido con `groups.update`).
+- [x] ScheduleOption catalog + Group.scheduleOptionId (API `/schedule-options`; selección en Group detail; label derivado).
+- [x] 1:1 / Group service configuration (`Course.serviceType`; `durationMinutes` derivado en UI, no editable).
+- [x] Group capacity max 15 (Enrollment UI + API; rechazo del 16.º; display `n / 15`).
+- [x] Teacher-training course/group (`Course.courseType`: REGULAR | TEACHER_TRAINING).
+- [x] Enrollment model (API + UI on Group detail; soft deactivate; sin historial).
 - [x] Weekly schedule **catalog** foundation (ScheduleOption; ClassSession generate/calendar → Stage 4).
 
 ### TODO
 - [ ] Assignment history (reemplazos no conservan filas históricas).
-- [ ] UI `/dashboard/assignments`, `/dashboard/courses`, `/dashboard/groups` (+ `[id]`).
 
 ### Acceptance criteria
-- Director can assign a student to a teacher. *(met)*
+- Director can assign a student to a teacher. *(met via API + UI)*
 - Assignment is persisted as the **current** link (not a historical audit trail). *(met; history deferred)*
 - Teacher cannot create an assignment for themselves. *(met)*
 - Group cannot exceed 15 active students. *(met)*
@@ -173,14 +173,15 @@ Operate real live classes.
 - [x] ClassSession write ownership (`POST`/`PATCH`/`DELETE`; admin vía `classes.*`; TEACHER del Group; STUDENT denegado; generate sigue `classes.create`).
 - [x] Unique/idempotencia `(groupId, startAt)` para generación (`@@unique` + `skipDuplicates`).
 - [x] Attendance + Notes UI on `/dashboard/classes/[id]` (roster via enrollments when `groups.read`; STUDENT read-only; API authz authoritative).
-- [x] Generate ClassSessions UI on `/dashboard/classes` (`POST /groups/:id/classes/generate`; confirmación; counts; STUDENT oculto).
+- [x] Automated coverage for smoke gaps: enrollment 16th → 400 (HTTP asserts); teacher overlap create/PATCH 409 + generate `conflictCount` (HTTP); ADMINISTRATIVE positive grants on students/teachers/courses/groups/classes (+ attendance/notes via `classes.update`).
 
 ### TODO (remaining Stage 4 / deferred)
 - [ ] Timezones avanzados (por usuario/group; UI de configuración).
 - [ ] Broader recurrence / RRULE (beyond weekly generate).
 - [ ] GiST/EXCLUDE constraint on teacher ranges (requires denormalized `teacherId` on ClassSession — deferred; see #33).
 - [ ] Automated meeting provisioning (Zoom/Meet/Teams APIs) — also listed under Future backlog; manual `meetingUrl` only for MVP.
-
+- [ ] UI for weekly generate (API done; no UI yet).
+- [ ] Browser E2E (Playwright/Cypress) — out of unit/API smoke scope.
 ### Acceptance criteria — core met; stage not complete
 - Teacher and student can see scheduled classes within ownership scope. *(met via API + calendar + classes UI)*
 - Meeting link opens the configured external classroom when `meetingUrl` is set. *(met)*
