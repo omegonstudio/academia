@@ -58,6 +58,18 @@ services:
       LOAD_SEED_DATA: ${LOAD_SEED_DATA:-false}
       # Academy business IANA timezone (ScheduleOption local → ClassSession timestamptz).
       ACADEMY_TIMEZONE: ${ACADEMY_TIMEZONE:-America/Argentina/Buenos_Aires}
+      # S3-compatible object storage (MinIO in development; Spaces in production).
+      S3_ENDPOINT: ${S3_ENDPOINT:?S3_ENDPOINT is required}
+      S3_BUCKET: ${S3_BUCKET:?S3_BUCKET is required}
+      S3_REGION: ${S3_REGION:-us-east-1}
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY:?S3_ACCESS_KEY is required}
+      S3_SECRET_KEY: ${S3_SECRET_KEY:?S3_SECRET_KEY is required}
+      S3_FORCE_PATH_STYLE: ${S3_FORCE_PATH_STYLE:-false}
+      MATERIAL_MAX_PDF_BYTES: ${MATERIAL_MAX_PDF_BYTES:-20971520}
+      MATERIAL_MAX_IMAGE_BYTES: ${MATERIAL_MAX_IMAGE_BYTES:-5242880}
+      MATERIAL_MAX_AUDIO_BYTES: ${MATERIAL_MAX_AUDIO_BYTES:-31457280}
+      MATERIAL_UPLOAD_URL_TTL_SECONDS: ${MATERIAL_UPLOAD_URL_TTL_SECONDS:-900}
+      MATERIAL_DOWNLOAD_URL_TTL_SECONDS: ${MATERIAL_DOWNLOAD_URL_TTL_SECONDS:-120}
     depends_on:
       db:
         condition: service_healthy

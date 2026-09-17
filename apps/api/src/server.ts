@@ -19,12 +19,14 @@ import { getAcademyBusinessConfig } from './domain/academy/academy-config.js';
 import { createClassSessionStore } from './domain/classes/class-session-store.js';
 import { createAttendanceStore } from './domain/attendance/attendance-store.js';
 import { createClassNoteStore } from './domain/class-notes/class-note-store.js';
+import { createMaterialStore } from './domain/materials/material-store.js';
 import { createSessionCodec } from './domain/identity/session.js';
 import { createUserRepository } from './domain/identity/user-repository.js';
 import { createApp } from './http/app.js';
 import { parseAllowedOrigins } from './http/middleware/cors.js';
 import { createPrismaClient, isDatabaseReachable } from './lib/prisma.js';
 import { logger } from './lib/logger.js';
+import { createS3CompatibleStorage } from './storage/s3-compatible-storage.js';
 
 const SHUTDOWN_GRACE_MS = 10_000;
 
@@ -63,6 +65,16 @@ async function main(): Promise<void> {
   const classSessions = createClassSessionStore(database);
   const attendances = createAttendanceStore(database);
   const classNotes = createClassNoteStore(database);
+  const materials = createMaterialStore(database);
+  const objectStorage = createS3CompatibleStorage({
+    endpoint: env.S3_ENDPOINT,
+    publicEndpoint: env.S3_PUBLIC_ENDPOINT,
+    region: env.S3_REGION,
+    bucket: env.S3_BUCKET,
+    accessKeyId: env.S3_ACCESS_KEY,
+    secretAccessKey: env.S3_SECRET_KEY,
+    forcePathStyle: env.S3_FORCE_PATH_STYLE,
+  });
   const startedAt = Date.now();
 
   const authOptions = {
@@ -151,6 +163,26 @@ async function main(): Promise<void> {
       students: studentProfiles,
       academy: getAcademyBusinessConfig(env),
       permissionGrants,
+    },
+    materials: {
+      authenticate: authOptions,
+      materials,
+      storage: objectStorage,
+      teachers: teacherProfiles,
+      students: studentProfiles,
+      permissionGrants,
+      sizeLimits: {
+        maxPdfBytes: env.MATERIAL_MAX_PDF_BYTES,
+        maxImageBytes: env.MATERIAL_MAX_IMAGE_BYTES,
+        maxAudioBytes: env.MATERIAL_MAX_AUDIO_BYTES,
+      },
+      urlTtls: {
+        uploadUrlTtlSeconds: env.MATERIAL_UPLOAD_URL_TTL_SECONDS,
+        downloadUrlTtlSeconds: env.MATERIAL_DOWNLOAD_URL_TTL_SECONDS,
+      },
+      logError: (payload, message) => {
+        logger.error(payload, message);
+      },
     },
     administrativePermissions: {
       authenticate: authOptions,

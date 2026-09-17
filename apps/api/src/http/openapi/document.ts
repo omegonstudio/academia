@@ -27,7 +27,7 @@ export function buildOpenApiDocument(): OpenApiDocument {
     openapi: '3.0.3',
     info: {
       title: 'Academia API',
-      version: '0.4.0',
+      version: '0.5.0',
       description: [
         'HTTP API for Omegon Academia.',
         '',
@@ -41,6 +41,11 @@ export function buildOpenApiDocument(): OpenApiDocument {
         'Roles: SUPER_ADMIN, DIRECTOR, ADMINISTRATIVE, TEACHER, STUDENT.',
         'SUPER_ADMIN/DIRECTOR bypass permission grants; ADMINISTRATIVE depends on grants;',
         'TEACHER/STUDENT use ownership where documented.',
+        '',
+        '## Materials',
+        'Course or ClassSession teaching materials (FILE via private object storage,',
+        'LINK as https-only). Soft-delete uses `materials.update`. Students see READY',
+        'materials they are entitled to; teachers manage via Group ownership.',
         '',
         '## Academy timezone',
         'Civil dates for calendar/generate use `ACADEMY_TIMEZONE` (IANA; default',
@@ -73,6 +78,11 @@ export function buildOpenApiDocument(): OpenApiDocument {
       { name: 'Classes', description: 'ClassSession CRUD, generate, calendar' },
       { name: 'Attendance', description: 'PRESENT / ABSENT per enrolled student' },
       { name: 'Notes', description: 'Class session text notes' },
+      {
+        name: 'Materials',
+        description:
+          'FILE/LINK materials scoped to a Course or ClassSession (XOR)',
+      },
     ],
     paths: buildOpenApiPaths(),
     components: openApiComponents,

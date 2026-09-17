@@ -206,35 +206,65 @@ TODO / deferred:
 
 ## Stage 5 — Materials
 
-- [ ] `/dashboard/materials`
-- [ ] `/dashboard/materials/[id]`
+**Stage 5B API + Storage: DONE.** **Stage 5C UI (contextual): DONE.**
 
-TODO:
-- Upload/manage PDF, audio, image and links.
-- Attach material to class/course.
-- Student access control.
-- Teacher upload permissions.
-- File size/type validation.
+API (cookie session; ownership / entitlement as documented in OpenAPI):
+
+| Method | Path | Notes |
+| ------ | ---- | ----- |
+| POST | `/materials` | Create LINK (HTTPS only) |
+| POST | `/materials/uploads` | FILE intent → PENDING + presigned PUT |
+| POST | `/materials/:id/complete` | Verify object → READY |
+| GET | `/materials?courseId=` / `?classSessionId=` | Scoped list (XOR required) |
+| GET | `/materials/:id` | Metadata (no `storageKey`) |
+| GET | `/materials/:id/download` | Signed GET (FILE) or `externalUrl` (LINK) |
+| PATCH | `/materials/:id` | title / description |
+| DELETE | `/materials/:id` | Soft delete (`isActive=false`; authz = `materials.update`) |
+
+UI (contextual — no materials hub):
+
+- [x] `/dashboard/courses/[id]` — sección **Materiales del curso**
+- [x] `/dashboard/classes/[id]` — sección **Materiales de la clase**
+
+Out of scope for Stage 5:
+
+- `/dashboard/materials` / `/dashboard/materials/[id]` (hub)
+- `/dashboard/student/materials`, `/dashboard/teacher/materials` (hubs)
+
+Storage: private S3-compatible bucket (MinIO dev / Spaces prod); short-lived signed URLs; no public permanent file URLs.
 
 ## Stage 6 — Finance & Settlements
 
-- [ ] `/dashboard/finance`
-- [ ] `/dashboard/finance/students/[id]`
-- [ ] `/dashboard/finance/teachers/[id]`
-- [ ] Academy revenue-split settings surface (exact route TBD; Director/SuperAdmin write only)
+**Stage 6A design: DONE** (`docs/DECISIONS.md` #41 + #44).  
+**Stage 6B API + domain: NOT IMPLEMENTED.**  
+**Stage 6C UI: NOT IMPLEMENTED.**
 
-TODO:
-- Persist current academy `academyPercentage` ∈ {20, 30, 40, 50}; default 40.
-- Derive teacher share as `100 - academyPercentage` (pairs 20/80, 30/70, 40/60, 50/50 only).
-- Mutation: SUPER_ADMIN + DIRECTOR only (not ADMINISTRATIVE / TEACHER / STUDENT).
-- Freeze: historical financial operations keep frozen share; later config changes do not rewrite them (#41). Exact freeze trigger TBD at implementation.
-- Student price.
-- Payment status.
-- Period-based settlement.
-- Settlement status.
-- Basic reporting.
-- Tests for financial calculations under each allowed pair (+ freeze immutability).
-- Keep automated payouts as future scope.
+### UI surfaces — PLANNED / NOT IMPLEMENTED
+
+- [ ] `/dashboard/finance` — Director/admin overview (charges, payments, allocations)
+- [ ] `/dashboard/finance/students/[id]` — student finance detail
+- [ ] `/dashboard/finance/teachers/[id]` — teacher earnings / settlement detail
+- [ ] Academy revenue-split settings (`academyPercentage` ∈ {20,30,40,50}; default 40) —
+      Director/SuperAdmin write only (exact route TBD; may live under `/dashboard/settings`
+      or `/dashboard/finance`)
+- [ ] Student-facing charges/payments (exact route TBD; Stage 7 hub may host later)
+- [ ] Teacher-facing earnings (exact route TBD; Stage 8 `/dashboard/teacher/earnings` may host)
+
+### Planned API themes (6B — not mounted yet)
+
+Do **not** treat these as live endpoints until Stage 6B lands them:
+
+- Finance settings (GET/PATCH `academyPercentage`)
+- Charges / Payments / RevenueAllocations / TeacherSettlements
+- Webhooks Mercado Pago / Stripe (when providers are wired)
+- Manual payment recording for authorized admins
+
+### Product rules (reference)
+
+- Freeze on Payment SUCCEEDED → RevenueAllocation (#44).
+- ONE_TO_ONE → Charge per ClassSession; GROUP_120 → Charge per Enrollment + month.
+- ARS → MP; USD → Stripe; MANUAL admin; 1 Payment → 1 Charge.
+- Automated payouts, FX, partial refunds, chargebacks, ledger/invoices/taxes = future.
 
 ## Stage 7 — Student Experience
 

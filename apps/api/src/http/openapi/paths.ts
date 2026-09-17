@@ -1122,5 +1122,178 @@ export function buildOpenApiPaths(): Record<string, Record<string, Operation>> {
         },
       },
     },
+
+    '/materials': {
+      get: {
+        tags: ['Materials'],
+        summary: 'List materials',
+        description:
+          'Exactly one of `courseId` or `classSessionId` (XOR). ' +
+          '`materials.read` (admin) sees all active in scope; TEACHER via Group ownership; ' +
+          'STUDENT only READY materials they are entitled to.',
+        operationId: 'listMaterials',
+        security: session,
+        parameters: [
+          {
+            name: 'courseId',
+            in: 'query',
+            required: false,
+            description: 'Course scope (mutually exclusive with classSessionId)',
+            schema: { type: 'string', format: 'uuid' },
+          },
+          {
+            name: 'classSessionId',
+            in: 'query',
+            required: false,
+            description:
+              'ClassSession scope (mutually exclusive with courseId)',
+            schema: { type: 'string', format: 'uuid' },
+          },
+        ],
+        responses: {
+          '200': {
+            description: 'Materials',
+            ...jsonSchema('MaterialListResponse'),
+          },
+          '400': error('Missing or ambiguous scope'),
+          '401': error('Unauthenticated'),
+          '403': error('Forbidden'),
+        },
+      },
+      post: {
+        tags: ['Materials'],
+        summary: 'Create LINK material',
+        description:
+          'Creates a READY LINK material. `externalUrl` must be absolute https. ' +
+          '`materials.create` or TEACHER owning the association target. Students cannot create.',
+        operationId: 'createMaterialLink',
+        security: session,
+        requestBody: { required: true, ...jsonSchema('CreateMaterialRequest') },
+        responses: {
+          '201': { description: 'Created', ...jsonSchema('MaterialResponse') },
+          '400': error('Invalid body or association'),
+          '401': error('Unauthenticated'),
+          '403': error('Forbidden'),
+        },
+      },
+    },
+
+    '/materials/uploads': {
+      post: {
+        tags: ['Materials'],
+        summary: 'Create FILE upload intent',
+        description:
+          'Creates a PENDING FILE material and returns a short-lived presigned PUT URL. ' +
+          'MIME allowlist + size limits enforced. Client uploads then calls complete.',
+        operationId: 'createMaterialUpload',
+        security: session,
+        requestBody: {
+          required: true,
+          ...jsonSchema('CreateMaterialUploadRequest'),
+        },
+        responses: {
+          '201': {
+            description: 'Upload intent',
+            ...jsonSchema('MaterialUploadResponse'),
+          },
+          '400': error('Invalid body, MIME, size, or association'),
+          '401': error('Unauthenticated'),
+          '403': error('Forbidden'),
+        },
+      },
+    },
+
+    '/materials/{id}': {
+      get: {
+        tags: ['Materials'],
+        summary: 'Get material',
+        description:
+          'Public metadata only (never `storageKey`). Same read entitlement as list.',
+        operationId: 'getMaterial',
+        security: session,
+        parameters: [idParam('id', 'Material id')],
+        responses: {
+          '200': { description: 'Material', ...jsonSchema('MaterialResponse') },
+          '401': error('Unauthenticated'),
+          '403': error('Forbidden'),
+          '404': error('Not found'),
+        },
+      },
+      patch: {
+        tags: ['Materials'],
+        summary: 'Update material metadata',
+        description:
+          'Title and/or description only. `materials.update` or owning TEACHER.',
+        operationId: 'updateMaterial',
+        security: session,
+        parameters: [idParam('id', 'Material id')],
+        requestBody: { required: true, ...jsonSchema('UpdateMaterialRequest') },
+        responses: {
+          '200': { description: 'Updated', ...jsonSchema('MaterialResponse') },
+          '400': error('Invalid body'),
+          '401': error('Unauthenticated'),
+          '403': error('Forbidden'),
+          '404': error('Not found'),
+        },
+      },
+      delete: {
+        tags: ['Materials'],
+        summary: 'Soft-delete material',
+        description:
+          'Sets `isActive=false` (no `materials.delete` permission). ' +
+          'Authorizes via `materials.update` or owning TEACHER. Best-effort object delete for FILE.',
+        operationId: 'deleteMaterial',
+        security: session,
+        parameters: [idParam('id', 'Material id')],
+        responses: {
+          '204': { description: 'Soft-deleted' },
+          '401': error('Unauthenticated'),
+          '403': error('Forbidden'),
+          '404': error('Not found'),
+        },
+      },
+    },
+
+    '/materials/{id}/complete': {
+      post: {
+        tags: ['Materials'],
+        summary: 'Complete FILE upload',
+        description:
+          'Verifies object exists, size within limit, and magic bytes match declared MIME. ' +
+          'PENDING → READY. `materials.update` or owning TEACHER.',
+        operationId: 'completeMaterialUpload',
+        security: session,
+        parameters: [idParam('id', 'Material id')],
+        responses: {
+          '200': { description: 'Ready', ...jsonSchema('MaterialResponse') },
+          '400': error('Missing object, magic mismatch, or not pending'),
+          '401': error('Unauthenticated'),
+          '403': error('Forbidden'),
+          '404': error('Not found'),
+        },
+      },
+    },
+
+    '/materials/{id}/download': {
+      get: {
+        tags: ['Materials'],
+        summary: 'Download material',
+        description:
+          'LINK → `{kind, externalUrl}`. FILE READY → short-lived signed GET URL. ' +
+          'Same read entitlement; students cannot download PENDING.',
+        operationId: 'downloadMaterial',
+        security: session,
+        parameters: [idParam('id', 'Material id')],
+        responses: {
+          '200': {
+            description: 'Download descriptor',
+            ...jsonSchema('MaterialDownloadResponse'),
+          },
+          '401': error('Unauthenticated'),
+          '403': error('Forbidden'),
+          '404': error('Not found'),
+        },
+      },
+    },
   };
 }

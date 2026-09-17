@@ -195,19 +195,39 @@ Operate real live classes.
 ### Objective
 Make class material available in context.
 
-### TODO
-- [ ] File upload.
-- [ ] PDF/audio/image/link support.
-- [ ] Attach to class/course.
-- [ ] Access control.
-- [ ] Teacher upload.
-- [ ] Student download/view.
-- [ ] Validation.
+### Status
+- **Stage 5A — Design:** DONE
+- **Stage 5B — API + Storage:** DONE
+- **Stage 5C — UI (contextual):** DONE
+
+### TODO — API + Storage (5B) — DONE
+- [x] File upload (presigned PUT + complete).
+- [x] PDF/audio/image/link support (no video).
+- [x] Attach to class XOR course.
+- [x] Access control (permissions + Teacher ownership + Student entitlement).
+- [x] Teacher upload via Group.teacherId ownership.
+- [x] Student download/view (READY + entitlement; signed GET).
+- [x] Validation (MIME allowlist, size limits, filename, HTTPS links).
+- [x] MinIO (dev) / DigitalOcean Spaces (prod) via S3-compatible adapter.
+- [x] Soft delete (`isActive=false` via `materials.update`; no `materials.delete`).
+
+### TODO — UI (5C) — DONE
+- [x] Course detail — sección Materiales del curso.
+- [x] ClassSession detail — sección Materiales de la clase.
+- [x] Crear LINK, subir FILE (intent → PUT → complete), descargar/abrir, editar metadata, soft-delete.
+- [x] STUDENT read-only en UX; mutaciones gated por rol; authz real en API.
+
+### Explicitly out of scope (not Stage 5C)
+- Student Hub / Teacher Hub materials dashboards.
+- `/dashboard/materials` hub route.
+- Finance, antivirus, orphan cleanup, queues, advanced storage lifecycle.
+- Browser E2E completo.
 
 ### Acceptance criteria
-- Student sees only materials they are entitled to access.
-- Teachers can manage permitted materials.
-- Invalid uploads are rejected safely.
+- Student sees only materials they are entitled to access. *(API + contextual UI)*
+- Teachers can manage permitted materials. *(API + contextual UI)*
+- Invalid uploads are rejected safely. *(API + early UX validation)*
+- Stage 5 UI contextual — DONE.
 
 ## Stage 6 — Finance
 
@@ -215,7 +235,12 @@ Make class material available in context.
 Track payments and settlements using the academy's **configurable** revenue split
 (not a hardcoded 40/60 forever).
 
-### Business rule — revenue split (academy config)
+### Status
+- **Stage 6A — Design / decisions:** DONE (`docs/DECISIONS.md` #41 + #44)
+- **Stage 6B — API + Finance domain:** PENDING
+- **Stage 6C — Finance UI:** PENDING
+
+### Business rule — revenue split (academy config) — #41
 - Single **current** academy setting: `academyPercentage` ∈ `{20, 30, 40, 50}`.
 - Default: **40** (Teacher **60**).
 - Teacher share is always derived: `teacherPercentage = 100 - academyPercentage`.
@@ -223,39 +248,53 @@ Track payments and settlements using the academy's **configurable** revenue spli
 - Allowed pairs only: 20/80, 30/70, 40/60, 50/50.
 - Who may **change** the config: **SUPER_ADMIN** and **DIRECTOR** only.
   ADMINISTRATIVE, TEACHER and STUDENT cannot modify it.
-- This is academy-wide current configuration prepared for Finance (same family as
-  other academy business config). Payments, settlements, money math and finance
-  UI are **not** started until this stage is actively implemented.
-- **Freeze (decided, #41):** financial operations that must keep a historical
-  split freeze the applicable percentage on that record; later academy-config
-  changes do not rewrite frozen rows. Exact freeze trigger timing is left to
-  Stage 6 implementation design (not invented here).
+- **Freeze (#41 + #44):** on `Payment.status → SUCCEEDED`, create immutable
+  `RevenueAllocation` with frozen `academyPercentage` and amounts; later config
+  / price / teacher changes do not rewrite frozen rows.
 
-### TODO
-- [ ] Academy revenue-split configuration (persist current `academyPercentage`;
-      validate allowed set; derive teacher %; mutate only SUPER_ADMIN/DIRECTOR).
-- [ ] Student pricing.
-- [ ] Payment record (apply Freeze principle for historical share — #41).
-- [ ] Payment status.
-- [ ] Academy share (from configured / frozen `academyPercentage` as applicable).
-- [ ] Teacher share (derived `100 - academyPercentage`).
-- [ ] Monthly/period settlement (respect Freeze on historical operations).
-- [ ] Settlement status.
-- [ ] Financial dashboard / Director UI to select among the four pairs.
-- [ ] Calculation tests (each allowed pair + default 40/60; reject illegal %;
-      frozen rows unaffected by later config changes).
+### MVP model closed in 6A (#44)
+- Charge / Payment / RevenueAllocation / TeacherSettlement.
+- ONE_TO_ONE_60|90 → Charge per ClassSession; GROUP_120 → Charge per Enrollment
+  + monthly period (no auto Charge generation in 6B yet — rule only).
+- Course list price: `amountMinor` + `currency` ∈ {ARS, USD}; snapshot on Charge.
+- ARS → Mercado Pago; USD → Stripe; MANUAL for authorized admin ops.
+- 1 Payment → 1 Charge; integer `floor` rounding; total refund + reversal only.
+- No automated payout; no FX; no partial refunds; no chargebacks; no ledger /
+  invoices / taxes; no FinanceAuditLog in MVP.
 
-### Acceptance criteria
+### TODO — Stage 6B (API + Finance domain)
+- [ ] Persist `academyPercentage` settings; mutate only SUPER_ADMIN/DIRECTOR.
+- [ ] Course price (`amountMinor` + `currency`).
+- [ ] Charge / Payment / RevenueAllocation / TeacherSettlement (Prisma + domain).
+- [ ] Payment lifecycle + Freeze on SUCCEEDED (#41/#44).
+- [ ] Rounding tests (each allowed pair + default 40/60; freeze immutability).
+- [ ] Provider boundary (MP / Stripe / MANUAL) — adapters may be stubbed/manual
+      first; no full live integration required to land the domain contract.
+- [ ] Webhook design implementation + idempotency when providers are wired.
+- [ ] Total refund + reversal allocation.
+- [ ] Authorization via `finance.*` + ownership.
+
+### TODO — Stage 6C (Finance UI)
+- [ ] Director/admin finance dashboard and revenue-split settings UI.
+- [ ] Student charges / payments surfaces.
+- [ ] Teacher earnings / settlement visibility (own allocations only).
+
+### Explicitly out of MVP (future)
+- Automated teacher payouts.
+- Partial refunds; chargebacks.
+- FX / multi-currency list prices.
+- Invoices; taxes; full accounting ledger; advanced reconciliation.
+
+### Acceptance criteria (product — met by design in 6A; implemented in 6B/6C)
 - Director (and SuperAdmin) can select exactly one of the four allowed splits;
   default is academy 40% / teacher 60%.
 - Teacher percentage is never an independent writable value.
 - ADMINISTRATIVE / TEACHER / STUDENT cannot change the split.
-- For a $100 input under the **active** config, shares match that config
-  (e.g. default → academy $40, teacher $60).
-- Already-frozen financial operations keep their frozen split after a config
-  change (Freeze — #41).
-- No floating-point/rounding bug may alter the intended settlement.
-- Payments remain decoupled from Finance domain logic.
+- For a given `amountMinor` under the **active** config, shares match that config
+  via integer `floor` (#44).
+- Already-frozen Allocations keep their frozen split after a config change
+  (Freeze — #41/#44).
+- Payments remain decoupled from Finance domain logic (Payment Domain → Provider).
 
 ## Stage 7 — Student UX
 

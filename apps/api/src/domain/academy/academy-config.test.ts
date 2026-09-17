@@ -15,6 +15,11 @@ function baseEnv(): NodeJS.ProcessEnv {
   return {
     DATABASE_URL: 'postgresql://user:pw@db:5432/academia_test?schema=public',
     AUTH_SECRET: VALID_SECRET,
+    S3_ENDPOINT: 'http://127.0.0.1:9000',
+    S3_BUCKET: 'academia-materials',
+    S3_ACCESS_KEY: 'academia-dev-access-key',
+    S3_SECRET_KEY: 'academia-dev-secret-key',
+    S3_FORCE_PATH_STYLE: 'true',
   };
 }
 

@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation';
 import { ClassSessionAttendancePanel } from '@/components/class-session-attendance-panel';
 import { ClassSessionDetailActions } from '@/components/class-session-detail-actions';
 import { ClassSessionNotesPanel } from '@/components/class-session-notes-panel';
+import { MaterialsSection } from '@/components/materials-section';
 import { PageHeader } from '@/components/page-header';
 import {
   fetchClassSession,
@@ -11,6 +12,7 @@ import {
   fetchClassSessionNotes,
   fetchGroup,
   fetchGroupEnrollments,
+  fetchMaterials,
   fetchStudents,
   getSession,
 } from '@/lib/api';
@@ -24,6 +26,7 @@ import {
   type AttendanceRosterRow,
 } from '@/lib/class-session-attendance';
 import { canMutateNotesUi } from '@/lib/class-session-notes';
+import { canMutateMaterialsUi } from '@/lib/materials';
 
 export const metadata: Metadata = {
   title: 'Clase',
@@ -74,14 +77,21 @@ export default async function ClassSessionDetailPage({
   }
 
   const { classSession } = result;
-  const [groupResult, attendanceResult, notesResult, enrollmentsResult, studentsResult] =
-    await Promise.all([
-      fetchGroup(classSession.groupId),
-      fetchClassSessionAttendance(classSession.id),
-      fetchClassSessionNotes(classSession.id),
-      fetchGroupEnrollments(classSession.groupId),
-      fetchStudents(),
-    ]);
+  const [
+    groupResult,
+    attendanceResult,
+    notesResult,
+    enrollmentsResult,
+    studentsResult,
+    materialsResult,
+  ] = await Promise.all([
+    fetchGroup(classSession.groupId),
+    fetchClassSessionAttendance(classSession.id),
+    fetchClassSessionNotes(classSession.id),
+    fetchGroupEnrollments(classSession.groupId),
+    fetchStudents(),
+    fetchMaterials({ classSessionId: classSession.id }),
+  ]);
 
   const groupName = groupResult.ok ? groupResult.group.name : null;
   const title = groupName
@@ -90,6 +100,7 @@ export default async function ClassSessionDetailPage({
 
   const canWriteAttendance = canMutateAttendanceUi(user.role);
   const canWriteNotes = canMutateNotesUi(user.role);
+  const canWriteMaterials = canMutateMaterialsUi(user.role);
 
   const namesByStudentId = new Map(
     studentsResult.ok
@@ -207,6 +218,15 @@ export default async function ClassSessionDetailPage({
           initialNotes={notesResult.notes}
         />
       )}
+
+      <MaterialsSection
+        scope={{ classSessionId: classSession.id }}
+        heading="Materiales de la clase"
+        canWrite={canWriteMaterials}
+        contextActive={classSession.isActive}
+        initialMaterials={materialsResult.ok ? materialsResult.materials : []}
+        loadError={materialsResult.ok ? null : materialsResult.message}
+      />
 
       <p className="mt-8 text-sm">
         <Link href="/dashboard/classes" className="underline">

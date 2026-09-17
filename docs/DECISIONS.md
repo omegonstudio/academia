@@ -813,7 +813,121 @@ second auth mechanism. The browser already reaches the API through the Next.js
   enabled outside production and **disabled in production** by default.
 - Manual smoke + Insomnia import instructions live in `docs/API-SMOKE.md`.
 
-**Still out of scope.** Materials/Finance endpoints; changing auth; generating
-docs from runtime route introspection frameworks; public unauthenticated docs
-in production without an explicit enable flag.
+**Still out of scope.** Generating docs from runtime route introspection
+frameworks; public unauthenticated docs in production without an explicit
+enable flag. (Materials endpoints are documented as of Stage 5B.)
+
+---
+
+## 43. Materials storage is S3-compatible (MinIO dev / Spaces prod)
+
+**Context.** Stage 5 needs private file materials (PDF / image / audio) plus
+external HTTPS links, attached to exactly one Course or ClassSession, with
+Student entitlement and Teacher Group ownership. The API must not proxy
+binaries; browsers upload/download against object storage.
+
+**Decision.**
+
+- Protocol: S3-compatible API. One adapter configured by endpoint — MinIO in
+  development Compose, DigitalOcean Spaces in production (no code fork).
+- Bucket is **private**. Downloads use short-lived signed GET URLs. No public
+  permanent object URLs.
+- Upload: create `Material` as `PENDING` → presigned PUT → `POST …/complete`
+  verifies `head` + size + magic-byte MIME → `READY`. Students never see
+  `PENDING`.
+- Kinds: `FILE` | `LINK`. LINK is always `READY` with HTTPS `externalUrl` only.
+- Association XOR: exactly one of `courseId` / `classSessionId` (DB CHECK +
+  application validation).
+- Soft delete: `isActive=false` via `materials.update` authorization; no
+  `materials.delete` permission. Best-effort object delete after soft-delete;
+  storage failure is logged and does not roll back inaccessibility.
+- Limits (defaults): PDF 20 MB, IMAGE 5 MB, AUDIO 30 MB. Exact MIME allowlist
+  (no SVG / video / octet-stream by default).
+- Authz: `materials.read|create|update` for administrative path; TEACHER via
+  `Group.teacherId` ownership; STUDENT via enrollment entitlement in DB queries.
+- Optional `S3_PUBLIC_ENDPOINT`: Compose MinIO uses internal `S3_ENDPOINT`
+  (`http://minio:9000`) for server ops and rewrites signed URLs to the published
+  host port so browsers can PUT/GET. Spaces leaves it unset.
+
+**Still out of scope.** Materials UI (5C); video; antivirus; queues; CDN;
+automated orphan cleanup jobs.
+
+---
+
+## 44. Finance MVP model (Charge / Payment / Allocation / Settlement)
+
+**Context.** Stage 6A closed the remaining product decisions needed before
+implementing Finance. Decision #41 already fixed configurable
+`academyPercentage`, derived teacher share, SUPER_ADMIN/DIRECTOR mutation, and
+the Freeze principle. #41 left the exact freeze lifecycle moment open; this
+decision closes that timing and the commercial model without changing #41.
+
+**Decision.**
+
+### Concepts
+- **Charge** — student obligation (may exist before payment). Always explicit;
+  snapshots `amountMinor` + `currency` at creation.
+- **Payment** — money received (`PENDING` → `SUCCEEDED` / `FAILED` /
+  `CANCELLED` / `REFUNDED`).
+- **RevenueAllocation** — frozen academy/teacher split created when Payment
+  becomes `SUCCEEDED` (the historical financial operation of #41).
+- **TeacherSettlement** — period tracking of amount owed vs `MARKED_PAID`
+  (`OPEN` | `MARKED_PAID`; `teacher`, `periodStart`, `periodEnd`,
+  `totalTeacherAmountMinor`, `currency`, `markedPaidAt`, `note`).
+  `RevenueAllocation.teacherAmountMinor` is accrued/assigned; Settlement is
+  “owed / marked paid”. **No automated bank transfer in MVP.**
+
+### Commercial unit (pricing unit)
+- `ONE_TO_ONE_60` / `ONE_TO_ONE_90` → one Charge per **ClassSession**.
+- `GROUP_120` → one Charge per **Enrollment** for a **calendar month** period.
+  Group ClassSessions do **not** each create a Charge.
+- Automatic Charge generation is out of Stage 6B scope; only the rule is fixed.
+- Creating a Charge copies the Course’s current list price into the Charge
+  snapshot. Later Course price changes do not rewrite existing Charges.
+
+### Course price
+- One current price per Course: `amountMinor` + `currency` ∈ {`ARS`, `USD`}.
+- No simultaneous multi-currency list prices; no FX; no separate price-history
+  entity (the Charge snapshot is enough).
+
+### Provider routing
+- `ARS` → Mercado Pago; `USD` → Stripe; `MANUAL` for authorized administrative
+  operations.
+- `ARS`→Stripe and `USD`→Mercado Pago are **invalid** in MVP (no conversion).
+
+### Cardinality
+- MVP: **1 Payment → 1 Charge**. A Charge is `PAID` only when its Payment is
+  `SUCCEEDED`.
+
+### Freeze (extends #41 — closes trigger timing)
+On `Payment.status → SUCCEEDED`, create an immutable `RevenueAllocation` with
+at least: `academyPercentage`, `academyAmountMinor`, `teacherAmountMinor`,
+`teacherId`, `studentId`, `amountMinor`, `currency`, plus the commercial FKs
+from the Charge. Later changes to academy %, Course price, Group teacher, or
+Course must **not** mutate existing allocations.
+
+### Rounding (integers only; never floating point)
+```
+academyAmountMinor = floor(amountMinor * academyPercentage / 100)
+teacherAmountMinor = amountMinor - academyAmountMinor
+```
+Guarantees `academyAmountMinor + teacherAmountMinor = amountMinor`.
+
+### Refunds
+- Total refund = MVP; partial refund = out of MVP; chargeback = future.
+- Do not delete or destructively edit historical Allocation; record **Refund**
+  + **reversal allocation** for traceability.
+
+### Audit
+- No `FinanceAuditLog` in MVP. Rely on immutable financial records, timestamps,
+  `createdByUserId`, provider references, and `WebhookEvent`. Revisit only if
+  Stage 6B discovers a concrete gap — then stop and report rather than adding
+  it silently.
+
+### Explicitly out of MVP
+Automated teacher payouts; partial refunds; chargebacks; FX; invoices; taxes;
+full accounting ledger; advanced reconciliation; N:M Payment↔Charge.
+
+**Still out of scope for this decision.** Prisma shapes, migrations, HTTP
+paths, provider SDKs, and Finance UI (Stage 6B API + domain; Stage 6C UI).
 

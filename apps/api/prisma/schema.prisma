@@ -4,7 +4,8 @@
 // role ↔ permission grants, and an audit trail for permission changes.
 // Stage 2 adds academic Student and Teacher profiles (1:1 with User).
 // Stage 3–4: assignment, Course/Group, ScheduleOption, Enrollment, ClassSession.
-// Recurrence, calendar, materials, payments belong to later increments.
+// Stage 5B: Material (FILE|LINK) with S3-compatible private storage.
+// Recurrence and payments belong to later increments.
 //
 // The connection URL is supplied by `prisma7.config.ts` from the environment.
 //
@@ -44,6 +45,22 @@ enum PermissionChangeType {
   @@map("permission_change_type")
 }
 
+/// FILE (private object storage) or LINK (external https URL).
+enum MaterialKind {
+  FILE
+  LINK
+
+  @@map("material_kind")
+}
+
+/// FILE starts PENDING until complete verifies the object; LINK is always READY.
+enum MaterialUploadStatus {
+  PENDING
+  READY
+
+  @@map("material_upload_status")
+}
+
 model User {
   id String @id @default(uuid()) @db.Uuid
 
@@ -64,6 +81,7 @@ model User {
   permissionChangeAudits PermissionChangeAudit[]
   student                Student?
   teacher                Teacher?
+  materialsCreated       Material[]
 
   @@index([role])
   @@map("users")
@@ -176,7 +194,8 @@ model Course {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  groups Group[]
+  groups    Group[]
+  materials Material[]
 
   @@index([isActive])
   @@index([name])
@@ -236,12 +255,51 @@ model ClassSession {
 
   attendances Attendance[]
   notes       ClassNote[]
+  materials   Material[]
 
   @@unique([groupId, startAt])
   @@index([groupId, startAt])
   @@index([isActive, startAt])
   @@index([isActive])
   @@map("class_sessions")
+}
+
+/// Teaching material: FILE (S3-compatible) or LINK (https). XOR Course/ClassSession.
+model Material {
+  id String @id @default(uuid()) @db.Uuid
+
+  title       String  @db.VarChar(200)
+  description String? @db.VarChar(1000)
+
+  kind         MaterialKind
+  uploadStatus MaterialUploadStatus @map("upload_status")
+
+  mimeType         String? @map("mime_type") @db.VarChar(100)
+  sizeBytes        Int?    @map("size_bytes")
+  /// Opaque object key — never exposed via API responses.
+  storageKey       String? @unique @map("storage_key") @db.VarChar(512)
+  originalFilename String? @map("original_filename") @db.VarChar(255)
+  externalUrl      String? @map("external_url") @db.VarChar(2048)
+
+  courseId String? @map("course_id") @db.Uuid
+  course   Course? @relation(fields: [courseId], references: [id], onDelete: Restrict)
+
+  classSessionId String?       @map("class_session_id") @db.Uuid
+  classSession   ClassSession? @relation(fields: [classSessionId], references: [id], onDelete: Restrict)
+
+  createdByUserId String @map("created_by_user_id") @db.Uuid
+  createdBy       User   @relation(fields: [createdByUserId], references: [id], onDelete: Restrict)
+
+  isActive Boolean @default(true) @map("is_active")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([courseId, isActive])
+  @@index([classSessionId, isActive])
+  @@index([createdByUserId])
+  @@index([isActive, uploadStatus])
+  @@map("materials")
 }
 
 /// Private text note for one ClassSession. Hard delete; no author in MVP.

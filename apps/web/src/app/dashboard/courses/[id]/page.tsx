@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { CourseDetailActions } from '@/components/course-detail-actions';
+import { MaterialsSection } from '@/components/materials-section';
 import { PageHeader } from '@/components/page-header';
 import {
   canMutateAcademicStructureUi,
@@ -9,7 +10,8 @@ import {
   courseTypeLabel,
   derivedDurationLabel,
 } from '@/lib/academic-structure';
-import { fetchCourse, getSession } from '@/lib/api';
+import { fetchCourse, fetchMaterials, getSession } from '@/lib/api';
+import { canMutateMaterialsUi } from '@/lib/materials';
 
 export const metadata: Metadata = {
   title: 'Curso',
@@ -27,6 +29,7 @@ export default async function CourseDetailPage({
   const { id } = await params;
   const result = await fetchCourse(id);
   const canWrite = canMutateAcademicStructureUi(user.role);
+  const canWriteMaterials = canMutateMaterialsUi(user.role);
 
   if (!result.ok) {
     return (
@@ -45,6 +48,7 @@ export default async function CourseDetailPage({
   }
 
   const { course } = result;
+  const materialsResult = await fetchMaterials({ courseId: course.id });
 
   return (
     <>
@@ -85,6 +89,15 @@ export default async function CourseDetailPage({
       </dl>
 
       {canWrite ? <CourseDetailActions course={course} /> : null}
+
+      <MaterialsSection
+        scope={{ courseId: course.id }}
+        heading="Materiales del curso"
+        canWrite={canWriteMaterials}
+        contextActive={course.isActive}
+        initialMaterials={materialsResult.ok ? materialsResult.materials : []}
+        loadError={materialsResult.ok ? null : materialsResult.message}
+      />
 
       <p className="mt-8 text-sm">
         <Link href="/dashboard/courses" className="underline">

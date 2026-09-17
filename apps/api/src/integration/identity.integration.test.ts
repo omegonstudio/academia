@@ -62,6 +62,9 @@ describe('identity integration', () => {
   });
 
   afterAll(async () => {
+    await database.material.deleteMany({
+      where: { createdBy: { email: { in: CLEANUP_EMAILS } } },
+    });
     await database.user.deleteMany({
       where: { email: { in: CLEANUP_EMAILS } },
     });
@@ -69,6 +72,9 @@ describe('identity integration', () => {
   });
 
   beforeEach(async () => {
+    await database.material.deleteMany({
+      where: { createdBy: { email: { in: CLEANUP_EMAILS } } },
+    });
     await database.user.deleteMany({
       where: { email: { in: CLEANUP_EMAILS } },
     });

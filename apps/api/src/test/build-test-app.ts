@@ -1,6 +1,11 @@
 import type { Express } from 'express';
 import type { PermissionRef, Role, Weekday } from '@academia/shared';
-import { DEFAULT_ACADEMY_TIMEZONE } from '@academia/shared';
+import {
+  DEFAULT_ACADEMY_TIMEZONE,
+  MATERIAL_DEFAULT_MAX_AUDIO_BYTES,
+  MATERIAL_DEFAULT_MAX_IMAGE_BYTES,
+  MATERIAL_DEFAULT_MAX_PDF_BYTES,
+} from '@academia/shared';
 import type { PermissionGrantStore } from '../domain/authorization/has-permission.js';
 import type { AdministrativePermissionStore } from '../domain/authorization/manage-administrative-permissions.js';
 import type {
@@ -27,6 +32,10 @@ import { createInMemoryAttendanceStore } from '../domain/attendance/in-memory-at
 import type { InMemoryAttendanceStore } from '../domain/attendance/in-memory-attendance-store.js';
 import { createInMemoryClassNoteStore } from '../domain/class-notes/in-memory-class-note-store.js';
 import type { InMemoryClassNoteStore } from '../domain/class-notes/in-memory-class-note-store.js';
+import { createInMemoryMaterialStore } from '../domain/materials/in-memory-material-store.js';
+import type { InMemoryMaterialStore } from '../domain/materials/in-memory-material-store.js';
+import { createInMemoryObjectStorage } from '../storage/in-memory-object-storage.js';
+import type { ObjectStoragePort } from '../storage/object-storage.js';
 import { createAuthService } from '../domain/identity/auth-service.js';
 import type {
   ProvisionIdentityRecord,
@@ -94,6 +103,11 @@ export interface TestApp {
   classSessions: InMemoryClassSessionStore;
   attendances: InMemoryAttendanceStore;
   classNotes: InMemoryClassNoteStore;
+  materials: InMemoryMaterialStore;
+  storage: ObjectStoragePort & {
+    objects: Map<string, { body: Buffer; contentType: string }>;
+    put(key: string, body: Buffer, contentType: string): void;
+  };
   administrativePermissions: InMemoryAdministrativePermissionStore;
   permissionChangeAudits: InMemoryPermissionChangeAuditStore;
 }
@@ -464,6 +478,8 @@ export async function buildTestApp({
       };
     },
   });
+  const materials = createInMemoryMaterialStore();
+  const storage = createInMemoryObjectStorage();
   const authService = createAuthService(users);
   const sessionCodec = createSessionCodec(TEST_SECRET, 3600);
 
@@ -550,6 +566,23 @@ export async function buildTestApp({
       academy: { businessTimezone: DEFAULT_ACADEMY_TIMEZONE },
       permissionGrants,
     },
+    materials: {
+      authenticate: authOptions,
+      materials,
+      storage,
+      teachers: teacherRegistry,
+      students: studentRegistry,
+      permissionGrants,
+      sizeLimits: {
+        maxPdfBytes: MATERIAL_DEFAULT_MAX_PDF_BYTES,
+        maxImageBytes: MATERIAL_DEFAULT_MAX_IMAGE_BYTES,
+        maxAudioBytes: MATERIAL_DEFAULT_MAX_AUDIO_BYTES,
+      },
+      urlTtls: {
+        uploadUrlTtlSeconds: 900,
+        downloadUrlTtlSeconds: 120,
+      },
+    },
     administrativePermissions: {
       authenticate: authOptions,
       administrativePermissions,
@@ -576,6 +609,8 @@ export async function buildTestApp({
     classSessions,
     attendances,
     classNotes,
+    materials,
+    storage,
     administrativePermissions,
     permissionChangeAudits,
   };
