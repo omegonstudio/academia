@@ -18,6 +18,34 @@ import {
   type StudentsDependencies,
 } from './routes/students.js';
 import {
+  createStudentRegistryRouter,
+  type StudentRegistryDependencies,
+} from './routes/student-registry.js';
+import {
+  createTeacherRegistryRouter,
+  type TeacherRegistryDependencies,
+} from './routes/teacher-registry.js';
+import {
+  createStudentTeacherAssignmentRouter,
+  type StudentTeacherAssignmentDependencies,
+} from './routes/student-teacher-assignment.js';
+import {
+  createCoursesRouter,
+  type CoursesDependencies,
+} from './routes/courses.js';
+import {
+  createGroupsRouter,
+  type GroupsDependencies,
+} from './routes/groups.js';
+import {
+  createScheduleOptionsRouter,
+  type ScheduleOptionsDependencies,
+} from './routes/schedule-options.js';
+import {
+  createClassSessionsRouter,
+  type ClassSessionsDependencies,
+} from './routes/classes.js';
+import {
   createTeachersRouter,
   type TeachersDependencies,
 } from './routes/teachers.js';
@@ -25,6 +53,11 @@ import {
   createAdministrativePermissionsRouter,
   type AdministrativePermissionsDependencies,
 } from './routes/administrative-permissions.js';
+import { createDocsRouter } from './routes/docs.js';
+import {
+  createMaterialsRouter,
+  type MaterialsDependencies,
+} from './routes/materials.js';
 
 export interface AppDependencies {
   logger: Logger;
@@ -35,7 +68,17 @@ export interface AppDependencies {
   administratives: AdministrativesDependencies;
   teachers: TeachersDependencies;
   students: StudentsDependencies;
+  studentRegistry: StudentRegistryDependencies;
+  teacherRegistry: TeacherRegistryDependencies;
+  studentTeacherAssignment: StudentTeacherAssignmentDependencies;
+  courses: CoursesDependencies;
+  groups: GroupsDependencies;
+  scheduleOptions: ScheduleOptionsDependencies;
+  classSessions: ClassSessionsDependencies;
+  materials: MaterialsDependencies;
   administrativePermissions: AdministrativePermissionsDependencies;
+  /** When true, mounts GET /openapi.json and Swagger UI at /docs. */
+  docsEnabled?: boolean;
 }
 
 /**
@@ -53,7 +96,16 @@ export function createApp({
   administratives,
   teachers,
   students,
+  studentRegistry,
+  teacherRegistry,
+  studentTeacherAssignment,
+  courses,
+  groups,
+  scheduleOptions,
+  classSessions,
+  materials,
   administrativePermissions,
+  docsEnabled = true,
 }: AppDependencies): Express {
   const app = express();
 
@@ -81,7 +133,19 @@ export function createApp({
   app.use(createAdministrativesRouter(administratives));
   app.use(createTeachersRouter(teachers));
   app.use(createStudentsRouter(students));
+  app.use(createStudentRegistryRouter(studentRegistry));
+  app.use(createTeacherRegistryRouter(teacherRegistry));
+  app.use(createStudentTeacherAssignmentRouter(studentTeacherAssignment));
+  app.use(createCoursesRouter(courses));
+  app.use(createGroupsRouter(groups));
+  app.use(createScheduleOptionsRouter(scheduleOptions));
+  app.use(createClassSessionsRouter(classSessions));
+  app.use(createMaterialsRouter(materials));
   app.use(createAdministrativePermissionsRouter(administrativePermissions));
+
+  if (docsEnabled) {
+    app.use(createDocsRouter());
+  }
 
   app.use(notFoundHandler());
   app.use(errorHandler(logger));

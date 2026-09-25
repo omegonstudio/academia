@@ -4,8 +4,11 @@
 #   - the database port is published so host tooling (psql, prisma) can reach it
 #   - sources are bind-mounted for hot reload
 #   - node_modules and build caches live in anonymous volumes so the container's
-#     installs are not shadowed by the host's
+#     installs are not shadowed by the host's. Those volumes are seeded once;
+#     after dependency changes the API/web entrypoints re-run `npm ci` when
+#     package-lock.json's hash drifts (see docker/sync-node-modules.sh).
 #   - images are built from the .dev Dockerfiles, which keep the dev toolchain
+#   - MinIO provides S3-compatible object storage for Materials (Stage 5B)
 
 services:
   db:
@@ -15,14 +18,55 @@ services:
     volumes:
       - db_data_dev:/var/lib/postgresql/data
 
+  minio:
+    image: quay.io/minio/minio:RELEASE.2025-04-22T22-12-26Z
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-academia-dev-access-key}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-academia-dev-secret-key}
+    ports:
+      - '${MINIO_API_PORT:-9000}:9000'
+      - '${MINIO_CONSOLE_PORT:-9001}:9001'
+    volumes:
+      - minio_data_dev:/data
+    restart: unless-stopped
+
+  minio-init:
+    image: quay.io/minio/mc:RELEASE.2025-04-16T18-13-26Z
+    depends_on:
+      - minio
+    environment:
+      MINIO_ENDPOINT: http://minio:9000
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-academia-dev-access-key}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-academia-dev-secret-key}
+      MINIO_BUCKET: ${S3_BUCKET:-academia-materials}
+    volumes:
+      - ./docker/minio/create-bucket.sh:/create-bucket.sh:ro
+    entrypoint: ['/bin/sh', '/create-bucket.sh']
+    restart: 'no'
+
   api:
     build:
       context: .
       dockerfile: docker/api.dev.Dockerfile
     environment:
       NODE_ENV: development
+      # In-compose MinIO — do NOT interpolate host S3_ENDPOINT (often 127.0.0.1).
+      S3_ENDPOINT: http://minio:9000
+      # Presigned URLs for the host browser / curl against published port 9000.
+      S3_PUBLIC_ENDPOINT: ${S3_PUBLIC_ENDPOINT:-http://127.0.0.1:9000}
+      S3_BUCKET: ${S3_BUCKET:-academia-materials}
+      S3_REGION: ${S3_REGION:-us-east-1}
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY:-academia-dev-access-key}
+      S3_SECRET_KEY: ${S3_SECRET_KEY:-academia-dev-secret-key}
+      S3_FORCE_PATH_STYLE: 'true'
     ports:
       - '${API_PORT:-4000}:4000'
+    depends_on:
+      db:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
     volumes:
       - ./apps/api:/app/apps/api
       - ./packages/shared:/app/packages/shared
@@ -55,3 +99,4 @@ services:
 
 volumes:
   db_data_dev:
+  minio_data_dev:

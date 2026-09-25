@@ -1,3 +1,4 @@
+import { isApiDocsEnabled } from './config/docs-enabled.js';
 import { evaluateConfiguration, parseEnv } from './config/env.js';
 import { createAuthService } from './domain/identity/auth-service.js';
 import { createAdministrativeProvisionStore } from './domain/identity/provision-administrative.js';
@@ -7,12 +8,25 @@ import { createTeacherProvisionStore } from './domain/identity/provision-teacher
 import { createAdministrativePermissionStore } from './domain/authorization/administrative-permission-store.js';
 import { createPermissionChangeAuditStore } from './domain/authorization/permission-change-audit-store.js';
 import { createPermissionGrantStore } from './domain/authorization/permission-grant-store.js';
+import { createStudentStore } from './domain/students/student-store.js';
+import { createTeacherStore } from './domain/teachers/teacher-store.js';
+import { createTeacherAssignmentStore } from './domain/assignments/assignment-store.js';
+import { createCourseStore } from './domain/courses/course-store.js';
+import { createGroupStore } from './domain/groups/group-store.js';
+import { createEnrollmentStore } from './domain/enrollments/enrollment-store.js';
+import { createScheduleOptionStore } from './domain/schedules/schedule-option-store.js';
+import { getAcademyBusinessConfig } from './domain/academy/academy-config.js';
+import { createClassSessionStore } from './domain/classes/class-session-store.js';
+import { createAttendanceStore } from './domain/attendance/attendance-store.js';
+import { createClassNoteStore } from './domain/class-notes/class-note-store.js';
+import { createMaterialStore } from './domain/materials/material-store.js';
 import { createSessionCodec } from './domain/identity/session.js';
 import { createUserRepository } from './domain/identity/user-repository.js';
 import { createApp } from './http/app.js';
 import { parseAllowedOrigins } from './http/middleware/cors.js';
 import { createPrismaClient, isDatabaseReachable } from './lib/prisma.js';
 import { logger } from './lib/logger.js';
+import { createS3CompatibleStorage } from './storage/s3-compatible-storage.js';
 
 const SHUTDOWN_GRACE_MS = 10_000;
 
@@ -41,6 +55,26 @@ async function main(): Promise<void> {
     createAdministrativePermissionStore(database);
   const permissionGrants = createPermissionGrantStore(database);
   const permissionChangeAudits = createPermissionChangeAuditStore(database);
+  const studentProfiles = createStudentStore(database);
+  const teacherProfiles = createTeacherStore(database);
+  const teacherAssignments = createTeacherAssignmentStore(database);
+  const courses = createCourseStore(database);
+  const groups = createGroupStore(database);
+  const enrollments = createEnrollmentStore(database);
+  const scheduleOptions = createScheduleOptionStore(database);
+  const classSessions = createClassSessionStore(database);
+  const attendances = createAttendanceStore(database);
+  const classNotes = createClassNoteStore(database);
+  const materials = createMaterialStore(database);
+  const objectStorage = createS3CompatibleStorage({
+    endpoint: env.S3_ENDPOINT,
+    publicEndpoint: env.S3_PUBLIC_ENDPOINT,
+    region: env.S3_REGION,
+    bucket: env.S3_BUCKET,
+    accessKeyId: env.S3_ACCESS_KEY,
+    secretAccessKey: env.S3_SECRET_KEY,
+    forcePathStyle: env.S3_FORCE_PATH_STYLE,
+  });
   const startedAt = Date.now();
 
   const authOptions = {
@@ -87,12 +121,76 @@ async function main(): Promise<void> {
       students,
       permissionGrants,
     },
+    studentRegistry: {
+      authenticate: authOptions,
+      students: studentProfiles,
+      permissionGrants,
+    },
+    teacherRegistry: {
+      authenticate: authOptions,
+      teachers: teacherProfiles,
+      permissionGrants,
+    },
+    studentTeacherAssignment: {
+      authenticate: authOptions,
+      assignments: teacherAssignments,
+      permissionGrants,
+    },
+    courses: {
+      authenticate: authOptions,
+      courses,
+      permissionGrants,
+    },
+    groups: {
+      authenticate: authOptions,
+      groups,
+      enrollments,
+      classSessions,
+      academy: getAcademyBusinessConfig(env),
+      permissionGrants,
+    },
+    scheduleOptions: {
+      authenticate: authOptions,
+      scheduleOptions,
+      permissionGrants,
+    },
+    classSessions: {
+      authenticate: authOptions,
+      classSessions,
+      attendances,
+      classNotes,
+      teachers: teacherProfiles,
+      students: studentProfiles,
+      academy: getAcademyBusinessConfig(env),
+      permissionGrants,
+    },
+    materials: {
+      authenticate: authOptions,
+      materials,
+      storage: objectStorage,
+      teachers: teacherProfiles,
+      students: studentProfiles,
+      permissionGrants,
+      sizeLimits: {
+        maxPdfBytes: env.MATERIAL_MAX_PDF_BYTES,
+        maxImageBytes: env.MATERIAL_MAX_IMAGE_BYTES,
+        maxAudioBytes: env.MATERIAL_MAX_AUDIO_BYTES,
+      },
+      urlTtls: {
+        uploadUrlTtlSeconds: env.MATERIAL_UPLOAD_URL_TTL_SECONDS,
+        downloadUrlTtlSeconds: env.MATERIAL_DOWNLOAD_URL_TTL_SECONDS,
+      },
+      logError: (payload, message) => {
+        logger.error(payload, message);
+      },
+    },
     administrativePermissions: {
       authenticate: authOptions,
       administrativePermissions,
       permissionGrants,
       permissionChangeAudits,
     },
+    docsEnabled: isApiDocsEnabled(env),
   });
 
   const server = app.listen(env.API_PORT, () => {

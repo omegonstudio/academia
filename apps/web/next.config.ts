@@ -22,9 +22,27 @@ const nextConfig: NextConfig = {
   outputFileTracingRoot: path.join(import.meta.dirname, '../..'),
   reactStrictMode: true,
   poweredByHeader: false,
+  // Allow `/api/docs/` to keep its trailing slash (Swagger relative assets need it).
+  skipTrailingSlashRedirect: true,
+  // Static assets from academia-front (icons/placeholders); no remote image CDN yet.
+  images: {
+    unoptimized: true,
+  },
 
   async rewrites() {
     return [
+      {
+        source: '/api/docs',
+        destination: `${apiInternalUrl}/docs/`,
+      },
+      {
+        source: '/api/docs/',
+        destination: `${apiInternalUrl}/docs/`,
+      },
+      {
+        source: '/api/docs/:path*',
+        destination: `${apiInternalUrl}/docs/:path*`,
+      },
       {
         source: '/api/:path*',
         destination: `${apiInternalUrl}/:path*`,

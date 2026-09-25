@@ -42,7 +42,7 @@ Student → Payment Domain → Payment Provider → Mercado Pago | Stripe
 ```
 
 - Do not call providers directly from student/UI flows.
-- Decouple Payments from Finance (15/85 lives in backend domain + tests).
+- Decouple Payments from Finance (configurable academy/teacher split lives in backend domain + tests).
 - Never store card PAN/CVV; use official tokenization/checkout/webhooks.
 - Webhooks: validate, idempotent, event-logged, safely reprocessable; never trust frontend-only payment confirmation.
 

@@ -10,7 +10,21 @@ images, containers, generated code — can be rebuilt from the repository.
 | PostgreSQL              | `scripts/db-backup.sh` (logical dump)        |
 | Application code        | Git                                          |
 | Secrets (`.env`)        | **Not** in backups. Store in a password manager. |
-| Uploaded materials      | Not applicable yet — Stage 5 introduces file storage and must extend this document. |
+| Uploaded materials      | **Object storage bucket** (MinIO volume in development; DigitalOcean Spaces in production). Not included in `pg_dump`. Soft-deleted DB rows may still leave orphans until manual cleanup. |
+
+### Materials objects (Stage 5B)
+
+- Bucket is private; access is only via short-lived signed URLs issued by the API.
+- Development: Compose named volume `minio_data_dev` under project `academia-dev`.
+  Stopping with `npm run dev:down` **keeps** both `db_data_dev` and `minio_data_dev`.
+  Do **not** run `docker compose down -v` casually — that discards MinIO objects
+  and the database.
+- Production: back up / version the Spaces bucket with the provider's tools
+  (Spaces versioning or periodic sync). Treat bucket credentials like production
+  secrets. A Postgres restore does **not** restore files.
+- After a DB-only restore, `Material.storageKey` rows may point at missing
+  objects (or objects may exist without rows). Operators must reconcile
+  manually; there is no automated orphan job in MVP.
 
 ## Taking a backup
 

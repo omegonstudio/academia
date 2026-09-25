@@ -8,9 +8,11 @@ Two environments, isolated by construction.
 | ------------------ | ------------------------------ | --------------------------------- |
 | Compose project    | `academia-dev`                 | `academia-prod`                   |
 | Database volume    | `academia-dev_db_data_dev`     | `academia-prod_db_data`           |
+| Object storage     | MinIO service + `minio_data_dev` | DigitalOcean Spaces (external)  |
 | Database host port | published (`5433` by default)  | **not published** (internal only) |
 | API host port      | published (`4000`)             | **not published** (internal only) |
 | Web host port      | `3000`                         | `3000`, behind a TLS terminator   |
+| MinIO ports        | `9000` (API) / `9001` (console)| **not present**                   |
 | Images             | `*.dev.Dockerfile`, bind mounts | multi-stage, immutable, non-root |
 | Payment mode       | sandbox / test (later stages)  | live (later stages)               |
 | Seed data          | optional (`LOAD_SEED_DATA`)    | forbidden — refuses to start      |
@@ -46,16 +48,49 @@ docker-compose.prod.yml    production override
 Always combined, which the scripts do for you:
 
 ```bash
-docker compose -f docker-compose.yml -f docker-compose.dev.yml  up
-docker compose -f docker-compose.yml -f docker-compose.prod.yml up
+# Preferred (sets COMPOSE_PROJECT_NAME=academia-dev, waits for healthy):
+npm run dev
+
+# Equivalent raw compose (never use either file alone):
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build -d
+docker compose -f docker-compose.yml -f docker-compose.prod.yml up --build -d
 ```
 
-The base file defines the topology, environment wiring and healthchecks once; the
-overrides carry only what genuinely differs. Each service receives only the
-variables it needs — the web container is never given `DATABASE_URL` or
-`AUTH_SECRET`.
+Running `docker compose config` or `docker compose -f docker-compose.dev.yml …`
+**alone** fails with `has neither an image nor a build context` — that is expected:
+the base file owns health/env wiring; the override owns `build`/`ports`/`volumes`.
 
-Startup is ordered by health, not by luck: `db` healthy → `api` healthy → `web`.
+### Dev `node_modules` anonymous volumes
+
+`docker-compose.dev.yml` bind-mounts sources and `package-lock.json`, and keeps
+`/app/node_modules` in anonymous volumes so the host install cannot fight the
+container. Those volumes are seeded once from the image. After dependency
+changes, the API/web **dev entrypoints** compare a hash of `package-lock.json`
+and re-run `npm ci` when it drifts (`docker/sync-node-modules.sh`). Rebuild +
+recreate the service after adding packages (`npm run dev`, or recreate `api`/`web`);
+do **not** delete the named PostgreSQL volume.
+
+Startup is ordered by health, not by luck: `db` healthy → MinIO bucket init →
+`api` healthy → `web`. MinIO is **development-only** (not in the production
+override). Production API talks to DigitalOcean Spaces via the same
+`S3_*` environment variables.
+
+### Object storage (Materials — Stage 5B)
+
+|                    | Development                         | Production                |
+| ------------------ | ----------------------------------- | ------------------------- |
+| Provider           | MinIO (`minio` Compose service; image from `quay.io/minio/*`) | DigitalOcean Spaces |
+| Endpoint (typical) | `http://minio:9000` (ops) + `S3_PUBLIC_ENDPOINT` for signed URLs | Spaces regional endpoint |
+| Bucket             | `academia-materials` (created by `minio-init`) | private Spaces bucket |
+| Credentials        | Compose defaults (`academia-dev-*`)    | Spaces keys (secrets)     |
+| Path style         | `S3_FORCE_PATH_STYLE=true`          | usually `false`           |
+
+Host tooling against MinIO: API `http://127.0.0.1:9000`, console
+`http://127.0.0.1:9001`. Compose sets `S3_ENDPOINT=http://minio:9000` for
+server-side ops and `S3_PUBLIC_ENDPOINT=http://127.0.0.1:9000` so presigned
+URLs work from the host browser. See `.env.example`. Never promote MinIO sample
+keys to production (`evaluateConfiguration` rejects them when
+`NODE_ENV=production`).
 
 ### How the browser reaches the API
 
@@ -221,7 +256,9 @@ they attach to.
 
 ## CI
 
-`.github/workflows/ci.yml` runs on every pull request and push to `main`:
+`.github/workflows/ci.yml` runs on every pull request and on pushes to `main`
+(and should also cover `dev` once that branch is protected — see
+`docs/BRANCHING.md`):
 
 | Job                | What it proves                                                     |
 | ------------------ | ------------------------------------------------------------------ |
@@ -236,8 +273,13 @@ fails the run on error.
 ## Production deployment
 
 ```
-feature/*  →  Pull Request  →  CI  →  review  →  main  →  Production workflow
+feature/stage-N-*  →  PR →  CI  →  review  →  dev
+dev                →  PR →  CI  →  review  →  main  →  Production workflow
 ```
+
+Never commit product work directly to `main`. Stage work integrates on `dev`
+first; promote a finished Stage (or explicit slice) with a PR `dev` → `main`.
+Full rules: `docs/BRANCHING.md`.
 
 `.github/workflows/production.yml` triggers only on push to `main` or a manual
 dispatch. It calls `ci.yml` as a reusable workflow, so deployment cannot happen

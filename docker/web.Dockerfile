@@ -70,6 +70,8 @@ WORKDIR /app
 # workspace layout: the server entrypoint lands at apps/web/server.js.
 COPY --from=build --chown=node:node /app/apps/web/.next/standalone ./
 COPY --from=build --chown=node:node /app/apps/web/.next/static ./apps/web/.next/static
+# Standalone output does not include `public/` — required for Phase 1 UI icons.
+COPY --from=build --chown=node:node /app/apps/web/public ./apps/web/public
 
 USER node
 

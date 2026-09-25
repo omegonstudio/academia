@@ -1,55 +1,62 @@
-import type { Metadata } from 'next';
-import type { ReactNode } from 'react';
-import { SiteFooter } from '@/components/site-footer';
-import { SiteHeader } from '@/components/site-header';
-import { site } from '@/lib/site';
-import './globals.css';
+import type { Metadata, Viewport } from 'next'
+import './globals.css'
+import { ThemeGate } from '@/components/ui/primitives'
+
+const themeBootstrap = `(() => {
+  try {
+    const key = 'academy-theme'
+    const saved = localStorage.getItem(key)
+    const mode = saved === 'light' || saved === 'dark' || saved === 'system' ? saved : 'system'
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
+    const isDark = mode === 'dark' || (mode === 'system' && prefersDark)
+    const root = document.documentElement
+    root.classList.toggle('light', !isDark)
+    root.classList.toggle('dark', isDark)
+  } catch {}
+})()`
 
 export const metadata: Metadata = {
-  // Makes every relative canonical/Open Graph URL resolve against the real origin.
-  metadataBase: new URL(site.url),
-  title: {
-    default: site.name,
-    template: `%s | ${site.shortName}`,
+  title: 'Academia de Español — Omegon',
+  description: 'Aprendé español para comunicarte de verdad. Clases individuales, grupales y formación docente.',
+  generator: 'v0.app',
+  icons: {
+    icon: [
+      {
+        url: '/icon-light-32x32.png',
+        media: '(prefers-color-scheme: light)',
+      },
+      {
+        url: '/icon-dark-32x32.png',
+        media: '(prefers-color-scheme: dark)',
+      },
+      {
+        url: '/icon.svg',
+        type: 'image/svg+xml',
+      },
+    ],
+    apple: '/apple-icon.png',
   },
-  description: site.description,
-  applicationName: site.shortName,
-  openGraph: {
-    type: 'website',
-    siteName: site.name,
-    locale: site.locale,
-    title: site.name,
-    description: site.description,
-    url: '/',
-  },
-  twitter: { card: 'summary_large_image' },
-  robots: { index: true, follow: true },
-};
+}
 
-export default function RootLayout({ children }: { children: ReactNode }) {
+export const viewport: Viewport = {
+  colorScheme: 'light dark',
+  themeColor: [
+    { media: '(prefers-color-scheme: light)', color: 'white' },
+    { media: '(prefers-color-scheme: dark)', color: 'black' },
+  ],
+}
+
+export default function RootLayout({
+  children,
+}: Readonly<{
+  children: React.ReactNode
+}>) {
   return (
-    // `lang` drives screen-reader pronunciation and is required (WCAG 3.1.1).
-    <html lang="es">
-      <body className="flex min-h-screen flex-col">
-        {/*
-          First focusable element on the page: lets keyboard users jump past the
-          navigation straight to the content (WCAG 2.4.1). Visible only on focus.
-        */}
-        <a
-          href="#contenido"
-          className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-md focus:bg-brand focus:px-4 focus:py-2 focus:text-on-brand"
-        >
-          Saltar al contenido principal
-        </a>
-
-        <SiteHeader />
-
-        <main id="contenido" className="mx-auto w-full max-w-5xl flex-1 px-4 py-10">
-          {children}
-        </main>
-
-        <SiteFooter />
+    <html lang="es-AR" suppressHydrationWarning>
+      <body className="antialiased">
+        <script dangerouslySetInnerHTML={{ __html: themeBootstrap }} />
+        <ThemeGate>{children}</ThemeGate>
       </body>
     </html>
-  );
+  )
 }

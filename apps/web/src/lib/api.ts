@@ -1,5 +1,45 @@
-import { sessionResponseSchema, type SessionUser } from '@academia/shared';
+import {
+  classSessionCalendarResponseSchema,
+  classSessionListResponseSchema,
+  classSessionResponseSchema,
+  attendanceListResponseSchema,
+  classNoteListResponseSchema,
+  courseListResponseSchema,
+  courseResponseSchema,
+  enrollmentListResponseSchema,
+  groupListResponseSchema,
+  groupResponseSchema,
+  groupTeacherResponseSchema,
+  materialListResponseSchema,
+  scheduleOptionListResponseSchema,
+  sessionResponseSchema,
+  studentListResponseSchema,
+  studentResponseSchema,
+  teacherAssignmentResponseSchema,
+  teacherListResponseSchema,
+  teacherResponseSchema,
+  type Attendance,
+  type ClassNote,
+  type ClassSession,
+  type ClassSessionCalendarEvent,
+  type CivilDate,
+  type Course,
+  type Enrollment,
+  type Group,
+  type Material,
+  type ScheduleOption,
+  type SessionUser,
+  type Student,
+  type Teacher,
+  type TeacherAssignment,
+  permissionListResponseSchema,
+  type PermissionRef,
+} from '@academia/shared';
 import { cookies } from 'next/headers';
+import {
+  materialsListPath,
+  type MaterialsScope,
+} from './materials';
 
 /**
  * Server-side address of the API. Distinct from the browser path (`/api`),
@@ -7,6 +47,19 @@ import { cookies } from 'next/headers';
  */
 const apiInternalUrl =
   process.env['API_INTERNAL_URL'] ?? 'http://localhost:4000';
+
+async function apiFetch(path: string, init?: RequestInit): Promise<Response> {
+  const cookieHeader = (await cookies()).toString();
+  return fetch(`${apiInternalUrl}${path}`, {
+    ...init,
+    headers: {
+      ...(init?.headers ?? {}),
+      cookie: cookieHeader,
+      ...(init?.body ? { 'Content-Type': 'application/json' } : {}),
+    },
+    cache: 'no-store',
+  });
+}
 
 /**
  * Resolves the current session by asking the API.
@@ -17,20 +70,784 @@ const apiInternalUrl =
  * "not authenticated", never "assume authenticated".
  */
 export async function getSession(): Promise<SessionUser | null> {
-  const cookieHeader = (await cookies()).toString();
-  if (!cookieHeader) return null;
-
   try {
-    const response = await fetch(`${apiInternalUrl}/auth/me`, {
-      headers: { cookie: cookieHeader },
-      cache: 'no-store',
-    });
-
+    const response = await apiFetch('/auth/me');
     if (!response.ok) return null;
-
     const parsed = sessionResponseSchema.safeParse(await response.json());
     return parsed.success ? parsed.data.user : null;
   } catch {
     return null;
+  }
+}
+
+export type StudentsFetchResult =
+  | { ok: true; students: Student[] }
+  | { ok: false; status: number; message: string };
+
+export async function fetchStudents(): Promise<StudentsFetchResult> {
+  try {
+    const response = await apiFetch('/students');
+    if (!response.ok) {
+      return {
+        ok: false,
+        status: response.status,
+        message:
+          response.status === 403
+            ? 'No tenés permiso para ver el listado de estudiantes.'
+            : 'No pudimos cargar los estudiantes.',
+      };
+    }
+    const parsed = studentListResponseSchema.safeParse(await response.json());
+    if (!parsed.success) {
+      return {
+        ok: false,
+        status: 500,
+        message: 'Respuesta inválida del servidor.',
+      };
+    }
+    return { ok: true, students: parsed.data.students };
+  } catch {
+    return {
+      ok: false,
+      status: 503,
+      message: 'No pudimos conectar con el servidor.',
+    };
+  }
+}
+
+export type StudentFetchResult =
+  | { ok: true; student: Student }
+  | { ok: false; status: number; message: string };
+
+export async function fetchStudent(id: string): Promise<StudentFetchResult> {
+  try {
+    const response = await apiFetch(`/students/${id}`);
+    if (!response.ok) {
+      return {
+        ok: false,
+        status: response.status,
+        message:
+          response.status === 404
+            ? 'Estudiante no encontrado.'
+            : response.status === 403
+              ? 'No tenés permiso para ver este estudiante.'
+              : 'No pudimos cargar el estudiante.',
+      };
+    }
+    const parsed = studentResponseSchema.safeParse(await response.json());
+    if (!parsed.success) {
+      return {
+        ok: false,
+        status: 500,
+        message: 'Respuesta inválida del servidor.',
+      };
+    }
+    return { ok: true, student: parsed.data.student };
+  } catch {
+    return {
+      ok: false,
+      status: 503,
+      message: 'No pudimos conectar con el servidor.',
+    };
+  }
+}
+
+export type TeachersFetchResult =
+  | { ok: true; teachers: Teacher[] }
+  | { ok: false; status: number; message: string };
+
+export async function fetchTeachers(): Promise<TeachersFetchResult> {
+  try {
+    const response = await apiFetch('/teachers');
+    if (!response.ok) {
+      return {
+        ok: false,
+        status: response.status,
+        message:
+          response.status === 403
+            ? 'No tenés permiso para ver el listado de profesores.'
+            : 'No pudimos cargar los profesores.',
+      };
+    }
+    const parsed = teacherListResponseSchema.safeParse(await response.json());
+    if (!parsed.success) {
+      return {
+        ok: false,
+        status: 500,
+        message: 'Respuesta inválida del servidor.',
+      };
+    }
+    return { ok: true, teachers: parsed.data.teachers };
+  } catch {
+    return {
+      ok: false,
+      status: 503,
+      message: 'No pudimos conectar con el servidor.',
+    };
+  }
+}
+
+export type TeacherFetchResult =
+  | { ok: true; teacher: Teacher }
+  | { ok: false; status: number; message: string };
+
+export async function fetchTeacher(id: string): Promise<TeacherFetchResult> {
+  try {
+    const response = await apiFetch(`/teachers/${id}`);
+    if (!response.ok) {
+      return {
+        ok: false,
+        status: response.status,
+        message:
+          response.status === 404
+            ? 'Profesor no encontrado.'
+            : response.status === 403
+              ? 'No tenés permiso para ver este profesor.'
+              : 'No pudimos cargar el profesor.',
+      };
+    }
+    const parsed = teacherResponseSchema.safeParse(await response.json());
+    if (!parsed.success) {
+      return {
+        ok: false,
+        status: 500,
+        message: 'Respuesta inválida del servidor.',
+      };
+    }
+    return { ok: true, teacher: parsed.data.teacher };
+  } catch {
+    return {
+      ok: false,
+      status: 503,
+      message: 'No pudimos conectar con el servidor.',
+    };
+  }
+}
+
+export type CalendarFetchResult =
+  | {
+      ok: true;
+      from: CivilDate;
+      to: CivilDate;
+      classSessions: ClassSessionCalendarEvent[];
+    }
+  | { ok: false; status: number; message: string };
+
+export async function fetchClassSessionCalendar(
+  from: CivilDate,
+  to: CivilDate,
+): Promise<CalendarFetchResult> {
+  try {
+    const query = new URLSearchParams({ from, to });
+    const response = await apiFetch(`/classes/calendar?${query.toString()}`);
+    if (!response.ok) {
+      return {
+        ok: false,
+        status: response.status,
+        message:
+          response.status === 403
+            ? 'No tenés permiso para ver el calendario de clases.'
+            : response.status === 400
+              ? 'El rango de fechas del calendario no es válido.'
+              : 'No pudimos cargar el calendario.',
+      };
+    }
+    const parsed = classSessionCalendarResponseSchema.safeParse(
+      await response.json(),
+    );
+    if (!parsed.success) {
+      return {
+        ok: false,
+        status: 500,
+        message: 'Respuesta inválida del servidor.',
+      };
+    }
+    return {
+      ok: true,
+      from: parsed.data.from,
+      to: parsed.data.to,
+      classSessions: parsed.data.classSessions,
+    };
+  } catch {
+    return {
+      ok: false,
+      status: 503,
+      message: 'No pudimos conectar con el servidor.',
+    };
+  }
+}
+
+export type ClassSessionsFetchResult =
+  | { ok: true; classSessions: ClassSession[] }
+  | { ok: false; status: number; message: string };
+
+export async function fetchClassSessions(
+  groupId?: string,
+): Promise<ClassSessionsFetchResult> {
+  try {
+    const query = groupId
+      ? `?${new URLSearchParams({ groupId }).toString()}`
+      : '';
+    const response = await apiFetch(`/classes${query}`);
+    if (!response.ok) {
+      return {
+        ok: false,
+        status: response.status,
+        message:
+          response.status === 403
+            ? 'No tenés permiso para ver el listado de clases.'
+            : 'No pudimos cargar las clases.',
+      };
+    }
+    const parsed = classSessionListResponseSchema.safeParse(
+      await response.json(),
+    );
+    if (!parsed.success) {
+      return {
+        ok: false,
+        status: 500,
+        message: 'Respuesta inválida del servidor.',
+      };
+    }
+    return { ok: true, classSessions: parsed.data.classSessions };
+  } catch {
+    return {
+      ok: false,
+      status: 503,
+      message: 'No pudimos conectar con el servidor.',
+    };
+  }
+}
+
+export type ClassSessionFetchResult =
+  | { ok: true; classSession: ClassSession }
+  | { ok: false; status: number; message: string };
+
+export async function fetchClassSession(
+  id: string,
+): Promise<ClassSessionFetchResult> {
+  try {
+    const response = await apiFetch(`/classes/${id}`);
+    if (!response.ok) {
+      return {
+        ok: false,
+        status: response.status,
+        message:
+          response.status === 404
+            ? 'Clase no encontrada.'
+            : response.status === 403
+              ? 'No tenés permiso para ver esta clase.'
+              : 'No pudimos cargar la clase.',
+      };
+    }
+    const parsed = classSessionResponseSchema.safeParse(await response.json());
+    if (!parsed.success) {
+      return {
+        ok: false,
+        status: 500,
+        message: 'Respuesta inválida del servidor.',
+      };
+    }
+    return { ok: true, classSession: parsed.data.classSession };
+  } catch {
+    return {
+      ok: false,
+      status: 503,
+      message: 'No pudimos conectar con el servidor.',
+    };
+  }
+}
+
+export type GroupsFetchResult =
+  | { ok: true; groups: Group[] }
+  | { ok: false; status: number; message: string };
+
+export async function fetchGroups(): Promise<GroupsFetchResult> {
+  try {
+    const response = await apiFetch('/groups');
+    if (!response.ok) {
+      return {
+        ok: false,
+        status: response.status,
+        message:
+          response.status === 403
+            ? 'No tenés permiso para ver el listado de grupos.'
+            : 'No pudimos cargar los grupos.',
+      };
+    }
+    const parsed = groupListResponseSchema.safeParse(await response.json());
+    if (!parsed.success) {
+      return {
+        ok: false,
+        status: 500,
+        message: 'Respuesta inválida del servidor.',
+      };
+    }
+    return { ok: true, groups: parsed.data.groups };
+  } catch {
+    return {
+      ok: false,
+      status: 503,
+      message: 'No pudimos conectar con el servidor.',
+    };
+  }
+}
+
+export type GroupFetchResult =
+  | { ok: true; group: Group }
+  | { ok: false; status: number; message: string };
+
+export async function fetchGroup(id: string): Promise<GroupFetchResult> {
+  try {
+    const response = await apiFetch(`/groups/${id}`);
+    if (!response.ok) {
+      return {
+        ok: false,
+        status: response.status,
+        message:
+          response.status === 404
+            ? 'Grupo no encontrado.'
+            : response.status === 403
+              ? 'No tenés permiso para ver este grupo.'
+              : 'No pudimos cargar el grupo.',
+      };
+    }
+    const parsed = groupResponseSchema.safeParse(await response.json());
+    if (!parsed.success) {
+      return {
+        ok: false,
+        status: 500,
+        message: 'Respuesta inválida del servidor.',
+      };
+    }
+    return { ok: true, group: parsed.data.group };
+  } catch {
+    return {
+      ok: false,
+      status: 503,
+      message: 'No pudimos conectar con el servidor.',
+    };
+  }
+}
+
+export type GroupEnrollmentsFetchResult =
+  | { ok: true; enrollments: Enrollment[] }
+  | { ok: false; status: number; message: string };
+
+export async function fetchGroupEnrollments(
+  groupId: string,
+): Promise<GroupEnrollmentsFetchResult> {
+  try {
+    const response = await apiFetch(`/groups/${groupId}/students`);
+    if (!response.ok) {
+      return {
+        ok: false,
+        status: response.status,
+        message:
+          response.status === 403
+            ? 'No tenés permiso para ver los estudiantes del grupo.'
+            : response.status === 404
+              ? 'Grupo no encontrado.'
+              : 'No pudimos cargar los estudiantes del grupo.',
+      };
+    }
+    const parsed = enrollmentListResponseSchema.safeParse(await response.json());
+    if (!parsed.success) {
+      return {
+        ok: false,
+        status: 500,
+        message: 'Respuesta inválida del servidor.',
+      };
+    }
+    return { ok: true, enrollments: parsed.data.enrollments };
+  } catch {
+    return {
+      ok: false,
+      status: 503,
+      message: 'No pudimos conectar con el servidor.',
+    };
+  }
+}
+
+export type AttendanceFetchResult =
+  | { ok: true; attendances: Attendance[] }
+  | { ok: false; status: number; message: string };
+
+export async function fetchClassSessionAttendance(
+  classSessionId: string,
+): Promise<AttendanceFetchResult> {
+  try {
+    const response = await apiFetch(`/classes/${classSessionId}/attendance`);
+    if (!response.ok) {
+      return {
+        ok: false,
+        status: response.status,
+        message:
+          response.status === 403
+            ? 'No tenés permiso para ver la asistencia.'
+            : response.status === 404
+              ? 'Clase no encontrada.'
+              : 'No pudimos cargar la asistencia.',
+      };
+    }
+    const parsed = attendanceListResponseSchema.safeParse(await response.json());
+    if (!parsed.success) {
+      return {
+        ok: false,
+        status: 500,
+        message: 'Respuesta inválida del servidor.',
+      };
+    }
+    return { ok: true, attendances: parsed.data.attendances };
+  } catch {
+    return {
+      ok: false,
+      status: 503,
+      message: 'No pudimos conectar con el servidor.',
+    };
+  }
+}
+
+export type ClassNotesFetchResult =
+  | { ok: true; notes: ClassNote[] }
+  | { ok: false; status: number; message: string };
+
+export async function fetchClassSessionNotes(
+  classSessionId: string,
+): Promise<ClassNotesFetchResult> {
+  try {
+    const response = await apiFetch(`/classes/${classSessionId}/notes`);
+    if (!response.ok) {
+      return {
+        ok: false,
+        status: response.status,
+        message:
+          response.status === 403
+            ? 'No tenés permiso para ver las notas.'
+            : response.status === 404
+              ? 'Clase no encontrada.'
+              : 'No pudimos cargar las notas.',
+      };
+    }
+    const parsed = classNoteListResponseSchema.safeParse(await response.json());
+    if (!parsed.success) {
+      return {
+        ok: false,
+        status: 500,
+        message: 'Respuesta inválida del servidor.',
+      };
+    }
+    return { ok: true, notes: parsed.data.notes };
+  } catch {
+    return {
+      ok: false,
+      status: 503,
+      message: 'No pudimos conectar con el servidor.',
+    };
+  }
+}
+
+export type MaterialsFetchResult =
+  | { ok: true; materials: Material[] }
+  | { ok: false; status: number; message: string };
+
+/** Scoped materials list — exactly one of courseId / classSessionId. */
+export async function fetchMaterials(
+  scope: MaterialsScope,
+): Promise<MaterialsFetchResult> {
+  try {
+    const response = await apiFetch(materialsListPath(scope));
+    if (!response.ok) {
+      return {
+        ok: false,
+        status: response.status,
+        message:
+          response.status === 403
+            ? 'No tenés permiso para ver los materiales.'
+            : response.status === 400
+              ? 'Indicá un curso o una clase para listar materiales.'
+              : 'No pudimos cargar los materiales.',
+      };
+    }
+    const parsed = materialListResponseSchema.safeParse(await response.json());
+    if (!parsed.success) {
+      return {
+        ok: false,
+        status: 500,
+        message: 'Respuesta inválida del servidor.',
+      };
+    }
+    return { ok: true, materials: parsed.data.materials };
+  } catch {
+    return {
+      ok: false,
+      status: 503,
+      message: 'No pudimos conectar con el servidor.',
+    };
+  }
+}
+
+export type CoursesFetchResult =
+  | { ok: true; courses: Course[] }
+  | { ok: false; status: number; message: string };
+
+export async function fetchCourses(): Promise<CoursesFetchResult> {
+  try {
+    const response = await apiFetch('/courses');
+    if (!response.ok) {
+      return {
+        ok: false,
+        status: response.status,
+        message:
+          response.status === 403
+            ? 'No tenés permiso para ver los cursos.'
+            : 'No pudimos cargar los cursos.',
+      };
+    }
+    const parsed = courseListResponseSchema.safeParse(await response.json());
+    if (!parsed.success) {
+      return {
+        ok: false,
+        status: 500,
+        message: 'Respuesta inválida del servidor.',
+      };
+    }
+    return { ok: true, courses: parsed.data.courses };
+  } catch {
+    return {
+      ok: false,
+      status: 503,
+      message: 'No pudimos conectar con el servidor.',
+    };
+  }
+}
+
+export type CourseFetchResult =
+  | { ok: true; course: Course }
+  | { ok: false; status: number; message: string };
+
+export async function fetchCourse(id: string): Promise<CourseFetchResult> {
+  try {
+    const response = await apiFetch(`/courses/${id}`);
+    if (!response.ok) {
+      return {
+        ok: false,
+        status: response.status,
+        message:
+          response.status === 404
+            ? 'Curso no encontrado.'
+            : response.status === 403
+              ? 'No tenés permiso para ver este curso.'
+              : 'No pudimos cargar el curso.',
+      };
+    }
+    const parsed = courseResponseSchema.safeParse(await response.json());
+    if (!parsed.success) {
+      return {
+        ok: false,
+        status: 500,
+        message: 'Respuesta inválida del servidor.',
+      };
+    }
+    return { ok: true, course: parsed.data.course };
+  } catch {
+    return {
+      ok: false,
+      status: 503,
+      message: 'No pudimos conectar con el servidor.',
+    };
+  }
+}
+
+export type ScheduleOptionsFetchResult =
+  | { ok: true; scheduleOptions: ScheduleOption[] }
+  | { ok: false; status: number; message: string };
+
+export async function fetchScheduleOptions(): Promise<ScheduleOptionsFetchResult> {
+  try {
+    const response = await apiFetch('/schedule-options');
+    if (!response.ok) {
+      return {
+        ok: false,
+        status: response.status,
+        message:
+          response.status === 403
+            ? 'No tenés permiso para ver las franjas horarias.'
+            : 'No pudimos cargar las franjas horarias.',
+      };
+    }
+    const parsed = scheduleOptionListResponseSchema.safeParse(
+      await response.json(),
+    );
+    if (!parsed.success) {
+      return {
+        ok: false,
+        status: 500,
+        message: 'Respuesta inválida del servidor.',
+      };
+    }
+    return { ok: true, scheduleOptions: parsed.data.scheduleOptions };
+  } catch {
+    return {
+      ok: false,
+      status: 503,
+      message: 'No pudimos conectar con el servidor.',
+    };
+  }
+}
+
+export type StudentTeacherAssignmentFetchResult =
+  | { ok: true; assignment: TeacherAssignment }
+  | { ok: false; status: number; message: string; missing: boolean };
+
+export async function fetchStudentTeacherAssignment(
+  studentId: string,
+): Promise<StudentTeacherAssignmentFetchResult> {
+  try {
+    const response = await apiFetch(`/students/${studentId}/teacher`);
+    if (!response.ok) {
+      return {
+        ok: false,
+        status: response.status,
+        missing: response.status === 404,
+        message:
+          response.status === 404
+            ? 'Sin profesor asignado.'
+            : response.status === 403
+              ? 'No tenés permiso para ver esta asignación.'
+              : 'No pudimos cargar la asignación.',
+      };
+    }
+    const parsed = teacherAssignmentResponseSchema.safeParse(
+      await response.json(),
+    );
+    if (!parsed.success) {
+      return {
+        ok: false,
+        status: 500,
+        missing: false,
+        message: 'Respuesta inválida del servidor.',
+      };
+    }
+    return { ok: true, assignment: parsed.data.assignment };
+  } catch {
+    return {
+      ok: false,
+      status: 503,
+      missing: false,
+      message: 'No pudimos conectar con el servidor.',
+    };
+  }
+}
+
+export type GroupTeacherFetchResult =
+  | { ok: true; groupId: string; teacherId: string }
+  | { ok: false; status: number; message: string; missing: boolean };
+
+export async function fetchGroupTeacher(
+  groupId: string,
+): Promise<GroupTeacherFetchResult> {
+  try {
+    const response = await apiFetch(`/groups/${groupId}/teacher`);
+    if (!response.ok) {
+      return {
+        ok: false,
+        status: response.status,
+        missing: response.status === 404,
+        message:
+          response.status === 404
+            ? 'Sin docente asignado al grupo.'
+            : response.status === 403
+              ? 'No tenés permiso para ver el docente del grupo.'
+              : 'No pudimos cargar el docente del grupo.',
+      };
+    }
+    const parsed = groupTeacherResponseSchema.safeParse(await response.json());
+    if (!parsed.success) {
+      return {
+        ok: false,
+        status: 500,
+        missing: false,
+        message: 'Respuesta inválida del servidor.',
+      };
+    }
+    return {
+      ok: true,
+      groupId: parsed.data.groupId,
+      teacherId: parsed.data.teacherId,
+    };
+  } catch {
+    return {
+      ok: false,
+      status: 503,
+      missing: false,
+      message: 'No pudimos conectar con el servidor.',
+    };
+  }
+}
+
+export type PermissionListFetchResult =
+  | { ok: true; permissions: PermissionRef[] }
+  | { ok: false; status: number; message: string };
+
+export async function fetchPermissionCatalog(): Promise<PermissionListFetchResult> {
+  try {
+    const response = await apiFetch('/permissions/catalog');
+    if (!response.ok) {
+      return {
+        ok: false,
+        status: response.status,
+        message:
+          response.status === 403
+            ? 'No tenés permiso para ver el catálogo de permisos.'
+            : 'No pudimos cargar el catálogo de permisos.',
+      };
+    }
+    const parsed = permissionListResponseSchema.safeParse(await response.json());
+    if (!parsed.success) {
+      return {
+        ok: false,
+        status: 500,
+        message: 'Respuesta inválida del servidor.',
+      };
+    }
+    return { ok: true, permissions: parsed.data.permissions };
+  } catch {
+    return {
+      ok: false,
+      status: 503,
+      message: 'No pudimos conectar con el servidor.',
+    };
+  }
+}
+
+export async function fetchAdministrativePermissionGrants(): Promise<PermissionListFetchResult> {
+  try {
+    const response = await apiFetch('/roles/administrative/permissions');
+    if (!response.ok) {
+      return {
+        ok: false,
+        status: response.status,
+        message:
+          response.status === 403
+            ? 'No tenés permiso para ver los grants del rol administrativo.'
+            : 'No pudimos cargar los permisos administrativos.',
+      };
+    }
+    const parsed = permissionListResponseSchema.safeParse(await response.json());
+    if (!parsed.success) {
+      return {
+        ok: false,
+        status: 500,
+        message: 'Respuesta inválida del servidor.',
+      };
+    }
+    return { ok: true, permissions: parsed.data.permissions };
+  } catch {
+    return {
+      ok: false,
+      status: 503,
+      message: 'No pudimos conectar con el servidor.',
+    };
   }
 }

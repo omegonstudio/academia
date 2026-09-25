@@ -219,7 +219,7 @@ describe('administrative permissions routes', () => {
     const response = await request(fixture.app)
       .post('/roles/administrative/permissions')
       .set('Cookie', cookie!)
-      .send({ module: 'students', action: 'delete' });
+      .send({ module: 'students', action: 'explode' });
 
     expect(response.status).toBe(400);
     expect(response.body.error.code).toBe('BAD_REQUEST');

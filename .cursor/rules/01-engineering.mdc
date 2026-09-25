@@ -20,7 +20,7 @@ alwaysApply: true
 13. Add loading, empty, error and success states for real async operations.
 14. Never display success unless the backend operation succeeded.
 15. Avoid premature abstraction, but keep domain entities extensible.
-16. Add tests around authorization and the 15/85 financial rule (backend domain, not frontend-only).
+16. Add tests around authorization and the academy/teacher revenue-split rule (allowed academy percentages only; teacher = 100 − academy; backend domain, not frontend-only).
 17. Every new route must be reflected in `ROUTE-MAP.md`.
 18. Every completed/discovered task must be reflected in `TODO.md`.
 19. Every PR must keep roadmap and implementation state synchronized.

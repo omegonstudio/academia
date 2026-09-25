@@ -11,6 +11,11 @@ PRISMA_BIN="/app/node_modules/.bin/prisma"
 MAX_ATTEMPTS="${MIGRATION_MAX_ATTEMPTS:-30}"
 RETRY_DELAY_SECONDS=2
 
+# Anonymous node_modules volumes outlive image rebuilds; resync when lockfile
+# on the bind mount has changed (e.g. new dependency like swagger-ui-express).
+# shellcheck source=/dev/null
+. /usr/local/lib/academia/sync-node-modules.sh
+
 cd /app/apps/api
 
 # Build the connection URL from discrete parameters unless one was supplied.

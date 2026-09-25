@@ -26,11 +26,19 @@ The platform is the academy. Zoom/Google Meet is the external classroom.
 
 ## Revenue split
 
-For each student/service:
-- Academy: 15%
-- Assigned teacher: 85%
+Academy-level configuration (current / vigente), selected by SUPER_ADMIN or DIRECTOR only.
+ADMINISTRATIVE, TEACHER and STUDENT cannot change it.
+
+Allowed `academyPercentage` values only:
+- 20 → Teacher 80
+- 30 → Teacher 70
+- 40 → Teacher 60 (**DEFAULT**)
+- 50 → Teacher 50
+
+Teacher share is always derived as `100 - academyPercentage`. Never store two independent writable percentages that can disagree.
 
 The MVP may record the calculation and settlement status without automatically transferring money.
+**Freeze:** financial operations that must keep a historical split freeze the applicable percentage on that record; later academy-config changes do not rewrite frozen rows (`docs/DECISIONS.md` #41). Exact freeze trigger timing is left to Stage 6 implementation.
 
 ## Roles
 
@@ -91,6 +99,6 @@ Distinguish clearly:
 - **Production Infrastructure** — Docker, env isolation, PostgreSQL migrations, CI/CD, healthchecks, logging, backups (required before expanding product).
 - **Future Product** — later features; do not implement early just because infrastructure is ready.
 
-Payments (Mercado Pago AR / Stripe international) go through Payment Domain → Provider adapters; Finance (15/85) stays decoupled and server-side.
+Payments (Mercado Pago AR / Stripe international) go through Payment Domain → Provider adapters; Finance (configurable academy/teacher split) stays decoupled and server-side.
 
 LaQQ is an architectural reference for Omegon infra patterns — not a product dependency of Academia.

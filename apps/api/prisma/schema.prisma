@@ -2,8 +2,11 @@
 //
 // Stage 0 modelled identity. Stage 1 adds the permission catalog,
 // role ↔ permission grants, and an audit trail for permission changes.
-// Student/Teacher profile entities, courses, classes, materials, payments and
-// settlements belong to later stages.
+// Stage 2 adds academic Student and Teacher profiles (1:1 with User).
+// Stage 3–4: assignment, Course/Group, ScheduleOption, Enrollment, ClassSession.
+// Stage 5B: Material (FILE|LINK) with S3-compatible private storage.
+// Stage 6B-1: Finance foundation (Charge / Payment / Allocation / Settlement).
+// Recurrence belongs to later increments.
 //
 // The connection URL is supplied by `prisma7.config.ts` from the environment.
 //
@@ -43,6 +46,70 @@ enum PermissionChangeType {
   @@map("permission_change_type")
 }
 
+/// FILE (private object storage) or LINK (external https URL).
+enum MaterialKind {
+  FILE
+  LINK
+
+  @@map("material_kind")
+}
+
+/// FILE starts PENDING until complete verifies the object; LINK is always READY.
+enum MaterialUploadStatus {
+  PENDING
+  READY
+
+  @@map("material_upload_status")
+}
+
+enum FinanceCurrency {
+  ARS
+  USD
+
+  @@map("finance_currency")
+}
+
+enum ChargeStatus {
+  OPEN
+  PAID
+  CANCELLED
+
+  @@map("charge_status")
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCEEDED
+  FAILED
+  CANCELLED
+  REFUNDED
+
+  @@map("payment_status")
+}
+
+enum PaymentProvider {
+  MERCADOPAGO
+  STRIPE
+  MANUAL
+
+  @@map("payment_provider")
+}
+
+/// ORIGINAL accrues teacher/academy share; REVERSAL negates a prior allocation (refund).
+enum RevenueAllocationKind {
+  ORIGINAL
+  REVERSAL
+
+  @@map("revenue_allocation_kind")
+}
+
+enum TeacherSettlementStatus {
+  OPEN
+  MARKED_PAID
+
+  @@map("teacher_settlement_status")
+}
+
 model User {
   id String @id @default(uuid()) @db.Uuid
 
@@ -61,6 +128,12 @@ model User {
   updatedAt   DateTime  @updatedAt @map("updated_at")
 
   permissionChangeAudits PermissionChangeAudit[]
+  student                Student?
+  teacher                Teacher?
+  materialsCreated       Material[]
+  financeSettingsUpdates AcademyFinanceSettings[]
+  chargesCreated         Charge[]                 @relation("ChargeCreatedBy")
+  paymentsCreated        Payment[]                @relation("PaymentCreatedBy")
 
   @@index([role])
   @@map("users")
@@ -79,6 +152,304 @@ model Permission {
 
   @@unique([module, action])
   @@map("permissions")
+}
+
+/// Academic student profile. 1:1 with a User that has role STUDENT.
+model Student {
+  id String @id @default(uuid()) @db.Uuid
+
+  userId String @unique @map("user_id") @db.Uuid
+  user   User   @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  firstName String @map("first_name") @db.VarChar(80)
+  lastName  String @map("last_name") @db.VarChar(80)
+
+  /// CEFR level (A1–C2), validated in the application layer.
+  level String @db.VarChar(8)
+
+  isActive Boolean @default(true) @map("is_active")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  teacherAssignment TeacherAssignment?
+  enrollments       Enrollment[]
+  attendances       Attendance[]
+  charges           Charge[]
+  payments          Payment[]
+  revenueAllocations RevenueAllocation[]
+
+  @@index([isActive])
+  @@index([lastName, firstName])
+  @@map("students")
+}
+
+/// Academic teacher profile. 1:1 with a User that has role TEACHER.
+model Teacher {
+  id String @id @default(uuid()) @db.Uuid
+
+  userId String @unique @map("user_id") @db.Uuid
+  user   User   @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  firstName String @map("first_name") @db.VarChar(80)
+  lastName  String @map("last_name") @db.VarChar(80)
+
+  /// CEFR teaching level (A1–C2), validated in the application layer.
+  level String @db.VarChar(8)
+
+  /// AVAILABLE | UNAVAILABLE | LIMITED — validated in the application layer.
+  availability String @default("AVAILABLE") @db.VarChar(16)
+
+  isActive Boolean @default(true) @map("is_active")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  studentAssignments TeacherAssignment[]
+  groups             Group[]
+  revenueAllocations RevenueAllocation[]
+  settlements        TeacherSettlement[]
+
+  @@index([isActive])
+  @@index([availability])
+  @@index([lastName, firstName])
+  @@map("teachers")
+}
+
+/// Current Student → Teacher link. One active teacher per student; no history yet.
+model TeacherAssignment {
+  id String @id @default(uuid()) @db.Uuid
+
+  studentId String @unique @map("student_id") @db.Uuid
+  student   Student @relation(fields: [studentId], references: [id], onDelete: Restrict)
+
+  teacherId String @map("teacher_id") @db.Uuid
+  teacher   Teacher @relation(fields: [teacherId], references: [id], onDelete: Restrict)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([teacherId])
+  @@map("teacher_assignments")
+}
+
+/// Academic offering. serviceType = duration; courseType = educational purpose.
+model Course {
+  id String @id @default(uuid()) @db.Uuid
+
+  name        String  @db.VarChar(120)
+  description String? @db.VarChar(500)
+
+  /// REGULAR | TEACHER_TRAINING — validated in the application layer.
+  courseType String @map("course_type") @db.VarChar(32)
+
+  /// ONE_TO_ONE_60 | ONE_TO_ONE_90 | GROUP_120 — validated in the application layer.
+  serviceType String @map("service_type") @db.VarChar(32)
+
+  /// List price in minor units (#44). Null until the course is priced.
+  amountMinor BigInt?          @map("amount_minor")
+  currency    FinanceCurrency?
+
+  isActive Boolean @default(true) @map("is_active")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  groups             Group[]
+  materials          Material[]
+  charges            Charge[]
+  revenueAllocations RevenueAllocation[]
+
+  @@index([isActive])
+  @@index([name])
+  @@index([courseType])
+  @@index([serviceType])
+  @@map("courses")
+}
+
+/// Cohort/instance of a Course. Current teacher and weekly slot via optional FKs.
+model Group {
+  id String @id @default(uuid()) @db.Uuid
+
+  courseId String @map("course_id") @db.Uuid
+  course   Course @relation(fields: [courseId], references: [id], onDelete: Restrict)
+
+  name String @db.VarChar(120)
+
+  teacherId String?  @map("teacher_id") @db.Uuid
+  teacher   Teacher? @relation(fields: [teacherId], references: [id], onDelete: Restrict)
+
+  scheduleOptionId String?         @map("schedule_option_id") @db.Uuid
+  scheduleOption   ScheduleOption? @relation(fields: [scheduleOptionId], references: [id], onDelete: Restrict)
+
+  isActive Boolean @default(true) @map("is_active")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  enrollments   Enrollment[]
+  classSessions ClassSession[]
+  charges       Charge[]
+  revenueAllocations RevenueAllocation[]
+
+  @@index([courseId])
+  @@index([teacherId])
+  @@index([scheduleOptionId])
+  @@index([isActive])
+  @@map("groups")
+}
+
+/// Concrete class occurrence. Duration comes from Group → Course.serviceType.
+model ClassSession {
+  id String @id @default(uuid()) @db.Uuid
+
+  groupId String @map("group_id") @db.Uuid
+  group   Group  @relation(fields: [groupId], references: [id], onDelete: Restrict)
+
+  /// Instant start/end (timestamptz). endAt must match Course duration.
+  startAt DateTime @map("start_at") @db.Timestamptz(3)
+  endAt   DateTime @map("end_at") @db.Timestamptz(3)
+
+  /// Optional external meeting room URL (https). Manual; no provider integration.
+  meetingUrl String? @map("meeting_url") @db.VarChar(2048)
+
+  isActive Boolean @default(true) @map("is_active")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  attendances Attendance[]
+  notes       ClassNote[]
+  materials   Material[]
+  charges     Charge[]
+
+  @@unique([groupId, startAt])
+  @@index([groupId, startAt])
+  @@index([isActive, startAt])
+  @@index([isActive])
+  @@map("class_sessions")
+}
+
+/// Teaching material: FILE (S3-compatible) or LINK (https). XOR Course/ClassSession.
+model Material {
+  id String @id @default(uuid()) @db.Uuid
+
+  title       String  @db.VarChar(200)
+  description String? @db.VarChar(1000)
+
+  kind         MaterialKind
+  uploadStatus MaterialUploadStatus @map("upload_status")
+
+  mimeType         String? @map("mime_type") @db.VarChar(100)
+  sizeBytes        Int?    @map("size_bytes")
+  /// Opaque object key — never exposed via API responses.
+  storageKey       String? @unique @map("storage_key") @db.VarChar(512)
+  originalFilename String? @map("original_filename") @db.VarChar(255)
+  externalUrl      String? @map("external_url") @db.VarChar(2048)
+
+  courseId String? @map("course_id") @db.Uuid
+  course   Course? @relation(fields: [courseId], references: [id], onDelete: Restrict)
+
+  classSessionId String?       @map("class_session_id") @db.Uuid
+  classSession   ClassSession? @relation(fields: [classSessionId], references: [id], onDelete: Restrict)
+
+  createdByUserId String @map("created_by_user_id") @db.Uuid
+  createdBy       User   @relation(fields: [createdByUserId], references: [id], onDelete: Restrict)
+
+  isActive Boolean @default(true) @map("is_active")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([courseId, isActive])
+  @@index([classSessionId, isActive])
+  @@index([createdByUserId])
+  @@index([isActive, uploadStatus])
+  @@map("materials")
+}
+
+/// Private text note for one ClassSession. Hard delete; no author in MVP.
+model ClassNote {
+  id String @id @default(uuid()) @db.Uuid
+
+  classSessionId String       @map("class_session_id") @db.Uuid
+  classSession   ClassSession @relation(fields: [classSessionId], references: [id], onDelete: Restrict)
+
+  content String @db.VarChar(4000)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([classSessionId, createdAt])
+  @@map("class_notes")
+}
+
+/// Student presence for one ClassSession. No soft delete — change status instead.
+model Attendance {
+  id String @id @default(uuid()) @db.Uuid
+
+  classSessionId String       @map("class_session_id") @db.Uuid
+  classSession   ClassSession @relation(fields: [classSessionId], references: [id], onDelete: Restrict)
+
+  studentId String  @map("student_id") @db.Uuid
+  student   Student @relation(fields: [studentId], references: [id], onDelete: Restrict)
+
+  /// PRESENT | ABSENT — validated in the application layer.
+  status String @db.VarChar(16)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([classSessionId, studentId])
+  @@index([classSessionId])
+  @@index([studentId])
+  @@map("attendances")
+}
+
+/// Student membership in a Group. Soft-deactivate; max 15 active per group (domain).
+model Enrollment {
+  id String @id @default(uuid()) @db.Uuid
+
+  groupId String @map("group_id") @db.Uuid
+  group   Group  @relation(fields: [groupId], references: [id], onDelete: Restrict)
+
+  studentId String  @map("student_id") @db.Uuid
+  student   Student @relation(fields: [studentId], references: [id], onDelete: Restrict)
+
+  isActive Boolean @default(true) @map("is_active")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  charges Charge[]
+
+  @@unique([groupId, studentId])
+  @@index([groupId, isActive])
+  @@index([studentId])
+  @@map("enrollments")
+}
+
+/// Reusable weekly time slot for dropdown selection (not a ClassSession).
+model ScheduleOption {
+  id String @id @default(uuid()) @db.Uuid
+
+  /// MONDAY…SUNDAY — validated in the application layer.
+  day String @db.VarChar(16)
+
+  /// HH:mm — validated in the application layer. No timezone.
+  startTime String @map("start_time") @db.VarChar(5)
+  endTime   String @map("end_time") @db.VarChar(5)
+
+  isActive Boolean @default(true) @map("is_active")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  groups Group[]
+
+  @@index([isActive])
+  @@index([day, startTime])
+  @@map("schedule_options")
 }
 
 /// Links a Role to a Permission. ADMINISTRATIVE access is driven by this table.
@@ -121,4 +492,206 @@ model PermissionChangeAudit {
   @@index([actorUserId])
   @@index([targetRole, createdAt])
   @@map("permission_change_audits")
+}
+
+/// Singleton-style current academy revenue split (#41 / #44). teacher% is derived.
+model AcademyFinanceSettings {
+  id String @id @default(uuid()) @db.Uuid
+
+  /// Allowed: 20 | 30 | 40 | 50. Enforced in domain + DB check.
+  academyPercentage Int @map("academy_percentage")
+
+  updatedAt       DateTime @updatedAt @map("updated_at")
+  updatedByUserId String?  @map("updated_by_user_id") @db.Uuid
+  updatedBy       User?    @relation(fields: [updatedByUserId], references: [id], onDelete: Restrict)
+
+  @@map("academy_finance_settings")
+}
+
+/// Student commercial obligation. Price snapshot is immutable after create (#44).
+model Charge {
+  id String @id @default(uuid()) @db.Uuid
+
+  studentId String  @map("student_id") @db.Uuid
+  student   Student @relation(fields: [studentId], references: [id], onDelete: Restrict)
+
+  amountMinor BigInt          @map("amount_minor")
+  currency    FinanceCurrency
+  status      ChargeStatus    @default(OPEN)
+
+  courseId String? @map("course_id") @db.Uuid
+  course   Course? @relation(fields: [courseId], references: [id], onDelete: Restrict)
+
+  groupId String? @map("group_id") @db.Uuid
+  group   Group?  @relation(fields: [groupId], references: [id], onDelete: Restrict)
+
+  enrollmentId String?     @map("enrollment_id") @db.Uuid
+  enrollment   Enrollment? @relation(fields: [enrollmentId], references: [id], onDelete: Restrict)
+
+  classSessionId String?       @map("class_session_id") @db.Uuid
+  classSession   ClassSession? @relation(fields: [classSessionId], references: [id], onDelete: Restrict)
+
+  description String? @db.VarChar(500)
+
+  createdByUserId String @map("created_by_user_id") @db.Uuid
+  createdBy       User   @relation("ChargeCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
+
+  /// GROUP_120 calendar-month window (date-only). Null for ONE_TO_ONE.
+  periodStart DateTime? @map("period_start") @db.Date
+  periodEnd   DateTime? @map("period_end") @db.Date
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  payments           Payment[]
+  revenueAllocations RevenueAllocation[]
+
+  @@index([studentId, status])
+  @@index([courseId])
+  @@index([groupId])
+  @@index([enrollmentId])
+  @@index([classSessionId])
+  @@index([status])
+  @@map("charges")
+}
+
+/// Money movement for exactly one Charge (MVP 1:1). Snapshot amount/currency.
+model Payment {
+  id String @id @default(uuid()) @db.Uuid
+
+  studentId String  @map("student_id") @db.Uuid
+  student   Student @relation(fields: [studentId], references: [id], onDelete: Restrict)
+
+  chargeId String @unique @map("charge_id") @db.Uuid
+  charge   Charge @relation(fields: [chargeId], references: [id], onDelete: Restrict)
+
+  amountMinor BigInt          @map("amount_minor")
+  currency    FinanceCurrency
+  status      PaymentStatus   @default(PENDING)
+  provider    PaymentProvider
+
+  providerPaymentId String? @map("provider_payment_id") @db.VarChar(191)
+  idempotencyKey    String  @unique @map("idempotency_key") @db.VarChar(191)
+
+  createdByUserId String? @map("created_by_user_id") @db.Uuid
+  createdBy       User?   @relation("PaymentCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  refunds            Refund[]
+  revenueAllocations RevenueAllocation[]
+
+  @@index([studentId, status])
+  @@index([status])
+  @@index([provider])
+  @@map("payments")
+}
+
+/// Frozen academy/teacher split. ORIGINAL on Payment SUCCEEDED; REVERSAL on total refund.
+/// Unique (paymentId, kind) — one ORIGINAL and at most one REVERSAL per payment.
+model RevenueAllocation {
+  id String @id @default(uuid()) @db.Uuid
+
+  paymentId String  @map("payment_id") @db.Uuid
+  payment   Payment @relation(fields: [paymentId], references: [id], onDelete: Restrict)
+
+  chargeId String @map("charge_id") @db.Uuid
+  charge   Charge @relation(fields: [chargeId], references: [id], onDelete: Restrict)
+
+  studentId String  @map("student_id") @db.Uuid
+  student   Student @relation(fields: [studentId], references: [id], onDelete: Restrict)
+
+  teacherId String  @map("teacher_id") @db.Uuid
+  teacher   Teacher @relation(fields: [teacherId], references: [id], onDelete: Restrict)
+
+  courseId String? @map("course_id") @db.Uuid
+  course   Course? @relation(fields: [courseId], references: [id], onDelete: Restrict)
+
+  groupId String? @map("group_id") @db.Uuid
+  group   Group?  @relation(fields: [groupId], references: [id], onDelete: Restrict)
+
+  kind RevenueAllocationKind
+
+  amountMinor         BigInt          @map("amount_minor")
+  currency            FinanceCurrency
+  academyPercentage   Int             @map("academy_percentage")
+  academyAmountMinor  BigInt          @map("academy_amount_minor")
+  teacherAmountMinor  BigInt          @map("teacher_amount_minor")
+
+  /// Set only for REVERSAL rows (links to Refund).
+  refundId String? @unique @map("refund_id") @db.Uuid
+  refund   Refund? @relation(fields: [refundId], references: [id], onDelete: Restrict)
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([paymentId, kind])
+  @@index([teacherId, createdAt])
+  @@index([studentId])
+  @@index([chargeId])
+  @@index([kind])
+  @@map("revenue_allocations")
+}
+
+/// Total refund of a Payment. Partial refund is out of MVP.
+model Refund {
+  id String @id @default(uuid()) @db.Uuid
+
+  paymentId String  @unique @map("payment_id") @db.Uuid
+  payment   Payment @relation(fields: [paymentId], references: [id], onDelete: Restrict)
+
+  amountMinor BigInt          @map("amount_minor")
+  currency    FinanceCurrency
+  reason      String?         @db.VarChar(500)
+
+  createdByUserId String? @map("created_by_user_id") @db.Uuid
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  revenueAllocation RevenueAllocation?
+
+  @@map("refunds")
+}
+
+/// Period owed vs marked-paid for a teacher (no bank payout in MVP).
+model TeacherSettlement {
+  id String @id @default(uuid()) @db.Uuid
+
+  teacherId String  @map("teacher_id") @db.Uuid
+  teacher   Teacher @relation(fields: [teacherId], references: [id], onDelete: Restrict)
+
+  periodStart DateTime @map("period_start") @db.Date
+  periodEnd   DateTime @map("period_end") @db.Date
+
+  totalTeacherAmountMinor BigInt                   @map("total_teacher_amount_minor")
+  currency                FinanceCurrency
+  status                  TeacherSettlementStatus  @default(OPEN)
+
+  markedPaidAt DateTime? @map("marked_paid_at") @db.Timestamptz(3)
+  note         String?   @db.VarChar(1000)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([teacherId, periodStart, periodEnd, currency])
+  @@index([teacherId, status])
+  @@index([status])
+  @@map("teacher_settlements")
+}
+
+/// Provider webhook inbox for Stage 6B-2. Idempotent on (provider, providerEventId).
+model WebhookEvent {
+  id String @id @default(uuid()) @db.Uuid
+
+  provider         PaymentProvider
+  providerEventId  String          @map("provider_event_id") @db.VarChar(191)
+  payload          Json
+  processedAt      DateTime?       @map("processed_at") @db.Timestamptz(3)
+  error            String?         @db.VarChar(2000)
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([provider, providerEventId])
+  @@index([createdAt])
+  @@map("webhook_events")
 }

@@ -3,10 +3,11 @@
 Operational platform for a Spanish-language academy: teacher training, teacher
 network, student assignment, classes, tracking and settlements.
 
-**Current stage: Stage 0 — Foundation + Infrastructure.** The production
-infrastructure is in place; the academy modules are not built yet. See
-[`TODO.md`](TODO.md) for the roadmap and [`ROUTE-MAP.md`](ROUTE-MAP.md) for route
-status.
+**Current stage: Stage 5 — Materials DONE (5A design, 5B API+Storage, 5C
+contextual UI).** Stages 0–4 foundations remain. Materials live on Course and
+ClassSession detail pages (no materials hub). Student/Teacher hubs and Finance
+are later stages. See [`TODO.md`](TODO.md) and [`ROUTE-MAP.md`](ROUTE-MAP.md).
+Branching: [`docs/BRANCHING.md`](docs/BRANCHING.md) (`feature/*` → `dev` → `main`).
 
 ## Stack
 
@@ -15,6 +16,7 @@ status.
 | Frontend | Next.js 16 (App Router), React 19, TypeScript       |
 | Backend  | Node.js 22, Express 5, TypeScript                   |
 | Database | PostgreSQL 17, Prisma 7 (versioned migrations)       |
+| Objects  | S3-compatible (MinIO development / Spaces production)|
 | Runtime  | Docker + Docker Compose, separate dev and prod       |
 | CI/CD    | GitHub Actions                                      |
 
@@ -25,10 +27,18 @@ Requires Docker, Docker Compose and Node.js 22.
 ```bash
 cp .env.example .env      # then edit: set POSTGRES_PASSWORD, AUTH_SECRET, SUPERADMIN_PASSWORD
 npm install
-npm run dev               # builds images, starts db + api + web, waits for health
+npm run dev               # builds images, starts db + minio + api + web, waits for health
+                          # (compose: docker-compose.yml + docker-compose.dev.yml)
 ```
 
 Generate local secrets with `openssl rand -base64 48`.
+
+Compose files are **always paired** (base + one override). Using either file alone
+fails with “neither an image nor a build context” — use `npm run dev` or:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build -d
+```
 
 Once up:
 
@@ -36,8 +46,16 @@ Once up:
 | ------------------------------- | --------------------------------------- |
 | http://localhost:3000           | Web (public site)                       |
 | http://localhost:3000/login     | Login                                   |
-| http://localhost:4000/health    | API health contract                     |
+| http://localhost:3000/api/health | API health via Next rewrite            |
+| http://localhost:3000/api/docs  | Swagger UI (dev; gated in production)   |
+| http://localhost:3000/api/openapi.json | OpenAPI 3 document                |
+| http://localhost:4000/health    | API health (direct, development only)   |
 | localhost:5433                  | PostgreSQL (host port, development only) |
+| http://localhost:9000           | MinIO S3 API (development only)         |
+| http://localhost:9001           | MinIO console (development only)        |
+
+Development MinIO defaults (also in `.env.example`): bucket `academia-materials`,
+access key `academia-dev-access-key`, secret `academia-dev-secret-key`.
 
 ```bash
 npm run dev:logs          # tail logs
@@ -76,6 +94,7 @@ npm run db:seed           # run the SuperAdmin bootstrap
 | [docs/BACKUP-RESTORE.md](docs/BACKUP-RESTORE.md)     | Backup strategy, retention, restore drill      |
 | [docs/ACCESSIBILITY.md](docs/ACCESSIBILITY.md)        | WCAG 2.2 AA baseline and token contrast        |
 | [docs/DECISIONS.md](docs/DECISIONS.md)               | Architecture decisions and their rationale     |
+| [docs/API-SMOKE.md](docs/API-SMOKE.md)               | Manual API smoke + Insomnia/Swagger cookie flow |
 | [docs/LAQQ-REFERENCE.md](docs/LAQQ-REFERENCE.md)     | Which LaQQ patterns were adopted, and which not |
 | [MASTER-PROMPT.md](MASTER-PROMPT.md)                 | Product brief and infrastructure requirements  |
 

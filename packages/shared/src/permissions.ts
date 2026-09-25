@@ -8,6 +8,9 @@ export const PERMISSION_MODULES = [
   'students',
   'teachers',
   'assignments',
+  'courses',
+  'groups',
+  'schedules',
   'classes',
   'materials',
   'finance',
@@ -22,7 +25,7 @@ export type PermissionModule = z.infer<typeof permissionModuleSchema>;
  * Actions a module may expose. Not every module uses every action
  * (`permissions` has no `create`).
  */
-export const PERMISSION_ACTIONS = ['read', 'create', 'update'] as const;
+export const PERMISSION_ACTIONS = ['read', 'create', 'update', 'delete'] as const;
 
 export const permissionActionSchema = z.enum(PERMISSION_ACTIONS);
 export type PermissionAction = z.infer<typeof permissionActionSchema>;
@@ -42,15 +45,30 @@ export const PERMISSION_CATALOG: readonly PermissionRef[] = [
   { module: 'students', action: 'read' },
   { module: 'students', action: 'create' },
   { module: 'students', action: 'update' },
+  { module: 'students', action: 'delete' },
   { module: 'teachers', action: 'read' },
   { module: 'teachers', action: 'create' },
   { module: 'teachers', action: 'update' },
+  { module: 'teachers', action: 'delete' },
   { module: 'assignments', action: 'read' },
   { module: 'assignments', action: 'create' },
   { module: 'assignments', action: 'update' },
+  { module: 'courses', action: 'read' },
+  { module: 'courses', action: 'create' },
+  { module: 'courses', action: 'update' },
+  { module: 'courses', action: 'delete' },
+  { module: 'groups', action: 'read' },
+  { module: 'groups', action: 'create' },
+  { module: 'groups', action: 'update' },
+  { module: 'groups', action: 'delete' },
+  { module: 'schedules', action: 'read' },
+  { module: 'schedules', action: 'create' },
+  { module: 'schedules', action: 'update' },
+  { module: 'schedules', action: 'delete' },
   { module: 'classes', action: 'read' },
   { module: 'classes', action: 'create' },
   { module: 'classes', action: 'update' },
+  { module: 'classes', action: 'delete' },
   { module: 'materials', action: 'read' },
   { module: 'materials', action: 'create' },
   { module: 'materials', action: 'update' },

@@ -7,7 +7,14 @@ Actuá como Staff/Principal Full-Stack Engineer, Product Architect, UX/UI Engine
 > auditoría de Stage 0 encontró el repositorio vacío: 7 archivos versionados,
 > todos markdown y Cursor rules, sin código. Por lo tanto el stack fue creado
 > desde cero en Stage 0. Ver `docs/DECISIONS.md` (decisión 1) y `docs/ARCHITECTURE.md`.
-
+>
+> **Nota de negocio (Stage 6 — definición).** El reparto fijo 15%/85% de este
+> documento queda **superseded** por un `academyPercentage` configurable
+> (20/30/40/50; default 40; teacher = 100 − academia; mutación solo
+> SUPER_ADMIN/DIRECTOR). Operaciones financieras históricas usan **Freeze**:
+> el porcentaje queda congelado en el registro; cambios posteriores de config
+> no reescriben retrospectivamente. Ver `docs/DECISIONS.md` (decisión 41) y
+> `TODO.md` Stage 6. Finance aún no está implementado.
 ## Contexto del producto
 
 La academia pertenece a una directora que es profesora de español.
@@ -29,9 +36,10 @@ El modelo educativo inicial tiene:
    - Los profesores formados por la academia pueden incorporarse como docentes.
    - La dirección asigna estudiantes a docentes.
    - Un docente no puede autoasignarse estudiantes.
-   - La academia retiene el 15% del ingreso de cada estudiante.
-   - El docente recibe el 85%.
-
+   - La dirección configura el reparto academia/docente entre pares permitidos
+     (20/80, 30/70, 40/60 por defecto, 50/50). Solo SUPER_ADMIN y DIRECTOR
+     pueden cambiarlo; el % docente se deriva como `100 - academyPercentage`.
+     Ver decisión 41.
 La visión de producción es convertir la plataforma en la infraestructura operativa de una academia escalable: formación de profesores → incorporación de docentes → asignación de estudiantes → clases → seguimiento → liquidaciones.
 
 ## Stack y estado inicial
@@ -117,7 +125,8 @@ Prioridad:
 9. Links de Zoom/Google Meet.
 10. Materiales.
 11. Asistencia y notas básicas.
-12. Registro financiero básico: precio, 15% academia, 85% docente, estado.
+12. Registro financiero básico: precio, reparto configurable academia/docente
+    (`academyPercentage` ∈ {20,30,40,50}, default 40; teacher derivado), estado.
 13. Gestión de administrativos y permisos.
 14. SEO técnico y accesibilidad desde el primer día.
 
@@ -704,14 +713,16 @@ Payment confirmed
    ↓
 Finance
    ↓
-Academy 15%
-Teacher 85%
+Academy share = academyPercentage (20|30|40|50; default 40)
+Teacher share = 100 - academyPercentage
 ```
 
 No calcular la distribución financiera únicamente en componentes frontend.
 
-La regla 15/85 debe existir en el dominio/backend y estar cubierta por tests.
-
+La regla de reparto configurable (pares cerrados; teacher derivado; mutación
+solo SUPER_ADMIN/DIRECTOR; Freeze en operaciones financieras históricas) debe
+existir en el dominio/backend y estar cubierta por tests. Ver
+`docs/DECISIONS.md` (41).
 ### PRODUCTION READINESS
 
 El proyecto debe distinguir claramente:
