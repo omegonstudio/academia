@@ -21,31 +21,31 @@ Legend:
 | `[ ]`  | `/teachers` | Removed in Phase 1 UI swap — content folded into landing. |
 | `[ ]`  | `/contact`  | Removed in Phase 1 UI swap — content folded into `/#contacto`. |
 
-Phase 1 note: private dashboard routes below still exist but render **demo data**
-(`lib/academy-data.ts`) until Phase 2+ wires the real API. Auth shell still allows
-DEV localStorage bypass from academia-front (to be removed in Phase 2).
+Phase 2 note: Auth & shell use the real HttpOnly session (`GET /auth/me`). Module
+pages under `/dashboard/**` still render **demo data** (`lib/academy-data.ts`) until
+Phase 3 wires CRUD. DEV localStorage bypass removed.
 
 ### Private web routes (never indexed)
 
 | Status | Route        | Access                                                                 |
 | ------ | ------------ | ---------------------------------------------------------------------- |
-| `[x]`  | `/login`     | Public UI. Demo still includes DEV bypass (Phase 2 removes it). Real `POST /api/auth/login` form present. |
-| `[~]`  | `/dashboard` | Hub UI (demo session / localStorage DEV). Not yet gated by `/auth/me`. |
-| `[~]`  | `/dashboard/students` | UI + demo data. API wiring → Phase 3. |
-| `[~]`  | `/dashboard/students/[id]` | UI + demo data. |
-| `[~]`  | `/dashboard/teachers` | UI + demo data. |
-| `[~]`  | `/dashboard/teachers/[id]` | UI + demo data. |
-| `[~]`  | `/dashboard/assignments` | UI + demo data. |
-| `[~]`  | `/dashboard/courses` | UI + demo data (shape ≠ API `courseType`/`serviceType`). |
-| `[~]`  | `/dashboard/courses/[id]` | UI + demo data. |
-| `[~]`  | `/dashboard/groups` | UI + demo data. |
-| `[~]`  | `/dashboard/groups/[id]` | UI + demo data. |
-| `[~]`  | `/dashboard/calendar` | UI + demo data (not yet `GET /classes/calendar`). |
-| `[~]`  | `/dashboard/classes` | UI + demo data. |
-| `[~]`  | `/dashboard/classes/[id]` | UI + demo data. |
-| `[~]`  | `/dashboard/administratives` | UI create form (fake success until Phase 3). |
-| `[~]`  | `/dashboard/permissions` | UI matrix (fake save until Phase 3). |
-| `[~]`  | `/dashboard/settings` | UI hardcode session until Phase 2. |
+| `[x]`  | `/login`     | Real `POST /api/auth/login` (credentials include). No DEV bypass. `noindex`. Redirects to `/dashboard` if session exists. |
+| `[x]`  | `/dashboard` | Gated by server `getSession()` → `/login`. Shell identity from `/auth/me`. Hub content still demo until Phase 3. |
+| `[~]`  | `/dashboard/students` | UI + demo data. API wiring → Phase 3. Session gate via layout. |
+| `[~]`  | `/dashboard/students/[id]` | UI + demo data. Session gate via layout. |
+| `[~]`  | `/dashboard/teachers` | UI + demo data. Session gate via layout. |
+| `[~]`  | `/dashboard/teachers/[id]` | UI + demo data. Session gate via layout. |
+| `[~]`  | `/dashboard/assignments` | UI + demo data. Session gate via layout. |
+| `[~]`  | `/dashboard/courses` | UI + demo data (shape ≠ API `courseType`/`serviceType`). Session gate via layout. |
+| `[~]`  | `/dashboard/courses/[id]` | UI + demo data. Session gate via layout. |
+| `[~]`  | `/dashboard/groups` | UI + demo data. Session gate via layout. |
+| `[~]`  | `/dashboard/groups/[id]` | UI + demo data. Session gate via layout. |
+| `[~]`  | `/dashboard/calendar` | UI + demo data (not yet `GET /classes/calendar`). Session gate via layout. |
+| `[~]`  | `/dashboard/classes` | UI + demo data. Session gate via layout. |
+| `[~]`  | `/dashboard/classes/[id]` | UI + demo data. Session gate via layout. |
+| `[~]`  | `/dashboard/administratives` | UI create form (fake success until Phase 3). Nav: SUPER_ADMIN/DIRECTOR only. |
+| `[~]`  | `/dashboard/permissions` | UI matrix (fake save until Phase 3). Nav: SUPER_ADMIN/DIRECTOR only. |
+| `[x]`  | `/dashboard/settings` | Session from `/auth/me`; logout `POST /api/auth/logout`. Theme still local. |
 | `[x]`  | `/design-system` | Internal UI kit page from academia-front (`noindex` via robots disallow). |
 
 ### API routes

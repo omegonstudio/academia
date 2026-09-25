@@ -336,14 +336,11 @@ existing Express API (`/api` proxy, HttpOnly session, `@academia/shared`).
 | Analytics | `@vercel/analytics` (prod) | no |
 
 ### Auth / data reality
-- Login form **sí** llama `POST /api/auth/login` (credentials include) → OK shape.
-- **DEV bypass** peligroso: `localStorage` `academy-dev-session` + password hardcode
-  `academia` para `omegon.info@gmail.com` — **eliminar** en integración.
-- **No** hay `GET /auth/me`, **no** hay `POST /auth/logout` real (settings logout UI
-  no cableada).
-- Dashboard shell lee `localStorage` para “DEV MODE”, no sesión servidor.
-- **Todos** los módulos operativos leen/escriben `lib/academy-data.ts` (arrays demo)
-  o `setTimeout` fake success (permisos, administrativos). **Cero** CRUD real.
+- **Fase 2 DONE:** login/logout/me reales; cookie HttpOnly; sin DEV bypass;
+  shell y settings muestran identidad de `/auth/me`; nav Permisos/Administrativos
+  solo SUPER_ADMIN/DIRECTOR (UX gate; API sigue siendo autoridad).
+- **Todos** los módulos operativos (excepto auth/shell/settings) siguen leyendo
+  `lib/academy-data.ts` o `setTimeout` fake success. CRUD real → Fase 3.
 
 ### Route diff vs `ROUTE-MAP.md`
 
@@ -351,8 +348,8 @@ existing Express API (`/api` proxy, HttpOnly session, `@academia/shared`).
 | ------------- | -------------- | ----- |
 | `/` | `[~]` landing one-page (anchors) | Buena base visual; copy marketing |
 | `/about` `/courses` `/teachers` `/contact` | **faltan** | Hoy son `#academia` `#cursos` `#contacto` |
-| `/login` | `[x]` UI | Cablear cookie; quitar DEV localStorage |
-| `/dashboard` | `[x]` hub | Role copy mock; sin `/auth/me` |
+| `/login` | `[x]` UI | Cookie real; sin DEV localStorage (Fase 2) |
+| `/dashboard` | `[x]` hub | Gate `/auth/me`; módulos demo hasta Fase 3 |
 | `/dashboard/students` + `[id]` | `[x]` UI + mock | Shapes casi OK (level CEFR) |
 | `/dashboard/teachers` + `[id]` | `[x]` UI + mock | availability OK; falta `level` teacher |
 | `/dashboard/assignments` | `[x]` UI + mock | Modelo inventado (`Assignment.status`); API = link actual |
@@ -362,7 +359,7 @@ existing Express API (`/api` proxy, HttpOnly session, `@academia/shared`).
 | `/dashboard/calendar` | `[x]` UI + mock | No usa `GET /classes/calendar?from&to` |
 | `/dashboard/permissions` | `[x]` UI fake save | Catálogo modules OK; falta grant/revoke HTTP |
 | `/dashboard/administratives` | `[x]` create UI fake | Sin list (OK); falta `POST /users/administratives` |
-| `/dashboard/settings` | `[x]` hardcode Omegon | Falta sesión real + logout API |
+| `/dashboard/settings` | `[x]` sesión `/auth/me` + logout | Theme local OK (Fase 2) |
 | Materials contextual | **faltan** | Solo títulos string en demo class |
 | Attendance/Notes panels | **faltan** como API | UI resumen texto |
 | Generate semanal | dialog mock | Debe → `POST /groups/:id/classes/generate` |
@@ -408,15 +405,17 @@ Sibling clone queda como referencia hasta merge completo; no es workspace.
       (compose full blocked por pull MinIO quay.io 401; API host + `next start`).
 
 ### Fase 2 — Auth & shell
-- [ ] Eliminar DEV localStorage + password hardcode del login.
-- [ ] Login → cookie HttpOnly; error genérico / 429; `router.refresh`.
-- [ ] Server `getSession()` via `GET /auth/me` (portar `apps/web/src/lib/api.ts`).
-- [ ] Guard dashboard: redirect `/login` si no hay sesión.
-- [ ] Logout real `POST /auth/logout` en shell + settings.
-- [ ] Nav por rol: ocultar Permisos/Administrativos si no SUPER_ADMIN/DIRECTOR;
+- [x] Eliminar DEV localStorage + password hardcode del login.
+- [x] Login → cookie HttpOnly; error genérico / 429; `router.refresh`.
+- [x] Server `getSession()` via `GET /auth/me` (`apps/web/src/lib/api.ts`).
+- [x] Guard dashboard: redirect `/login` si no hay sesión (layout server-side).
+- [x] Logout real `POST /auth/logout` en shell + settings.
+- [x] Nav por rol: ocultar Permisos/Administrativos si no SUPER_ADMIN/DIRECTOR;
       no inventar grants en cliente.
-- [ ] `robots: { index: false }` en `/login` y `/dashboard/**`.
-- [ ] Skip link + landmarks (layout actual v0 no tiene skip link).
+- [x] `robots: { index: false }` en `/login` y `/dashboard/**`.
+- [x] Skip link + landmarks (`nav`/`main`/`header`/`aside` + skip link).
+- [x] Tests auth-shell + getSession; typecheck/lint/test/build web OK.
+- [x] Smoke real: login SuperAdmin → dashboard identidad → logout → redirect login.
 
 ### Fase 3 — Módulos operativos (orden de ejecución)
 Cada ítem = sustituir `demo*` + fake save por fetch `/api/...` + schemas shared +
@@ -433,7 +432,7 @@ estados loading/vacío/error.
 - [ ] **3.9** Materials section en course + class (LINK + upload 3-step)
 - [ ] **3.10** Permisos: catalog + grant/revoke ADMINISTRATIVE (no fake timeout)
 - [ ] **3.11** Administrativos: solo `POST /users/administratives`
-- [ ] **3.12** Settings: datos de `/auth/me` + logout; theme local OK
+- [x] **3.12** Settings: datos de `/auth/me` + logout; theme local OK *(cubierto en Fase 2)*
 
 ### Fase 4 — Calidad
 - [ ] Borrar `lib/academy-data.ts` (o dejar fixtures solo en tests).
