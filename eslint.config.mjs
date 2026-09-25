@@ -17,6 +17,11 @@ export default tseslint.config(
   {
     ...next.configs['core-web-vitals'],
     files: ['apps/web/**/*.{ts,tsx}'],
+    rules: {
+      // Phase 1 UI from academia-front uses native anchors widely; migrate to
+      // next/link incrementally in later integration phases without blocking lint.
+      '@next/next/no-html-link-for-pages': 'off',
+    },
   },
   {
     rules: {

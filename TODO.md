@@ -237,7 +237,10 @@ Track payments and settlements using the academy's **configurable** revenue spli
 
 ### Status
 - **Stage 6A — Design / decisions:** DONE (`docs/DECISIONS.md` #41 + #44)
-- **Stage 6B — API + Finance domain:** PENDING
+- **Stage 6B-1 — Finance Foundation + Domain:** DONE
+  (Prisma models/migration, shared finance types, domain services, unit +
+  PostgreSQL integration tests). No HTTP / OpenAPI / UI / provider SDKs.
+- **Stage 6B-2 — Finance API:** PENDING
 - **Stage 6C — Finance UI:** PENDING
 
 ### Business rule — revenue split (academy config) — #41
@@ -262,17 +265,24 @@ Track payments and settlements using the academy's **configurable** revenue spli
 - No automated payout; no FX; no partial refunds; no chargebacks; no ledger /
   invoices / taxes; no FinanceAuditLog in MVP.
 
-### TODO — Stage 6B (API + Finance domain)
-- [ ] Persist `academyPercentage` settings; mutate only SUPER_ADMIN/DIRECTOR.
-- [ ] Course price (`amountMinor` + `currency`).
-- [ ] Charge / Payment / RevenueAllocation / TeacherSettlement (Prisma + domain).
-- [ ] Payment lifecycle + Freeze on SUCCEEDED (#41/#44).
-- [ ] Rounding tests (each allowed pair + default 40/60; freeze immutability).
+### TODO — Stage 6B-1 (Foundation + Domain) — DONE
+- [x] Persist `academyPercentage` settings (domain validation; HTTP authz in 6B-2).
+- [x] Course price (`amountMinor` + `currency`).
+- [x] Charge / Payment / RevenueAllocation / TeacherSettlement / Refund /
+      WebhookEvent (Prisma + domain).
+- [x] Payment lifecycle + Freeze on SUCCEEDED (#41/#44).
+- [x] Rounding tests (allowed pairs + remainder; freeze immutability).
+- [x] Total refund + REVERSAL allocation (negative minors).
+- [x] TeacherSettlement owed / MARKED_PAID.
+- [x] Idempotency constraints (payment key, provider ref, allocation kind).
+
+### TODO — Stage 6B-2 (Finance API)
+- [ ] HTTP routes + OpenAPI for finance settings / charges / payments /
+      refunds / settlements.
+- [ ] Authorization via `finance.*` + ownership (SUPER_ADMIN/DIRECTOR mutate %).
 - [ ] Provider boundary (MP / Stripe / MANUAL) — adapters may be stubbed/manual
       first; no full live integration required to land the domain contract.
-- [ ] Webhook design implementation + idempotency when providers are wired.
-- [ ] Total refund + reversal allocation.
-- [ ] Authorization via `finance.*` + ownership.
+- [ ] Webhook HTTP endpoints + idempotency when providers are wired.
 
 ### TODO — Stage 6C (Finance UI)
 - [ ] Director/admin finance dashboard and revenue-split settings UI.
@@ -295,6 +305,158 @@ Track payments and settlements using the academy's **configurable** revenue spli
 - Already-frozen Allocations keep their frozen split after a config change
   (Freeze — #41/#44).
 - Payments remain decoupled from Finance domain logic (Payment Domain → Provider).
+
+## Integration — New Frontend (`academia-front`) — READY TO EXECUTE
+
+### Objective
+Replace `apps/web` with the UI from `omegonstudio/academia-front`, wired to the
+existing Express API (`/api` proxy, HttpOnly session, `@academia/shared`).
+
+### Source (cloned 2026-09-24)
+- Clone path: `/home/titin/Documentos/omegon/00-OMEGON/academia-front`
+- Remote: `https://github.com/omegonstudio/academia-front.git` (SSH keys still fail;
+  HTTPS with stored credentials works)
+- HEAD: `cc45a9e` — v0.app project (`prj_2tuDpDGnvafvlirlbzP0XO2L0cCa`)
+- ~46 source files; UI shell + demo data; **not production-wired**
+
+### Stack inventory (front nuevo)
+| Item | academia-front | monorepo `apps/web` hoy |
+| ---- | -------------- | ----------------------- |
+| Next | 16.3.3 | 16.3.5 |
+| React | 19 | 19.3 |
+| Package manager | **pnpm** (+ lock) | **npm** workspaces |
+| UI | shadcn / `@base-ui/react` / lucide | tokens propios + Tailwind |
+| Tailwind | 4.3 + `tw-animate-css` | 4.3 |
+| Shared types | **none** (`lib/academy-data.ts` mocks) | `@academia/shared` |
+| API proxy | **none** (`next.config.mjs` mínimo) | rewrite `/api` → `API_INTERNAL_URL` |
+| `output: standalone` | **no** | sí (Docker prod) |
+| Lint / tests | **no** | eslint + vitest |
+| `ignoreBuildErrors` | **true** (quitar) | false |
+| Env | solo `NODE_ENV`; **no** `NEXT_PUBLIC_*` | `API_INTERNAL_URL`, `NEXT_PUBLIC_APP_URL` |
+| Analytics | `@vercel/analytics` (prod) | no |
+
+### Auth / data reality
+- Login form **sí** llama `POST /api/auth/login` (credentials include) → OK shape.
+- **DEV bypass** peligroso: `localStorage` `academy-dev-session` + password hardcode
+  `academia` para `omegon.info@gmail.com` — **eliminar** en integración.
+- **No** hay `GET /auth/me`, **no** hay `POST /auth/logout` real (settings logout UI
+  no cableada).
+- Dashboard shell lee `localStorage` para “DEV MODE”, no sesión servidor.
+- **Todos** los módulos operativos leen/escriben `lib/academy-data.ts` (arrays demo)
+  o `setTimeout` fake success (permisos, administrativos). **Cero** CRUD real.
+
+### Route diff vs `ROUTE-MAP.md`
+
+| Ruta monorepo | academia-front | Notas |
+| ------------- | -------------- | ----- |
+| `/` | `[~]` landing one-page (anchors) | Buena base visual; copy marketing |
+| `/about` `/courses` `/teachers` `/contact` | **faltan** | Hoy son `#academia` `#cursos` `#contacto` |
+| `/login` | `[x]` UI | Cablear cookie; quitar DEV localStorage |
+| `/dashboard` | `[x]` hub | Role copy mock; sin `/auth/me` |
+| `/dashboard/students` + `[id]` | `[x]` UI + mock | Shapes casi OK (level CEFR) |
+| `/dashboard/teachers` + `[id]` | `[x]` UI + mock | availability OK; falta `level` teacher |
+| `/dashboard/assignments` | `[x]` UI + mock | Modelo inventado (`Assignment.status`); API = link actual |
+| `/dashboard/courses` + `[id]` | `[x]` UI + mock | **Shape wrong**: `level`/`studentCount` vs `courseType`/`serviceType`/`durationMinutes` |
+| `/dashboard/groups` + `[id]` | `[x]` UI + mock | Falta enrollment API, scheduleOptionId, capacity 15 |
+| `/dashboard/classes` + `[id]` | `[x]` UI + mock | Status inventados; asistencia/notas/materials = strings |
+| `/dashboard/calendar` | `[x]` UI + mock | No usa `GET /classes/calendar?from&to` |
+| `/dashboard/permissions` | `[x]` UI fake save | Catálogo modules OK; falta grant/revoke HTTP |
+| `/dashboard/administratives` | `[x]` create UI fake | Sin list (OK); falta `POST /users/administratives` |
+| `/dashboard/settings` | `[x]` hardcode Omegon | Falta sesión real + logout API |
+| Materials contextual | **faltan** | Solo títulos string en demo class |
+| Attendance/Notes panels | **faltan** como API | UI resumen texto |
+| Generate semanal | dialog mock | Debe → `POST /groups/:id/classes/generate` |
+| Finance / student hub / teacher hub | ausentes | OK — Fase 5 |
+
+### Shape mismatches críticos (UI → API)
+1. **Course:** drop `level`/`studentCount`; add `courseType`, `serviceType`, derived
+   `durationMinutes`; optional `amountMinor`+`currency`.
+2. **ClassSession:** drop `SCHEDULED|IN_PROGRESS|COMPLETED|CANCELLED` and free-form
+   duration; use `startAt` + group→course duration; soft `isActive`.
+3. **Assignment:** no `Assignment` entity UI-model; use
+   `GET|POST|DELETE /students/:id/teacher` + `{ teacherId }`.
+4. **Attendance/Notes/Materials:** replace string fields with real list/mutate APIs.
+5. **Group:** wire `teacherId`, `scheduleOptionId`, enrollments `n/15`.
+6. **IDs:** demo `stu-1` → UUID from API.
+
+### Strategy — **A confirmada**
+Reemplazar **contenido** de `apps/web` con UI de `academia-front`, **conservando**
+del monorepo: `package.json` name `@academia/web`, Dockerfiles, `output: standalone`,
+rewrites `/api`, security headers, eslint/vitest scripts, dependencia
+`@academia/shared`. Migrar a **npm** (no introducir pnpm en el monorepo).
+Sibling clone queda como referencia hasta merge completo; no es workspace.
+
+---
+
+### Fase 0 — Ingesta — DONE
+- [x] Clonar `academia-front` (HTTPS) a path sibling.
+- [x] Documentar stack / rutas / auth / mocks / env.
+- [x] Diff vs `ROUTE-MAP.md`.
+- [x] Decidir estrategia **A**.
+
+### Fase 1 — Cableado monorepo
+- [x] Copiar UI (`app/`, `components/`, `lib/`, `public/`, tokens CSS) dentro de
+      `apps/web/src` (o estructura acordada) sin romper workspaces.
+- [x] Portar deps UI: `class-variance-authority`, `clsx`, `tailwind-merge`,
+      `lucide-react`, `@base-ui/react`, `shadcn`/anim — vía **npm** en `apps/web`.
+- [x] Fusionar `next.config`: keep rewrites + standalone + headers; drop
+      `ignoreBuildErrors`.
+- [x] Theme CSS: adoptar tokens v0 **o** mapear a tokens AA actuales; documentar
+      contraste (purple primary puede fallar AA — re-check).
+- [x] Quitar `@vercel/analytics` o dejarlo detrás de flag (no requerido MVP).
+- [x] Smoke: typecheck/lint/test/build web + `GET /api/health` vía rewrite
+      (compose full blocked por pull MinIO quay.io 401; API host + `next start`).
+
+### Fase 2 — Auth & shell
+- [ ] Eliminar DEV localStorage + password hardcode del login.
+- [ ] Login → cookie HttpOnly; error genérico / 429; `router.refresh`.
+- [ ] Server `getSession()` via `GET /auth/me` (portar `apps/web/src/lib/api.ts`).
+- [ ] Guard dashboard: redirect `/login` si no hay sesión.
+- [ ] Logout real `POST /auth/logout` en shell + settings.
+- [ ] Nav por rol: ocultar Permisos/Administrativos si no SUPER_ADMIN/DIRECTOR;
+      no inventar grants en cliente.
+- [ ] `robots: { index: false }` en `/login` y `/dashboard/**`.
+- [ ] Skip link + landmarks (layout actual v0 no tiene skip link).
+
+### Fase 3 — Módulos operativos (orden de ejecución)
+Cada ítem = sustituir `demo*` + fake save por fetch `/api/...` + schemas shared +
+estados loading/vacío/error.
+
+- [ ] **3.1** Estudiantes list/create/detail/patch/soft-delete ↔ `/students`
+- [ ] **3.2** Profesores idem ↔ `/teachers` (+ `level`, `availability`)
+- [ ] **3.3** Asignaciones ↔ `/students/:id/teacher` (sin entity Assignment)
+- [ ] **3.4** Cursos ↔ `/courses` (rehacer formularios a `courseType`/`serviceType`)
+- [ ] **3.5** Grupos detail: teacher + `schedule-options` + enrollment máx. 15
+- [ ] **3.6** Clases CRUD + generate ↔ `/classes` + `POST .../classes/generate`
+- [ ] **3.7** Calendar ↔ `GET /classes/calendar?from&to` (civil dates)
+- [ ] **3.8** Class detail: attendance + notes panels (API real)
+- [ ] **3.9** Materials section en course + class (LINK + upload 3-step)
+- [ ] **3.10** Permisos: catalog + grant/revoke ADMINISTRATIVE (no fake timeout)
+- [ ] **3.11** Administrativos: solo `POST /users/administratives`
+- [ ] **3.12** Settings: datos de `/auth/me` + logout; theme local OK
+
+### Fase 4 — Calidad
+- [ ] Borrar `lib/academy-data.ts` (o dejar fixtures solo en tests).
+- [ ] Validar requests/responses con `@academia/shared`.
+- [ ] Restaurar rutas públicas SEO (`/about`, `/courses`, `/teachers`, `/contact`)
+      **o** actualizar `ROUTE-MAP.md` + `sitemap` si se adopta landing one-page
+      (decisión de producto en este paso).
+- [ ] Contraste AA + `prefers-reduced-motion`; focus visible.
+- [ ] Typecheck/lint/test/build CI verdes; quitar ignoreBuildErrors.
+- [ ] Actualizar `ROUTE-MAP.md` estados UI post-swap.
+
+### Fase 5 — Fuera de esta integración (no bloquear)
+- [ ] Finance UI (Stage 6B-2/6C).
+- [ ] Hubs `/dashboard/student/*`, `/dashboard/teacher/*` (Stages 7–8).
+- [ ] Hub `/dashboard/materials`.
+- [ ] Dark mode como requisito de producto (hoy es preferencia UI v0).
+
+### Acceptance
+- [ ] `apps/web` sirve UI nueva en compose.
+- [ ] Login SuperAdmin seed end-to-end (sin DEV bypass).
+- [ ] Mutación real verificada en students, teachers, classes, materials, permissions.
+- [ ] Ningún `setTimeout` success ni mutación solo-local en módulos MVP.
+- [ ] `ROUTE-MAP.md` + esta sección sincronizados.
 
 ## Stage 7 — Student UX
 

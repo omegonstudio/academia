@@ -1,102 +1,29 @@
-import type { Metadata } from 'next';
-import Link from 'next/link';
-import { redirect } from 'next/navigation';
-import { CreateClassSessionForm } from '@/components/create-class-session-form';
-import { GenerateClassSessionsForm } from '@/components/generate-class-sessions-form';
-import { PageHeader } from '@/components/page-header';
-import { fetchClassSessions, fetchGroups, getSession } from '@/lib/api';
-import {
-  formatSessionTimeRange,
-  serviceTypeLabel,
-} from '@/lib/calendar';
-import { canShowGenerateUi } from '@/lib/class-session-generate';
+'use client'
 
-export const metadata: Metadata = {
-  title: 'Clases',
-  robots: { index: false, follow: false },
-};
+import { useMemo, useState } from 'react'
+import { ChevronRight, MoreHorizontal, Plus, WandSparkles } from 'lucide-react'
+import { DashboardShell, PageHeader } from '@/components/dashboard-shell'
+import { ClassFormDialog } from '@/components/class-form-dialog'
+import { ClassGenerationDialog } from '@/components/class-generation-dialog'
+import { Alert, Badge, Button, Card, Select } from '@/components/ui/primitives'
+import { demoClasses, demoGroups, demoTeachers, type AcademyClass, type ClassStatus } from '@/lib/academy-data'
 
-export default async function ClassesPage() {
-  const user = await getSession();
-  if (!user) redirect('/login');
+const labels: Record<ClassStatus, string> = { SCHEDULED: 'Programada', IN_PROGRESS: 'En curso', COMPLETED: 'Finalizada', CANCELLED: 'Cancelada' }
+const tones: Record<ClassStatus, 'info' | 'success' | 'warning' | 'danger'> = { SCHEDULED: 'info', IN_PROGRESS: 'warning', COMPLETED: 'success', CANCELLED: 'danger' }
+const formatDate = (value: string) => new Intl.DateTimeFormat('es-AR', { day: '2-digit', month: 'short' }).format(new Date(value)).replace('.', '').toUpperCase()
+const formatTime = (value: string) => new Intl.DateTimeFormat('es-AR', { hour: '2-digit', minute: '2-digit' }).format(new Date(value))
 
-  const [sessionsResult, groupsResult] = await Promise.all([
-    fetchClassSessions(),
-    fetchGroups(),
-  ]);
-
-  const groupNameById = new Map(
-    groupsResult.ok
-      ? groupsResult.groups.map((group) => [group.id, group.name] as const)
-      : [],
-  );
-
-  const canShowCreate = user.role !== 'STUDENT';
-  const canShowGenerate = canShowGenerateUi(user.role);
-
-  return (
-    <>
-      <PageHeader
-        title="Clases"
-        intro="Sesiones programadas según tu acceso. La autorización la resuelve el servidor."
-      />
-
-      {!sessionsResult.ok ? (
-        <p role="alert" className="text-sm text-danger">
-          {sessionsResult.message}
-        </p>
-      ) : sessionsResult.classSessions.length === 0 ? (
-        <p className="text-sm text-ink-muted">Todavía no hay clases cargadas.</p>
-      ) : (
-        <ul className="divide-y divide-line border-y border-line">
-          {sessionsResult.classSessions.map((session) => {
-            const groupLabel =
-              groupNameById.get(session.groupId) ?? 'Grupo';
-            return (
-              <li
-                key={session.id}
-                className="flex flex-col gap-1 py-3 sm:flex-row sm:items-baseline sm:justify-between sm:gap-4"
-              >
-                <Link
-                  href={`/dashboard/classes/${session.id}`}
-                  className="font-medium text-ink underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
-                >
-                  {groupLabel}
-                  {' · '}
-                  {formatSessionTimeRange(session.startAt, session.endAt)}
-                </Link>
-                <span className="text-sm text-ink-muted">
-                  {serviceTypeLabel(session.serviceType)}
-                  {session.isActive ? '' : ' · inactiva'}
-                </span>
-              </li>
-            );
-          })}
-        </ul>
-      )}
-
-      {canShowCreate &&
-      (sessionsResult.ok || sessionsResult.status === 403) ? (
-        <CreateClassSessionForm
-          groups={groupsResult.ok ? groupsResult.groups : []}
-        />
-      ) : null}
-
-      {canShowGenerate ? (
-        <GenerateClassSessionsForm
-          groups={groupsResult.ok ? groupsResult.groups : []}
-        />
-      ) : null}
-
-      <p className="mt-8 text-sm text-ink-muted">
-        <Link href="/dashboard" className="underline">
-          Volver al panel
-        </Link>
-        {' · '}
-        <Link href="/dashboard/calendar" className="underline">
-          Ver calendario
-        </Link>
-      </p>
-    </>
-  );
+function ClassRow({ item }: { item: AcademyClass }) {
+  return <a href={`/dashboard/classes/${item.id}`} className="group grid grid-cols-[84px_1fr_180px_130px_120px_36px] items-center gap-4 border-b border-border px-5 py-4 last:border-0 hover:bg-surface-muted/50"><div><p className="text-xs font-bold text-primary">{formatDate(item.startAt)}</p><p className="mt-1 text-lg font-semibold">{formatTime(item.startAt)}</p></div><div><p className="font-semibold">{item.courseName}</p><p className="mt-1 text-sm text-muted-foreground">{item.groupName}</p></div><p className="text-sm text-muted-foreground">{item.teacherName}</p><p className="text-sm text-muted-foreground">{item.modality} · {item.durationMinutes} min</p><Badge tone={tones[item.status]}>{labels[item.status]}</Badge><ChevronRight className="size-4 text-muted-foreground transition group-hover:text-primary" /></a>
 }
+
+export default function ClassesPage() {
+  const [date, setDate] = useState('all'); const [teacher, setTeacher] = useState('all'); const [group, setGroup] = useState('all'); const [status, setStatus] = useState('all'); const [isClassDialogOpen, setIsClassDialogOpen] = useState(false); const [isGenerationDialogOpen, setIsGenerationDialogOpen] = useState(false); const [success, setSuccess] = useState(false); const [successMessage, setSuccessMessage] = useState('Clase creada correctamente.'); const [refresh, setRefresh] = useState(0)
+  const filtered = useMemo(() => demoClasses.filter((item) => (teacher === 'all' || item.teacherId === teacher) && (group === 'all' || item.groupId === group) && (status === 'all' || item.status === status) && (date === 'all' || (date === 'upcoming' ? item.status === 'SCHEDULED' || item.status === 'IN_PROGRESS' : date === 'past' ? item.status === 'COMPLETED' || item.status === 'CANCELLED' : item.startAt.startsWith('2026-09-23')))), [date, teacher, group, status, refresh])
+  function handleCreated() { setIsClassDialogOpen(false); setSuccessMessage('Clase creada correctamente.'); setSuccess(true); setRefresh((value) => value + 1); window.setTimeout(() => setSuccess(false), 4000) }
+  function handleGenerated(count: number) { setIsGenerationDialogOpen(false); setSuccessMessage(count ? `${count} ${count === 1 ? 'clase generada' : 'clases generadas'} correctamente.` : 'No se generaron clases nuevas porque ya existían.'); setSuccess(true); setRefresh((value) => value + 1); window.setTimeout(() => setSuccess(false), 5000) }
+  return <DashboardShell title="Clases"><PageHeader title="Clases" description="Organizá y consultá las clases de la academia." action={<div className="flex flex-wrap gap-2"><Button variant="outline" onClick={() => { setSuccess(false); setIsGenerationDialogOpen(true) }}><WandSparkles data-icon="inline-start" />Generar clases</Button><Button onClick={() => { setSuccess(false); setIsClassDialogOpen(true) }}><Plus data-icon="inline-start" />Nueva clase</Button></div>} />{success && <div className="mb-5"><Alert tone="success">{successMessage}</Alert></div>} {isClassDialogOpen && <ClassFormDialog onClose={() => setIsClassDialogOpen(false)} onCreated={handleCreated} />} {isGenerationDialogOpen && <ClassGenerationDialog onClose={() => setIsGenerationDialogOpen(false)} onCreated={handleGenerated} />}<Card><div className="grid gap-3 border-b border-border p-5 sm:grid-cols-2 lg:grid-cols-4"><Select aria-label="Fecha" value={date} onChange={(e) => setDate(e.target.value)}><option value="all">Todas las fechas</option><option value="today">Hoy</option><option value="upcoming">Próximas</option><option value="past">Pasadas</option></Select><Select aria-label="Profesor" value={teacher} onChange={(e) => setTeacher(e.target.value)}><option value="all">Todos los profesores</option>{demoTeachers.map((item) => <option key={item.id} value={item.id}>{item.firstName} {item.lastName}</option>)}</Select><Select aria-label="Grupo" value={group} onChange={(e) => setGroup(e.target.value)}><option value="all">Todos los grupos</option>{demoGroups.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</Select><Select aria-label="Estado" value={status} onChange={(e) => setStatus(e.target.value)}><option value="all">Todos los estados</option>{Object.entries(labels).map(([key, value]) => <option key={key} value={key}>{value}</option>)}</Select></div><div className="hidden md:block"><div className="grid grid-cols-[84px_1fr_180px_130px_120px_36px] gap-4 px-5 py-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground"><span>Fecha</span><span>Curso / grupo</span><span>Profesor</span><span>Duración</span><span>Estado</span><span /></div>{filtered.map((item) => <ClassRow key={item.id} item={item} />)}</div><div className="flex flex-col gap-3 p-4 md:hidden">{filtered.map((item) => <a href={`/dashboard/classes/${item.id}`} key={item.id} className="rounded-xl border border-border p-4"><div className="flex items-start justify-between"><div><p className="text-xs font-bold text-primary">{formatDate(item.startAt)} · {formatTime(item.startAt)}</p><p className="mt-2 font-semibold">{item.courseName}</p><p className="text-sm text-muted-foreground">{item.groupName}</p></div><MoreHorizontal className="size-4 text-muted-foreground" /></div><div className="mt-4 flex items-center justify-between text-sm text-muted-foreground"><span>{item.teacherName}</span><Badge tone={tones[item.status]}>{labels[item.status]}</Badge></div></a>)}</div>{filtered.length === 0 && <p className="p-10 text-center text-sm text-muted-foreground">No hay clases con estos filtros.</p>}</Card></DashboardShell>
+}
+
+export { labels, tones, formatDate, formatTime }
+

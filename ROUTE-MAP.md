@@ -15,34 +15,38 @@ Legend:
 
 | Status | Route       | Notes                                                              |
 | ------ | ----------- | ------------------------------------------------------------------ |
-| `[x]`  | `/`         | Landing. Static. Unique title/description, canonical, Open Graph.  |
-| `[x]`  | `/about`    | Academy information. Static.                                       |
-| `[x]`  | `/courses`  | 1:1, group and teacher-training offerings. Static.                 |
-| `[x]`  | `/teachers` | How the teacher network works. Static. No public directory yet.    |
-| `[x]`  | `/contact`  | `mailto` link — deliberately not a form, since no message store exists. |
+| `[x]`  | `/`         | Landing one-page (academia-front Phase 1). Anchors `#cursos`, `#metodo`, `#academia`, `#contacto`. |
+| `[ ]`  | `/about`    | Removed in Phase 1 UI swap — content folded into `/#academia`. Restore or keep anchors: TBD. |
+| `[ ]`  | `/courses`  | Removed in Phase 1 UI swap — content folded into `/#cursos`. |
+| `[ ]`  | `/teachers` | Removed in Phase 1 UI swap — content folded into landing. |
+| `[ ]`  | `/contact`  | Removed in Phase 1 UI swap — content folded into `/#contacto`. |
 
-All public pages: `lang="es"`, one `<h1>`, skip link, landmarks, verified contrast.
+Phase 1 note: private dashboard routes below still exist but render **demo data**
+(`lib/academy-data.ts`) until Phase 2+ wires the real API. Auth shell still allows
+DEV localStorage bypass from academia-front (to be removed in Phase 2).
 
 ### Private web routes (never indexed)
 
 | Status | Route        | Access                                                                 |
 | ------ | ------------ | ---------------------------------------------------------------------- |
-| `[x]`  | `/login`     | Public. `noindex, nofollow`. Redirects to `/dashboard` if already authenticated. |
-| `[x]`  | `/dashboard` | Authenticated only. `noindex, nofollow`. Server-side redirect to `/login`. Session identity + role-aware hub; nav to students, teachers, assignments, courses, groups, classes, calendar. |
-| `[x]`  | `/dashboard/students` | Authenticated. Lista/crea estudiantes vía API real (loading/error/vacío). |
-| `[x]`  | `/dashboard/students/[id]` | Authenticated. Detalle + edición/desactivación según permiso. |
-| `[x]`  | `/dashboard/teachers` | Authenticated. Lista/crea profesores vía API real (loading/error/vacío). |
-| `[x]`  | `/dashboard/teachers/[id]` | Authenticated. Detalle + edición/desactivación según permiso. |
-| `[x]`  | `/dashboard/assignments` | Authenticated. Asignación estudiante→profesor actual (sin historial); API `/students/:id/teacher`. |
-| `[x]`  | `/dashboard/courses` | Authenticated. Lista/crea cursos; `courseType` + `serviceType`; duración derivada (no editable). |
-| `[x]`  | `/dashboard/courses/[id]` | Authenticated. Detalle + edición/desactivación de curso. |
-| `[x]`  | `/dashboard/groups` | Authenticated. Lista/crea grupos ligados a Course activo. |
-| `[x]`  | `/dashboard/groups/[id]` | Authenticated. Detalle grupo: teacher, scheduleOption, enrollment (máx. 15), curso. |
-| `[x]`  | `/dashboard/calendar` | Authenticated. Calendario mensual de clases vía `GET /classes/calendar` (SSR; loading implícito; error/vacío; ownership en API). |
-| `[x]`  | `/dashboard/classes` | Authenticated. Lista clases; create/edit; nombres de grupo vía `GET /groups` cuando hay permiso. Generate semanal: API lista; UI pendiente. |
-| `[x]`  | `/dashboard/administratives` | Authenticated. SUPER_ADMIN/DIRECTOR: aprovisionar ADMINISTRATIVE (`POST /users/administratives`). Sin listado API. |
-| `[x]`  | `/dashboard/permissions` | SUPER_ADMIN/DIRECTOR. Catálogo + grants ADMINISTRATIVE (GET catalog/list; POST/DELETE grant/revoke). |
-| `[x]`  | `/dashboard/settings` | Authenticated. Sesión vía `/auth/me`; sin settings editables Stage 1 (finance diferido). |
+| `[x]`  | `/login`     | Public UI. Demo still includes DEV bypass (Phase 2 removes it). Real `POST /api/auth/login` form present. |
+| `[~]`  | `/dashboard` | Hub UI (demo session / localStorage DEV). Not yet gated by `/auth/me`. |
+| `[~]`  | `/dashboard/students` | UI + demo data. API wiring → Phase 3. |
+| `[~]`  | `/dashboard/students/[id]` | UI + demo data. |
+| `[~]`  | `/dashboard/teachers` | UI + demo data. |
+| `[~]`  | `/dashboard/teachers/[id]` | UI + demo data. |
+| `[~]`  | `/dashboard/assignments` | UI + demo data. |
+| `[~]`  | `/dashboard/courses` | UI + demo data (shape ≠ API `courseType`/`serviceType`). |
+| `[~]`  | `/dashboard/courses/[id]` | UI + demo data. |
+| `[~]`  | `/dashboard/groups` | UI + demo data. |
+| `[~]`  | `/dashboard/groups/[id]` | UI + demo data. |
+| `[~]`  | `/dashboard/calendar` | UI + demo data (not yet `GET /classes/calendar`). |
+| `[~]`  | `/dashboard/classes` | UI + demo data. |
+| `[~]`  | `/dashboard/classes/[id]` | UI + demo data. |
+| `[~]`  | `/dashboard/administratives` | UI create form (fake success until Phase 3). |
+| `[~]`  | `/dashboard/permissions` | UI matrix (fake save until Phase 3). |
+| `[~]`  | `/dashboard/settings` | UI hardcode session until Phase 2. |
+| `[x]`  | `/design-system` | Internal UI kit page from academia-front (`noindex` via robots disallow). |
 
 ### API routes
 
