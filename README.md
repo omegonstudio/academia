@@ -3,10 +3,9 @@
 Operational platform for a Spanish-language academy: teacher training, teacher
 network, student assignment, classes, tracking and settlements.
 
-**Current stage: Stage 5 — Materials DONE (5A design, 5B API+Storage, 5C
-contextual UI).** Stages 0–4 foundations remain. Materials live on Course and
-ClassSession detail pages (no materials hub). Student/Teacher hubs and Finance
-are later stages. See [`TODO.md`](TODO.md) and [`ROUTE-MAP.md`](ROUTE-MAP.md).
+**Current stage: Stage 7B — Student Finance Portal DONE** (read-only
+`/dashboard/student/finance`). Stages 0–8 remain operable. See
+[`TODO.md`](TODO.md) and [`ROUTE-MAP.md`](ROUTE-MAP.md).
 Branching: [`docs/BRANCHING.md`](docs/BRANCHING.md) (`feature/*` → `dev` → `main`).
 
 ## Stack
@@ -27,17 +26,30 @@ Requires Docker, Docker Compose and Node.js 22.
 ```bash
 cp .env.example .env      # then edit: set POSTGRES_PASSWORD, AUTH_SECRET, SUPERADMIN_PASSWORD
 npm install
-npm run dev               # builds images, starts db + minio + api + web, waits for health
-                          # (compose: docker-compose.yml + docker-compose.dev.yml)
+npm run dev               # preferred: builds, starts db + api + web, waits for health
 ```
 
 Generate local secrets with `openssl rand -base64 48`.
 
+`.env.example` sets `COMPOSE_FILE` + `COMPOSE_PROJECT_NAME=academia-dev`, so bare
+Compose matches the development pair:
+
+```bash
+docker compose up --build -d    # same files as npm run dev (waits less; prefer npm run dev)
+docker compose down             # or: npm run dev:down
+```
+
 Compose files are **always paired** (base + one override). Using either file alone
-fails with “neither an image nor a build context” — use `npm run dev` or:
+fails with “neither an image nor a build context”. Equivalent explicit form:
 
 ```bash
 docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build -d
+```
+
+Default development stack is **db + api + web**. MinIO (Materials) is optional:
+
+```bash
+docker compose --profile materials up --build -d
 ```
 
 Once up:
@@ -46,13 +58,14 @@ Once up:
 | ------------------------------- | --------------------------------------- |
 | http://localhost:3000           | Web (public site)                       |
 | http://localhost:3000/login     | Login                                   |
+| http://localhost:3000/dashboard/membership | Membership plans UI (session required) |
 | http://localhost:3000/api/health | API health via Next rewrite            |
 | http://localhost:3000/api/docs  | Swagger UI (dev; gated in production)   |
 | http://localhost:3000/api/openapi.json | OpenAPI 3 document                |
 | http://localhost:4000/health    | API health (direct, development only)   |
 | localhost:5433                  | PostgreSQL (host port, development only) |
-| http://localhost:9000           | MinIO S3 API (development only)         |
-| http://localhost:9001           | MinIO console (development only)        |
+| http://localhost:9000           | MinIO S3 API (`--profile materials`)    |
+| http://localhost:9001           | MinIO console (`--profile materials`)   |
 
 Development MinIO defaults (also in `.env.example`): bucket `academia-materials`,
 access key `academia-dev-access-key`, secret `academia-dev-secret-key`.
@@ -61,6 +74,7 @@ access key `academia-dev-access-key`, secret `academia-dev-secret-key`.
 npm run dev:logs          # tail logs
 npm run dev:down          # stop, keeping the database volume
 ./scripts/dev-down.sh --volumes   # stop and discard the database
+npm run smoke             # login → dashboard → membership → logout (needs SUPERADMIN_*)
 ```
 
 The `SUPERADMIN_EMAIL` account (default `omegon.info@gmail.com`) is provisioned

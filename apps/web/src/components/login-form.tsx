@@ -81,7 +81,7 @@ export function LoginForm() {
             </div>
             <form
               onSubmit={handleSubmit}
-              className="rounded-[1.75rem] border border-border bg-surface p-6 shadow-[0_24px_80px_-40px_rgba(82,43,120,.35)] sm:p-8"
+              className="rounded-[1.75rem] border border-border bg-surface p-6 shadow-[0_24px_80px_-40px_rgba(170,21,27,.35)] sm:p-8"
             >
               <div className="space-y-5">
                 <div>

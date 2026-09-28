@@ -19,6 +19,7 @@
     "dev": "./scripts/dev-up.sh",
     "dev:down": "./scripts/dev-down.sh",
     "dev:logs": "./scripts/dev-logs.sh",
+    "smoke": "./scripts/smoke-web.sh",
     "db:migrate": "npm run db:migrate -w @academia/api",
     "db:deploy": "npm run db:deploy -w @academia/api",
     "db:seed": "npm run db:seed -w @academia/api"

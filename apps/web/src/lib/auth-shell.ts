@@ -14,6 +14,23 @@ export type ShellNavSection = {
   links: readonly ShellNavLink[];
 };
 
+const STUDENT_LINKS: readonly ShellNavLink[] = [
+  { label: 'Inicio', href: '/dashboard/student' },
+  { label: 'Mis clases', href: '/dashboard/student/classes' },
+  { label: 'Materiales', href: '/dashboard/student/materials' },
+  { label: 'Asistencia', href: '/dashboard/student/attendance' },
+  { label: 'Finanzas', href: '/dashboard/student/finance' },
+];
+
+const TEACHER_LINKS: readonly ShellNavLink[] = [
+  { label: 'Inicio', href: '/dashboard/teacher' },
+  { label: 'Mis clases', href: '/dashboard/teacher/classes' },
+  { label: 'Mis alumnos', href: '/dashboard/teacher/students' },
+  { label: 'Materiales', href: '/dashboard/teacher/materials' },
+  { label: 'Asistencia', href: '/dashboard/teacher/attendance' },
+  { label: 'Earnings', href: '/dashboard/teacher/earnings' },
+];
+
 const ACADEMIA_LINKS: readonly ShellNavLink[] = [
   { label: 'Inicio', href: '/dashboard' },
   { label: 'Estudiantes', href: '/dashboard/students' },
@@ -28,15 +45,28 @@ const CLASS_LINKS: readonly ShellNavLink[] = [
   { label: 'Calendario', href: '/dashboard/calendar' },
 ];
 
+const FINANCE_LINKS: readonly ShellNavLink[] = [
+  { label: 'Finanzas', href: '/dashboard/finance' },
+];
+
 /**
  * Sidebar sections for the authenticated shell.
- * Permisos / Administrativos only for SUPER_ADMIN and DIRECTOR (UX gate;
- * API remains the authority).
+ * STUDENT gets a self-scoped hub; other roles keep operational nav.
+ * API remains the authority for authorization.
  */
 export function dashboardNavSections(role: Role): ShellNavSection[] {
+  if (role === 'STUDENT') {
+    return [{ title: 'Mi espacio', links: STUDENT_LINKS }];
+  }
+
+  if (role === 'TEACHER') {
+    return [{ title: 'Mi espacio', links: TEACHER_LINKS }];
+  }
+
   const sections: ShellNavSection[] = [
     { title: 'Academia', links: ACADEMIA_LINKS },
     { title: 'Clases', links: CLASS_LINKS },
+    { title: 'Finanzas', links: FINANCE_LINKS },
   ];
 
   const adminLinks: ShellNavLink[] = [];

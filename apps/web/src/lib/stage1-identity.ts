@@ -12,6 +12,23 @@ export function canProvisionAdministrativeUi(role: Role): boolean {
   return role === 'SUPER_ADMIN' || role === 'DIRECTOR';
 }
 
+/** Finance settings PATCH — SUPER_ADMIN / DIRECTOR only (#41). */
+export function canEditFinanceSettingsUi(role: Role): boolean {
+  return role === 'SUPER_ADMIN' || role === 'DIRECTOR';
+}
+
+/**
+ * Finance mutation UX (charges/payments/refunds/settlements).
+ * API `finance.*` remains authoritative; ADMINISTRATIVE may still 403 without grants.
+ */
+export function canMutateFinanceUi(role: Role): boolean {
+  return (
+    role === 'SUPER_ADMIN' ||
+    role === 'DIRECTOR' ||
+    role === 'ADMINISTRATIVE'
+  );
+}
+
 /** Settings page is available to every authenticated role (session info). */
 export function canViewSettingsUi(_role: Role): boolean {
   return true;

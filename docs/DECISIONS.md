@@ -881,7 +881,16 @@ decision closes that timing and the commercial model without changing #41.
 - `ONE_TO_ONE_60` / `ONE_TO_ONE_90` → one Charge per **ClassSession**.
 - `GROUP_120` → one Charge per **Enrollment** for a **calendar month** period.
   Group ClassSessions do **not** each create a Charge.
-- Automatic Charge generation is out of Stage 6B scope; only the rule is fixed.
+- Automatic Charge generation (Stage 6D): ONE_TO_ONE on ClassSession
+  create/generate; GROUP_120 on enroll for the current academy-timezone month.
+  Idempotent via partial unique indexes on `charges`.
+- **Consistency (ClassSession/Enrollment stores vs Finance store):** academic
+  write and Charge are **not** a single DB transaction today (separate domain
+  stores). Strategy: post-commit best-effort `ensureAutoCharge*` after the
+  authorized HTTP write; uniqueness in PostgreSQL makes retries safe; missing
+  Charge (unpriced course / wrong service type / no enrollment) is a silent
+  no-op so the academic operation still succeeds; admin `POST /finance/charges`
+  remains as idempotent backfill.
 - Creating a Charge copies the Course’s current list price into the Charge
   snapshot. Later Course price changes do not rewrite existing Charges.
 
@@ -931,3 +940,25 @@ full accounting ledger; advanced reconciliation; N:M Payment↔Charge.
 **Still out of scope for this decision.** Prisma shapes, migrations, HTTP
 paths, provider SDKs, and Finance UI (Stage 6B API + domain; Stage 6C UI).
 
+
+## 45. Student Finance Portal is session-scoped (curated DTOs)
+
+**Decision:** Expose `GET /students/me/finance` as a curated aggregate for the
+authenticated STUDENT. Identity is always `session → Student profile → Finance
+rows`. Never accept a client `studentId` for authorization.
+
+**Why:** Admin `GET /finance/charges|payments` already scopes STUDENT reads, but
+also expose fields and related resources (e.g. allocations with
+`academyPercentage`) that must not appear in the learner portal. A dedicated
+hub endpoint returns only charges, payments, refunds (minimal), and a summary —
+without split, settlements, or admin metadata (`createdByUserId`,
+`idempotencyKey`).
+
+**Checkout (same decision family):** `POST /students/me/finance/charges/:chargeId/pay`
+starts a Payment PENDING for an owned OPEN Charge. Provider is
+`providerForCurrency` (ARS→MP, USD→Stripe stubs). MANUAL remains admin-only.
+Idempotency uses `student-checkout:{studentId}:{chargeId}` plus re-entry on
+existing PENDING. SUCCEEDED + RevenueAllocation only via existing webhook stubs.
+
+**Still out of scope:** live Mercado Pago / Stripe SDKs, student refunds,
+student “mark as paid” UX.

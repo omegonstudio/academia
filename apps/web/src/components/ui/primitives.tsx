@@ -26,7 +26,7 @@ export function Card({ className, children }: { className?: string; children: Re
 }
 
 export function Badge({ className, tone = 'neutral', children }: { className?: string; tone?: 'neutral' | 'success' | 'warning' | 'danger' | 'info' | 'accent'; children: ReactNode }) {
-  return <span className={cn('inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold', tone === 'neutral' && 'bg-surface-muted text-muted-foreground', tone === 'success' && 'bg-success/12 text-success', tone === 'warning' && 'bg-secondary/12 text-secondary', tone === 'danger' && 'bg-destructive/12 text-destructive', tone === 'info' && 'bg-primary/12 text-primary', tone === 'accent' && 'bg-accent/12 text-accent', className)}>{children}</span>
+  return <span className={cn('inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold', tone === 'neutral' && 'bg-surface-muted text-muted-foreground', tone === 'success' && 'bg-success/12 text-success', tone === 'warning' && 'bg-secondary/25 text-secondary-foreground', tone === 'danger' && 'bg-destructive/12 text-destructive', tone === 'info' && 'bg-primary/12 text-primary', tone === 'accent' && 'bg-accent/12 text-accent', className)}>{children}</span>
 }
 
 export function Alert({ tone = 'danger', children }: { tone?: 'danger' | 'success' | 'info'; children: ReactNode }) {

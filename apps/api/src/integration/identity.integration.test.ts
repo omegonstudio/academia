@@ -62,23 +62,128 @@ describe('identity integration', () => {
   });
 
   afterAll(async () => {
-    await database.material.deleteMany({
-      where: { createdBy: { email: { in: CLEANUP_EMAILS } } },
-    });
-    await database.user.deleteMany({
-      where: { email: { in: CLEANUP_EMAILS } },
-    });
+    await cleanupIdentityUsers();
+    // Shared DB: restore live bootstrap account so smoke/dev keep working.
+    const livePassword = process.env['SUPERADMIN_PASSWORD'];
+    if (livePassword) {
+      await bootstrapSuperAdmin(database, {
+        email: SUPERADMIN_EMAIL,
+        password: livePassword,
+      });
+    }
     await database.$disconnect();
   });
 
   beforeEach(async () => {
+    await cleanupIdentityUsers();
+  });
+
+  /**
+   * Shared DB also hosts smoke/dev rows. CLEANUP emails (incl. bootstrap
+   * SUPER_ADMIN) may own charges/payments/profiles — clear FK dependents first.
+   */
+  async function cleanupIdentityUsers() {
+    const emailFilter = { email: { in: CLEANUP_EMAILS } };
+    const teacherOfSession = {
+      classSession: { group: { teacher: { user: emailFilter } } },
+    };
+
+    await database.revenueAllocation.deleteMany({
+      where: {
+        OR: [
+          { student: { user: emailFilter } },
+          { teacher: { user: emailFilter } },
+          { charge: { createdBy: emailFilter } },
+          { payment: { createdBy: emailFilter } },
+          { charge: { classSession: { group: { teacher: { user: emailFilter } } } } },
+        ],
+      },
+    });
+    await database.refund.deleteMany({
+      where: {
+        OR: [
+          { payment: { student: { user: emailFilter } } },
+          { payment: { createdBy: emailFilter } },
+          {
+            payment: {
+              charge: { classSession: { group: { teacher: { user: emailFilter } } } },
+            },
+          },
+        ],
+      },
+    });
+    await database.payment.deleteMany({
+      where: {
+        OR: [
+          { student: { user: emailFilter } },
+          { createdBy: emailFilter },
+          { charge: { classSession: { group: { teacher: { user: emailFilter } } } } },
+        ],
+      },
+    });
+    await database.charge.deleteMany({
+      where: {
+        OR: [
+          { student: { user: emailFilter } },
+          { createdBy: emailFilter },
+          { classSession: { group: { teacher: { user: emailFilter } } } },
+        ],
+      },
+    });
+    await database.teacherSettlement.deleteMany({
+      where: { teacher: { user: emailFilter } },
+    });
+    await database.attendance.deleteMany({
+      where: {
+        OR: [{ student: { user: emailFilter } }, teacherOfSession],
+      },
+    });
+    await database.classNote.deleteMany({
+      where: teacherOfSession,
+    });
+    await database.enrollment.deleteMany({
+      where: { student: { user: emailFilter } },
+    });
+    await database.teacherAssignment.deleteMany({
+      where: {
+        OR: [
+          { student: { user: emailFilter } },
+          { teacher: { user: emailFilter } },
+        ],
+      },
+    });
     await database.material.deleteMany({
-      where: { createdBy: { email: { in: CLEANUP_EMAILS } } },
+      where: {
+        OR: [
+          { createdBy: emailFilter },
+          { classSession: { group: { teacher: { user: emailFilter } } } },
+        ],
+      },
+    });
+    await database.classSession.deleteMany({
+      where: { group: { teacher: { user: emailFilter } } },
+    });
+    await database.group.updateMany({
+      where: { teacher: { user: emailFilter } },
+      data: { teacherId: null },
+    });
+    await database.permissionChangeAudit.deleteMany({
+      where: { actor: emailFilter },
+    });
+    await database.academyFinanceSettings.updateMany({
+      where: { updatedBy: emailFilter },
+      data: { updatedByUserId: null },
+    });
+    await database.student.deleteMany({
+      where: { user: emailFilter },
+    });
+    await database.teacher.deleteMany({
+      where: { user: emailFilter },
     });
     await database.user.deleteMany({
-      where: { email: { in: CLEANUP_EMAILS } },
+      where: emailFilter,
     });
-  });
+  }
 
   it('reaches the database', async () => {
     await expect(isDatabaseReachable(database)).resolves.toBe(true);

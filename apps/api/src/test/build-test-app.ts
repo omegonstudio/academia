@@ -18,6 +18,8 @@ import { createInMemoryTeacherStore } from '../domain/teachers/in-memory-teacher
 import type { InMemoryTeacherStore } from '../domain/teachers/in-memory-teacher-store.js';
 import { createInMemoryTeacherAssignmentStore } from '../domain/assignments/in-memory-assignment-store.js';
 import type { TeacherAssignmentStore } from '../domain/assignments/assignment-service.js';
+import { createInMemoryTeacherRelatedStudentsStore } from '../domain/teachers/in-memory-teacher-related-students-store.js';
+import type { InMemoryTeacherRelatedStudentsStore } from '../domain/teachers/in-memory-teacher-related-students-store.js';
 import { createInMemoryCourseStore } from '../domain/courses/in-memory-course-store.js';
 import type { InMemoryCourseStore } from '../domain/courses/in-memory-course-store.js';
 import { createInMemoryGroupStore } from '../domain/groups/in-memory-group-store.js';
@@ -34,6 +36,8 @@ import { createInMemoryClassNoteStore } from '../domain/class-notes/in-memory-cl
 import type { InMemoryClassNoteStore } from '../domain/class-notes/in-memory-class-note-store.js';
 import { createInMemoryMaterialStore } from '../domain/materials/in-memory-material-store.js';
 import type { InMemoryMaterialStore } from '../domain/materials/in-memory-material-store.js';
+import { createInMemoryFinanceStore } from '../domain/finance/in-memory-finance-store.js';
+import type { InMemoryFinanceStore } from '../domain/finance/in-memory-finance-store.js';
 import { createInMemoryObjectStorage } from '../storage/in-memory-object-storage.js';
 import type { ObjectStoragePort } from '../storage/object-storage.js';
 import { createAuthService } from '../domain/identity/auth-service.js';
@@ -95,6 +99,7 @@ export interface TestApp {
   students: InMemoryRoleProvisionStore;
   studentRegistry: InMemoryStudentStore;
   teacherRegistry: InMemoryTeacherStore;
+  relatedStudents: InMemoryTeacherRelatedStudentsStore;
   assignments: TeacherAssignmentStore;
   courses: InMemoryCourseStore;
   groups: InMemoryGroupStore;
@@ -104,6 +109,7 @@ export interface TestApp {
   attendances: InMemoryAttendanceStore;
   classNotes: InMemoryClassNoteStore;
   materials: InMemoryMaterialStore;
+  finance: InMemoryFinanceStore;
   storage: ObjectStoragePort & {
     objects: Map<string, { body: Buffer; contentType: string }>;
     put(key: string, body: Buffer, contentType: string): void;
@@ -330,6 +336,7 @@ export async function buildTestApp({
   const studentRegistry = createInMemoryStudentStore(userBridge);
   const teacherRegistry = createInMemoryTeacherStore(userBridge);
   const assignmentMemory = createInMemoryTeacherAssignmentStore();
+  const relatedStudents = createInMemoryTeacherRelatedStudentsStore();
   const assignments: TeacherAssignmentStore = {
     findByStudentId: (studentId) => assignmentMemory.findByStudentId(studentId),
     upsert: (studentId, teacherId) =>
@@ -464,6 +471,28 @@ export async function buildTestApp({
       const row = await enrollments.findByGroupAndStudent(groupId, studentId);
       return row?.isActive === true;
     },
+    resolveHistoryContext: async (classSessionId) => {
+      const session = await classSessions.findById(classSessionId);
+      if (!session) return null;
+      const group = await groups.findById(session.groupId);
+      if (!group) return null;
+      const course = await courses.findById(group.courseId);
+      if (!course) return null;
+      return {
+        id: session.id,
+        startAt: session.startAt,
+        endAt: session.endAt,
+        group: {
+          id: group.id,
+          name: group.name,
+          course: {
+            id: course.id,
+            name: course.name,
+            serviceType: course.serviceType,
+          },
+        },
+      };
+    },
   });
   const classNotes = createInMemoryClassNoteStore({
     findClassSession: async (id) => {
@@ -479,6 +508,7 @@ export async function buildTestApp({
     },
   });
   const materials = createInMemoryMaterialStore();
+  const finance = createInMemoryFinanceStore();
   const storage = createInMemoryObjectStorage();
   const authService = createAuthService(users);
   const sessionCodec = createSessionCodec(TEST_SECRET, 3600);
@@ -528,6 +558,22 @@ export async function buildTestApp({
       students: studentRegistry,
       permissionGrants,
     },
+    studentHub: {
+      authenticate: authOptions,
+      students: studentRegistry,
+      materials,
+      attendances,
+      academy: { businessTimezone: DEFAULT_ACADEMY_TIMEZONE },
+      finance,
+    },
+    teacherHub: {
+      authenticate: authOptions,
+      teachers: teacherRegistry,
+      relatedStudents,
+      materials,
+      attendances,
+      academy: { businessTimezone: DEFAULT_ACADEMY_TIMEZONE },
+    },
     teacherRegistry: {
       authenticate: authOptions,
       teachers: teacherRegistry,
@@ -550,6 +596,8 @@ export async function buildTestApp({
       classSessions,
       academy: { businessTimezone: DEFAULT_ACADEMY_TIMEZONE },
       permissionGrants,
+      teachers: teacherRegistry,
+      finance,
     },
     scheduleOptions: {
       authenticate: authOptions,
@@ -565,6 +613,7 @@ export async function buildTestApp({
       students: studentRegistry,
       academy: { businessTimezone: DEFAULT_ACADEMY_TIMEZONE },
       permissionGrants,
+      finance,
     },
     materials: {
       authenticate: authOptions,
@@ -582,6 +631,13 @@ export async function buildTestApp({
         uploadUrlTtlSeconds: 900,
         downloadUrlTtlSeconds: 120,
       },
+    },
+    finance: {
+      authenticate: authOptions,
+      finance,
+      permissionGrants,
+      students: studentRegistry,
+      teachers: teacherRegistry,
     },
     administrativePermissions: {
       authenticate: authOptions,
@@ -601,6 +657,7 @@ export async function buildTestApp({
     students,
     studentRegistry,
     teacherRegistry,
+    relatedStudents,
     assignments,
     courses,
     groups,
@@ -610,6 +667,7 @@ export async function buildTestApp({
     attendances,
     classNotes,
     materials,
+    finance,
     storage,
     administrativePermissions,
     permissionChangeAudits,

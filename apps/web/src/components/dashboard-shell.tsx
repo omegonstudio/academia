@@ -7,6 +7,7 @@ import {
   BookOpen,
   CalendarDays,
   ChevronRight,
+  CreditCard,
   GraduationCap,
   LayoutDashboard,
   LogOut,
@@ -15,6 +16,7 @@ import {
   ShieldCheck,
   UserRound,
   Users,
+  Wallet,
   X,
 } from 'lucide-react'
 import { LogoutButton } from '@/components/logout-button'
@@ -25,11 +27,42 @@ import {
   sessionDisplayName,
   sessionInitials,
   type ShellNavLink,
+  type ShellNavSection,
 } from '@/lib/auth-shell'
 import { roleLabel } from '@/lib/roles'
 
+const MEMBERSHIP_NAV: ShellNavLink = {
+  label: 'Membresía',
+  href: '/dashboard/membership',
+}
+
+/** Appends Membership for staff nav; Student Hub keeps its own links. */
+function withMembershipNav(sections: ShellNavSection[]): ShellNavSection[] {
+  return sections.map((section) => {
+    if (section.title !== 'Academia') return section
+    if (section.links.some((link) => link.href === MEMBERSHIP_NAV.href)) {
+      return section
+    }
+    return {
+      ...section,
+      links: [...section.links, MEMBERSHIP_NAV],
+    }
+  })
+}
+
 const ICONS: Record<string, typeof LayoutDashboard> = {
   '/dashboard': LayoutDashboard,
+  '/dashboard/student': LayoutDashboard,
+  '/dashboard/student/classes': CalendarDays,
+  '/dashboard/student/materials': BookOpen,
+  '/dashboard/student/attendance': GraduationCap,
+  '/dashboard/student/finance': Wallet,
+  '/dashboard/teacher': LayoutDashboard,
+  '/dashboard/teacher/classes': CalendarDays,
+  '/dashboard/teacher/students': Users,
+  '/dashboard/teacher/materials': BookOpen,
+  '/dashboard/teacher/attendance': GraduationCap,
+  '/dashboard/teacher/earnings': Wallet,
   '/dashboard/students': Users,
   '/dashboard/teachers': UserRound,
   '/dashboard/assignments': GraduationCap,
@@ -37,6 +70,8 @@ const ICONS: Record<string, typeof LayoutDashboard> = {
   '/dashboard/groups': Users,
   '/dashboard/classes': CalendarDays,
   '/dashboard/calendar': CalendarDays,
+  '/dashboard/membership': CreditCard,
+  '/dashboard/finance': Wallet,
   '/dashboard/permissions': ShieldCheck,
   '/dashboard/administratives': Users,
   '/dashboard/settings': Settings,
@@ -44,7 +79,7 @@ const ICONS: Record<string, typeof LayoutDashboard> = {
 
 function Sidebar({ close }: { close?: () => void }) {
   const user = useSessionUser()
-  const sections = dashboardNavSections(user.role)
+  const sections = withMembershipNav(dashboardNavSections(user.role))
 
   return (
     <aside className="flex h-full w-72 shrink-0 flex-col border-r border-border bg-surface px-4 py-5">

@@ -27,7 +27,7 @@ export function buildOpenApiDocument(): OpenApiDocument {
     openapi: '3.0.3',
     info: {
       title: 'Academia API',
-      version: '0.5.0',
+      version: '0.6.0',
       description: [
         'HTTP API for Omegon Academia.',
         '',
@@ -46,6 +46,16 @@ export function buildOpenApiDocument(): OpenApiDocument {
         'Course or ClassSession teaching materials (FILE via private object storage,',
         'LINK as https-only). Soft-delete uses `materials.update`. Students see READY',
         'materials they are entitled to; teachers manage via Group ownership.',
+        '',
+        '## Finance',
+        'Charges, payments, refunds, revenue allocations, and teacher settlements.',
+        '**Freeze:** on `Payment.status → SUCCEEDED`, an immutable `RevenueAllocation`',
+        'is created with frozen `academyPercentage` and amounts; later settings changes',
+        'do not rewrite frozen rows. **MANUAL** payments may be marked SUCCEEDED via',
+        '`POST /finance/payments/{id}/succeed`; Mercado Pago / Stripe use webhooks.',
+        'Webhook endpoints accept no session cookie; **signature verification is TODO**',
+        'until provider credentials/SDKs are wired. Settlement status is `OPEN` →',
+        '`MARKED_PAID` (domain has no `OWED`).',
         '',
         '## Academy timezone',
         'Civil dates for calendar/generate use `ACADEMY_TIMEZONE` (IANA; default',
@@ -69,7 +79,15 @@ export function buildOpenApiDocument(): OpenApiDocument {
       { name: 'Users', description: 'Role user provisioning' },
       { name: 'Permissions', description: 'Catalog and ADMINISTRATIVE grants' },
       { name: 'Students', description: 'Student academic profiles' },
+      {
+        name: 'StudentHub',
+        description: 'Self-scoped Student Hub (/students/me*)',
+      },
       { name: 'Teachers', description: 'Teacher academic profiles' },
+      {
+        name: 'TeacherHub',
+        description: 'Self-scoped Teacher Hub (/teachers/me*)',
+      },
       { name: 'Assignments', description: 'Student → Teacher current link' },
       { name: 'Courses', description: 'Courses (courseType + serviceType)' },
       { name: 'Groups', description: 'Groups, teacher link, enrollment capacity' },
@@ -82,6 +100,11 @@ export function buildOpenApiDocument(): OpenApiDocument {
         name: 'Materials',
         description:
           'FILE/LINK materials scoped to a Course or ClassSession (XOR)',
+      },
+      {
+        name: 'Finance',
+        description:
+          'Settings, charges, payments, refunds, allocations, settlements, provider webhooks',
       },
     ],
     paths: buildOpenApiPaths(),

@@ -182,7 +182,7 @@ Operate real live classes.
 - [ ] Broader recurrence / RRULE (beyond weekly generate).
 - [ ] GiST/EXCLUDE constraint on teacher ranges (requires denormalized `teacherId` on ClassSession — deferred; see #33).
 - [ ] Automated meeting provisioning (Zoom/Meet/Teams APIs) — also listed under Future backlog; manual `meetingUrl` only for MVP.
-- [ ] UI for weekly generate (API done; no UI yet).
+- [x] UI for weekly generate (`ClassGenerationDialog` → `POST /groups/:id/classes/generate`).
 - [ ] Browser E2E (Playwright/Cypress) — out of unit/API smoke scope.
 ### Acceptance criteria — core met; stage not complete
 - Teacher and student can see scheduled classes within ownership scope. *(met via API + calendar + classes UI)*
@@ -240,8 +240,11 @@ Track payments and settlements using the academy's **configurable** revenue spli
 - **Stage 6B-1 — Finance Foundation + Domain:** DONE
   (Prisma models/migration, shared finance types, domain services, unit +
   PostgreSQL integration tests). No HTTP / OpenAPI / UI / provider SDKs.
-- **Stage 6B-2 — Finance API:** PENDING
-- **Stage 6C — Finance UI:** PENDING
+- **Stage 6B-2 — Finance API:** DONE
+- **Stage 6C — Finance UI:** DONE (integrated `/dashboard/finance*`)
+- **Stage 6D — Auto-charge:** DONE
+  (ClassSession → Charge for ONE_TO_ONE; Enrollment+month → Charge for GROUP_120;
+  PostgreSQL unique indexes; Payment MANUAL remains explicit)
 
 ### Business rule — revenue split (academy config) — #41
 - Single **current** academy setting: `academyPercentage` ∈ `{20, 30, 40, 50}`.
@@ -258,7 +261,7 @@ Track payments and settlements using the academy's **configurable** revenue spli
 ### MVP model closed in 6A (#44)
 - Charge / Payment / RevenueAllocation / TeacherSettlement.
 - ONE_TO_ONE_60|90 → Charge per ClassSession; GROUP_120 → Charge per Enrollment
-  + monthly period (no auto Charge generation in 6B yet — rule only).
+  + monthly period (**auto-charge on ClassSession create/generate and on enroll**).
 - Course list price: `amountMinor` + `currency` ∈ {ARS, USD}; snapshot on Charge.
 - ARS → Mercado Pago; USD → Stripe; MANUAL for authorized admin ops.
 - 1 Payment → 1 Charge; integer `floor` rounding; total refund + reversal only.
@@ -277,17 +280,24 @@ Track payments and settlements using the academy's **configurable** revenue spli
 - [x] Idempotency constraints (payment key, provider ref, allocation kind).
 
 ### TODO — Stage 6B-2 (Finance API)
-- [ ] HTTP routes + OpenAPI for finance settings / charges / payments /
-      refunds / settlements.
-- [ ] Authorization via `finance.*` + ownership (SUPER_ADMIN/DIRECTOR mutate %).
-- [ ] Provider boundary (MP / Stripe / MANUAL) — adapters may be stubbed/manual
-      first; no full live integration required to land the domain contract.
-- [ ] Webhook HTTP endpoints + idempotency when providers are wired.
+- [x] HTTP routes + OpenAPI for finance settings / charges / payments /
+      refunds / settlements / allocations.
+- [x] Authorization via `finance.*` + ownership (SUPER_ADMIN/DIRECTOR mutate %).
+- [x] Provider boundary (MP / Stripe stubs / MANUAL).
+- [x] Webhook HTTP endpoints + DB idempotency (`WebhookEvent`).
 
 ### TODO — Stage 6C (Finance UI)
-- [ ] Director/admin finance dashboard and revenue-split settings UI.
-- [ ] Student charges / payments surfaces.
-- [ ] Teacher earnings / settlement visibility (own allocations only).
+- [x] `/dashboard/finance` wired to API (settings, lists, MANUAL succeed, refund, mark-paid).
+- [x] `/dashboard/finance/students/[id]` + `/dashboard/finance/teachers/[id]`.
+- [ ] Student/Teacher hubs finance surfaces (Stages 7–8).
+
+### TODO — Stage 6D (Auto-charge) — DONE
+- [x] Unique indexes: one Charge per ClassSession; one per Enrollment+period.
+- [x] Idempotent `createChargeForClassSession` / `createChargeForEnrollmentPeriod`.
+- [x] Auto-charge ONE_TO_ONE after `POST /classes` and generate.
+- [x] Auto-charge GROUP_120 current month after enroll.
+- [x] Domain + PostgreSQL integration tests; smoke ONE_TO_ONE → MANUAL → allocation.
+- [x] Payment remains explicit (never auto-created).
 
 ### Explicitly out of MVP (future)
 - Automated teacher payouts.
@@ -317,7 +327,7 @@ existing Express API (`/api` proxy, HttpOnly session, `@academia/shared`).
 - Remote: `https://github.com/omegonstudio/academia-front.git` (SSH keys still fail;
   HTTPS with stored credentials works)
 - HEAD: `cc45a9e` — v0.app project (`prj_2tuDpDGnvafvlirlbzP0XO2L0cCa`)
-- ~46 source files; UI shell + demo data; **not production-wired**
+- UI shell production-wired (Fases 2–4); sin `academy-data`
 
 ### Stack inventory (front nuevo)
 | Item | academia-front | monorepo `apps/web` hoy |
@@ -327,7 +337,7 @@ existing Express API (`/api` proxy, HttpOnly session, `@academia/shared`).
 | Package manager | **pnpm** (+ lock) | **npm** workspaces |
 | UI | shadcn / `@base-ui/react` / lucide | tokens propios + Tailwind |
 | Tailwind | 4.3 + `tw-animate-css` | 4.3 |
-| Shared types | **none** (`lib/academy-data.ts` mocks) | `@academia/shared` |
+| Shared types | **none** (`lib/academy-data.ts` mocks) | `@academia/shared` (Fase 3–4) |
 | API proxy | **none** (`next.config.mjs` mínimo) | rewrite `/api` → `API_INTERNAL_URL` |
 | `output: standalone` | **no** | sí (Docker prod) |
 | Lint / tests | **no** | eslint + vitest |
@@ -339,30 +349,30 @@ existing Express API (`/api` proxy, HttpOnly session, `@academia/shared`).
 - **Fase 2 DONE:** login/logout/me reales; cookie HttpOnly; sin DEV bypass;
   shell y settings muestran identidad de `/auth/me`; nav Permisos/Administrativos
   solo SUPER_ADMIN/DIRECTOR (UX gate; API sigue siendo autoridad).
-- **Todos** los módulos operativos (excepto auth/shell/settings) siguen leyendo
-  `lib/academy-data.ts` o `setTimeout` fake success. CRUD real → Fase 3.
+- **Fase 3 DONE:** módulos operativos cableados a `/api/*` + `@academia/shared`.
+- **Fase 4:** calidad — sin `academy-data`; landing one-page; a11y; CI verdes.
 
 ### Route diff vs `ROUTE-MAP.md`
 
 | Ruta monorepo | academia-front | Notas |
 | ------------- | -------------- | ----- |
-| `/` | `[~]` landing one-page (anchors) | Buena base visual; copy marketing |
-| `/about` `/courses` `/teachers` `/contact` | **faltan** | Hoy son `#academia` `#cursos` `#contacto` |
+| `/` | `[x]` landing one-page (anchors) | Decisión Fase 4: no restaurar páginas legacy |
+| `/about` `/courses` `/teachers` `/contact` | **no restauradas** | Contenido en `#academia` `#cursos` `#contacto` |
 | `/login` | `[x]` UI | Cookie real; sin DEV localStorage (Fase 2) |
-| `/dashboard` | `[x]` hub | Gate `/auth/me`; módulos demo hasta Fase 3 |
-| `/dashboard/students` + `[id]` | `[x]` UI + mock | Shapes casi OK (level CEFR) |
-| `/dashboard/teachers` + `[id]` | `[x]` UI + mock | availability OK; falta `level` teacher |
-| `/dashboard/assignments` | `[x]` UI + mock | Modelo inventado (`Assignment.status`); API = link actual |
-| `/dashboard/courses` + `[id]` | `[x]` UI + mock | **Shape wrong**: `level`/`studentCount` vs `courseType`/`serviceType`/`durationMinutes` |
-| `/dashboard/groups` + `[id]` | `[x]` UI + mock | Falta enrollment API, scheduleOptionId, capacity 15 |
-| `/dashboard/classes` + `[id]` | `[x]` UI + mock | Status inventados; asistencia/notas/materials = strings |
-| `/dashboard/calendar` | `[x]` UI + mock | No usa `GET /classes/calendar?from&to` |
-| `/dashboard/permissions` | `[x]` UI fake save | Catálogo modules OK; falta grant/revoke HTTP |
-| `/dashboard/administratives` | `[x]` create UI fake | Sin list (OK); falta `POST /users/administratives` |
+| `/dashboard` | `[x]` hub | Gate `/auth/me`; módulos API real (Fase 3) |
+| `/dashboard/students` + `[id]` | `[x]` API real | Soft-delete; teacher assign |
+| `/dashboard/teachers` + `[id]` | `[x]` API real | level + availability |
+| `/dashboard/assignments` | `[x]` API real | `POST/DELETE /students/:id/teacher` |
+| `/dashboard/courses` + `[id]` | `[x]` API real | `courseType`/`serviceType`/`durationMinutes`; soft-delete |
+| `/dashboard/groups` + `[id]` | `[x]` API real | teacher + scheduleOptionId + enrollment máx. 15; soft-delete |
+| `/dashboard/classes` + `[id]` | `[x]` API real | CRUD + generate; attendance + notes + materials |
+| `/dashboard/calendar` | `[x]` API real | `GET /classes/calendar?from&to` (mes civil) |
+| `/dashboard/permissions` | `[x]` API real | Catalog + grant/revoke ADMINISTRATIVE |
+| `/dashboard/administratives` | `[x]` create-only | `POST /users/administratives` (sin list) |
 | `/dashboard/settings` | `[x]` sesión `/auth/me` + logout | Theme local OK (Fase 2) |
-| Materials contextual | **faltan** | Solo títulos string en demo class |
-| Attendance/Notes panels | **faltan** como API | UI resumen texto |
-| Generate semanal | dialog mock | Debe → `POST /groups/:id/classes/generate` |
+| Materials contextual | `[x]` course + class | LINK + FILE 3-step; soft-delete |
+| Attendance/Notes panels | `[x]` class detail | API real |
+| Generate semanal | `[x]` | `POST /groups/:id/classes/generate` |
 | Finance / student hub / teacher hub | ausentes | OK — Fase 5 |
 
 ### Shape mismatches críticos (UI → API)
@@ -417,68 +427,121 @@ Sibling clone queda como referencia hasta merge completo; no es workspace.
 - [x] Tests auth-shell + getSession; typecheck/lint/test/build web OK.
 - [x] Smoke real: login SuperAdmin → dashboard identidad → logout → redirect login.
 
+### Fase 3a — Membership Plans UI (Nivel Plata)
+UI-only; sin pagos ni API de suscripción.
+
+- [x] Ruta `/dashboard/membership` dentro del Dashboard Shell.
+- [x] Nav «Membresía» en sección Academia (sin tocar `auth-shell`).
+- [x] Tres planes (monthly / quarterly / annual) desde datos configurables.
+- [x] Selección interactiva local + `onSelectPlan` listo para cablear.
+- [x] Beneficios comunes, pausa e info de cancelación.
+- [x] Prep. conceptual `isLegacyPrice` / `legacyPrice` (sin mostrar sin datos).
+- [x] Tests de datos + typecheck/lint/test/build.
+
+### Fase 3.1 — Docker compose estandarizado
+- [x] Documentar/`COMPOSE_FILE` para bare `docker compose up` ≡ base+dev.
+- [x] MinIO bajo profile `materials` (stack core: db+api+web sin quay).
+- [x] Volumen anónimo para `apps/api/src/generated` (evita EACCES root-owned).
+- [x] `npm run smoke` (`scripts/smoke-web.sh`) — login/dashboard/membership/logout.
+- [x] README + INFRASTRUCTURE + API-SMOKE actualizados.
+
 ### Fase 3 — Módulos operativos (orden de ejecución)
 Cada ítem = sustituir `demo*` + fake save por fetch `/api/...` + schemas shared +
 estados loading/vacío/error.
 
-- [ ] **3.1** Estudiantes list/create/detail/patch/soft-delete ↔ `/students`
-- [ ] **3.2** Profesores idem ↔ `/teachers` (+ `level`, `availability`)
-- [ ] **3.3** Asignaciones ↔ `/students/:id/teacher` (sin entity Assignment)
-- [ ] **3.4** Cursos ↔ `/courses` (rehacer formularios a `courseType`/`serviceType`)
-- [ ] **3.5** Grupos detail: teacher + `schedule-options` + enrollment máx. 15
-- [ ] **3.6** Clases CRUD + generate ↔ `/classes` + `POST .../classes/generate`
-- [ ] **3.7** Calendar ↔ `GET /classes/calendar?from&to` (civil dates)
-- [ ] **3.8** Class detail: attendance + notes panels (API real)
-- [ ] **3.9** Materials section en course + class (LINK + upload 3-step)
-- [ ] **3.10** Permisos: catalog + grant/revoke ADMINISTRATIVE (no fake timeout)
-- [ ] **3.11** Administrativos: solo `POST /users/administratives`
+- [x] **3.1** Estudiantes list/create/detail/patch/soft-delete ↔ `/students`
+- [x] **3.2** Profesores idem ↔ `/teachers` (+ `level`, `availability`)
+- [x] **3.3** Asignaciones ↔ `/students/:id/teacher` (sin entity Assignment)
+- [x] **3.4** Cursos ↔ `/courses` (rehacer formularios a `courseType`/`serviceType`)
+- [x] **3.5** Grupos detail: teacher + `schedule-options` + enrollment máx. 15
+- [x] **3.6** Clases CRUD + generate ↔ `/classes` + `POST /groups/:id/classes/generate`
+- [x] **3.7** Calendar ↔ `GET /classes/calendar?from&to` (civil dates)
+- [x] **3.8** Class detail: attendance + notes panels (API real)
+- [x] **3.9** Materials section en course + class (LINK + upload 3-step)
+- [x] **3.10** Permisos: catalog + grant/revoke ADMINISTRATIVE (no fake timeout)
+- [x] **3.11** Administrativos: solo `POST /users/administratives`
 - [x] **3.12** Settings: datos de `/auth/me` + logout; theme local OK *(cubierto en Fase 2)*
 
 ### Fase 4 — Calidad
-- [ ] Borrar `lib/academy-data.ts` (o dejar fixtures solo en tests).
-- [ ] Validar requests/responses con `@academia/shared`.
-- [ ] Restaurar rutas públicas SEO (`/about`, `/courses`, `/teachers`, `/contact`)
-      **o** actualizar `ROUTE-MAP.md` + `sitemap` si se adopta landing one-page
-      (decisión de producto en este paso).
-- [ ] Contraste AA + `prefers-reduced-motion`; focus visible.
-- [ ] Typecheck/lint/test/build CI verdes; quitar ignoreBuildErrors.
-- [ ] Actualizar `ROUTE-MAP.md` estados UI post-swap.
+- [x] Borrar `lib/academy-data.ts` (sin imports restantes; fixtures viven en tests).
+- [x] Validar requests/responses con `@academia/shared` (`api.ts` + `api-browser.ts`).
+- [x] Decisión producto: landing one-page — no restaurar `/about|/courses|/teachers|/contact`;
+      `ROUTE-MAP.md` + `sitemap` (`publicRoutes` = solo `/`) actualizados.
+- [x] Contraste AA (`--muted-foreground`) + `prefers-reduced-motion` + focus visible.
+- [x] Typecheck/lint/test/build CI verdes; `ignoreBuildErrors` ausente en `next.config.ts`.
+- [x] Actualizar `ROUTE-MAP.md` estados UI post-swap.
 
 ### Fase 5 — Fuera de esta integración (no bloquear)
-- [ ] Finance UI (Stage 6B-2/6C).
-- [ ] Hubs `/dashboard/student/*`, `/dashboard/teacher/*` (Stages 7–8).
+- [x] Finance UI (Stage 6B-2/6C) — `/dashboard/finance*` integrado.
+- [x] Auto-charge (Stage 6D) — ClassSession/Enrollment → Charge → Finance UI.
+- [x] Student Hub (Stage 7A) — `/dashboard/student*` operable.
+- [x] Hubs `/dashboard/teacher/*` (Stage 8) — Teacher Hub operable.
 - [ ] Hub `/dashboard/materials`.
 - [ ] Dark mode como requisito de producto (hoy es preferencia UI v0).
 
 ### Acceptance
-- [ ] `apps/web` sirve UI nueva en compose.
-- [ ] Login SuperAdmin seed end-to-end (sin DEV bypass).
-- [ ] Mutación real verificada en students, teachers, classes, materials, permissions.
-- [ ] Ningún `setTimeout` success ni mutación solo-local en módulos MVP.
-- [ ] `ROUTE-MAP.md` + esta sección sincronizados.
+- [x] `apps/web` sirve UI nueva en compose (dev: `npm run dev` / `docker compose up`;
+      MinIO opcional `--profile materials`; smoke: `npm run smoke`).
+- [x] Login SuperAdmin seed end-to-end (sin DEV bypass) — cubierto por `npm run smoke`.
+- [x] Mutación real verificada en students, teachers, classes, materials, permissions.
+- [x] Ningún `setTimeout` success ni mutación solo-local en módulos MVP
+      (`setTimeout` solo limpia toasts tras mutación API real).
+- [x] `ROUTE-MAP.md` + esta sección sincronizados.
 
 ## Stage 7 — Student UX
 
-### TODO
-- [ ] Student dashboard.
-- [ ] Next class.
-- [ ] Calendar.
-- [ ] Materials.
-- [ ] Basic progress.
-- [ ] Attendance history.
-- [ ] Future features marked `Próximamente`.
+### TODO — Stage 7A (Student Hub MVP) — DONE
+- [x] `GET /students/me` (+ materials / attendance self-scope).
+- [x] Dashboard próxima clase (calendar ownership).
+- [x] Mis clases (próximas / pasadas).
+- [x] Mis materiales (LINK/FILE via download existente).
+- [x] Mi asistencia (read-only).
+- [x] Finanzas alumno (`GET /students/me/finance`).
+- [x] Checkout alumno (`POST …/charges/:chargeId/pay` → PENDING).
+- [x] Nav STUDENT sin superficie admin/finance.
+- [x] Tests ownership + frontend helpers + smoke STUDENT.
+
+### MVP STATUS (post Stage 7A + checkout)
+
+| Área                | Estado                                                     |
+| ------------------- | ---------------------------------------------------------- |
+| Auth                | Operable                                                   |
+| Admin operations    | Operable                                                   |
+| Academic operations | Operable                                                   |
+| Classes             | Operable                                                   |
+| Materials           | Operable (contextual; no hub global)                       |
+| Finance             | Operable (MANUAL admin + student checkout stubs)           |
+| Finance admin       | Operable (`/dashboard/finance`)                            |
+| Automatic charges   | Operable (ONE_TO_ONE + GROUP_120)                          |
+| Student Hub         | Operable (7A + finance + checkout)                         |
+| Student Finance     | Operable (portal + Pagar OPEN → PENDING)                   |
+| Teacher Hub         | Operable (8)                                               |
+| Teacher Earnings    | Operable (scoped allocations/settlements)                  |
+| Membership          | Operable (UI planes)                                       |
+| MP/Stripe           | Stub checkout + webhook (no live SDK)                      |
+
+### Pendiente (post-MVP hub)
+- [ ] Progress / analytics.
+- [x] Student finance portal — DONE (self-scoped).
+- [x] Student checkout MVP — DONE (PENDING + webhook stub).
 
 ## Stage 8 — Teacher UX
 
-### TODO
-- [ ] Teacher dashboard.
-- [ ] Assigned students.
-- [ ] Upcoming classes.
-- [ ] Attendance.
-- [ ] Notes.
-- [ ] Materials.
-- [ ] Earnings/settlement view.
-- [ ] Future features marked `Próximamente`.
+### TODO — Stage 8 Teacher Hub MVP — DONE
+- [x] `GET /teachers/me` (+ students / materials / attendance self-scope).
+- [x] Dashboard próxima clase (calendar ownership).
+- [x] Mis clases (próximas / pasadas → detalle para asistencia/notas).
+- [x] Mis alumnos (Assignment ∪ Enrollment en grupos propios).
+- [x] Asistencia RO agregada + write en clases propias.
+- [x] Notas vía ClassSession ownership existente.
+- [x] Materiales owned (Group.teacherId).
+- [x] Earnings RO (`/finance/allocations` + settlements scoped).
+- [x] Nav TEACHER sin superficie admin.
+- [x] Tests ownership + frontend helpers + smoke TEACHER + IDOR.
+
+### Pendiente (post-MVP teacher)
+- [ ] Progress analytics avanzada.
+- [ ] Payout automático / requests.
 
 ## Stage 9 — Production Hardening
 

@@ -14,9 +14,10 @@ export const site = {
 } as const;
 
 /**
- * Public, indexable routes after Phase 1 UI swap (landing one-page).
- * Legacy `/about|/courses|/teachers|/contact` pages were removed with the
- * academia-front shell; anchors live on `/` until product decides otherwise.
+ * Public, indexable routes. Product decision (Fase 4): keep the one-page
+ * landing. Legacy `/about|/courses|/teachers|/contact` stay folded into
+ * `/#academia`, `/#cursos`, `/#contacto` (and método) — not restored as
+ * separate crawlable pages.
  */
 export const publicRoutes = [
   { path: '/', changeFrequency: 'monthly' as const, priority: 1 },

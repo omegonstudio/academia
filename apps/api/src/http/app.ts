@@ -22,6 +22,14 @@ import {
   type StudentRegistryDependencies,
 } from './routes/student-registry.js';
 import {
+  createStudentHubRouter,
+  type StudentHubDependencies,
+} from './routes/student-hub.js';
+import {
+  createTeacherHubRouter,
+  type TeacherHubDependencies,
+} from './routes/teacher-hub.js';
+import {
   createTeacherRegistryRouter,
   type TeacherRegistryDependencies,
 } from './routes/teacher-registry.js';
@@ -58,6 +66,10 @@ import {
   createMaterialsRouter,
   type MaterialsDependencies,
 } from './routes/materials.js';
+import {
+  createFinanceRouter,
+  type FinanceDependencies,
+} from './routes/finance.js';
 
 export interface AppDependencies {
   logger: Logger;
@@ -69,6 +81,8 @@ export interface AppDependencies {
   teachers: TeachersDependencies;
   students: StudentsDependencies;
   studentRegistry: StudentRegistryDependencies;
+  studentHub: StudentHubDependencies;
+  teacherHub: TeacherHubDependencies;
   teacherRegistry: TeacherRegistryDependencies;
   studentTeacherAssignment: StudentTeacherAssignmentDependencies;
   courses: CoursesDependencies;
@@ -76,6 +90,7 @@ export interface AppDependencies {
   scheduleOptions: ScheduleOptionsDependencies;
   classSessions: ClassSessionsDependencies;
   materials: MaterialsDependencies;
+  finance: FinanceDependencies;
   administrativePermissions: AdministrativePermissionsDependencies;
   /** When true, mounts GET /openapi.json and Swagger UI at /docs. */
   docsEnabled?: boolean;
@@ -97,6 +112,8 @@ export function createApp({
   teachers,
   students,
   studentRegistry,
+  studentHub,
+  teacherHub,
   teacherRegistry,
   studentTeacherAssignment,
   courses,
@@ -104,6 +121,7 @@ export function createApp({
   scheduleOptions,
   classSessions,
   materials,
+  finance,
   administrativePermissions,
   docsEnabled = true,
 }: AppDependencies): Express {
@@ -133,7 +151,10 @@ export function createApp({
   app.use(createAdministrativesRouter(administratives));
   app.use(createTeachersRouter(teachers));
   app.use(createStudentsRouter(students));
+  app.use(createStudentHubRouter(studentHub));
   app.use(createStudentRegistryRouter(studentRegistry));
+  // Teacher Hub before registry so `/teachers/me` is not captured by `:id`.
+  app.use(createTeacherHubRouter(teacherHub));
   app.use(createTeacherRegistryRouter(teacherRegistry));
   app.use(createStudentTeacherAssignmentRouter(studentTeacherAssignment));
   app.use(createCoursesRouter(courses));
@@ -141,6 +162,7 @@ export function createApp({
   app.use(createScheduleOptionsRouter(scheduleOptions));
   app.use(createClassSessionsRouter(classSessions));
   app.use(createMaterialsRouter(materials));
+  app.use(createFinanceRouter(finance));
   app.use(createAdministrativePermissionsRouter(administrativePermissions));
 
   if (docsEnabled) {

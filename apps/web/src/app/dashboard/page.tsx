@@ -1,4 +1,8 @@
+'use client'
+
 import Link from 'next/link'
+import { useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import {
   BookOpen,
   CalendarDays,
@@ -6,6 +10,7 @@ import {
   Users,
 } from 'lucide-react'
 import { DashboardShell, PageHeader } from '@/components/dashboard-shell'
+import { useSessionUser } from '@/components/session-provider'
 
 const quickLinks = [
   {
@@ -35,6 +40,25 @@ const quickLinks = [
 ] as const
 
 export default function DashboardPage() {
+  const user = useSessionUser()
+  const router = useRouter()
+
+  useEffect(() => {
+    if (user.role === 'STUDENT') {
+      router.replace('/dashboard/student')
+    } else if (user.role === 'TEACHER') {
+      router.replace('/dashboard/teacher')
+    }
+  }, [user.role, router])
+
+  if (user.role === 'STUDENT' || user.role === 'TEACHER') {
+    return (
+      <DashboardShell title="Inicio">
+        <p className="text-sm text-muted-foreground">Redirigiendo…</p>
+      </DashboardShell>
+    )
+  }
+
   return (
     <DashboardShell title="Inicio">
       <PageHeader
@@ -42,7 +66,7 @@ export default function DashboardPage() {
         title="Tu espacio de gestión"
         description="Accedé a la información de estudiantes, clases y cursos desde un mismo lugar."
       />
-      <section className="rounded-[1.75rem] bg-primary px-6 py-7 text-primary-foreground shadow-[0_20px_60px_-30px_rgba(82,43,120,.5)] sm:px-8 sm:py-9">
+      <section className="rounded-[1.75rem] bg-primary px-6 py-7 text-primary-foreground shadow-[0_20px_60px_-30px_rgba(170,21,27,.5)] sm:px-8 sm:py-9">
         <p className="text-sm text-primary-foreground/70">
           Academia de Español — Omegon
         </p>
@@ -78,37 +102,10 @@ export default function DashboardPage() {
               </p>
               <span className="mt-5 inline-flex items-center gap-1 text-sm font-medium text-primary">
                 Abrir{' '}
-                <ChevronRight className="h-4 w-4 transition group-hover:translate-x-1" />
+                <ChevronRight className="h-4 w-4 transition group-hover:translate-x-0.5" />
               </span>
             </Link>
           ))}
-        </div>
-      </section>
-      <section className="mt-8 rounded-2xl border border-border bg-surface p-6">
-        <div className="flex items-center gap-3">
-          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-accent/10 text-accent">
-            <CalendarDays className="h-5 w-5" />
-          </span>
-          <div>
-            <h2 className="font-semibold">Próximas clases</h2>
-            <p className="text-sm text-muted-foreground">
-              La agenda aparecerá cuando haya clases programadas.
-            </p>
-          </div>
-        </div>
-        <div className="mt-6 rounded-xl border border-dashed border-border px-5 py-8 text-center">
-          <p className="text-sm font-medium">
-            Todavía no hay clases para mostrar.
-          </p>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Cuando se conecte la agenda real, vas a verla acá.
-          </p>
-          <Link
-            href="/dashboard/classes"
-            className="mt-4 inline-flex rounded-xl bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition hover:bg-primary-hover"
-          >
-            Ir a clases
-          </Link>
         </div>
       </section>
     </DashboardShell>

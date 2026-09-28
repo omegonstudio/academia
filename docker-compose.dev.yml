@@ -8,7 +8,9 @@
 #     after dependency changes the API/web entrypoints re-run `npm ci` when
 #     package-lock.json's hash drifts (see docker/sync-node-modules.sh).
 #   - images are built from the .dev Dockerfiles, which keep the dev toolchain
-#   - MinIO provides S3-compatible object storage for Materials (Stage 5B)
+#   - MinIO is optional (`--profile materials`) for Materials/S3 smoke. Auth,
+#     membership UI, and most CRUD do not require it. Quay.io pulls for MinIO
+#     have been flaky in some networks; keep Materials out of the default path.
 
 services:
   db:
@@ -19,6 +21,7 @@ services:
       - db_data_dev:/var/lib/postgresql/data
 
   minio:
+    profiles: ['materials']
     image: quay.io/minio/minio:RELEASE.2025-04-22T22-12-26Z
     command: server /data --console-address ":9001"
     environment:
@@ -32,6 +35,7 @@ services:
     restart: unless-stopped
 
   minio-init:
+    profiles: ['materials']
     image: quay.io/minio/mc:RELEASE.2025-04-16T18-13-26Z
     depends_on:
       - minio
@@ -51,8 +55,9 @@ services:
       dockerfile: docker/api.dev.Dockerfile
     environment:
       NODE_ENV: development
-      # In-compose MinIO — do NOT interpolate host S3_ENDPOINT (often 127.0.0.1).
-      S3_ENDPOINT: http://minio:9000
+      # In-compose MinIO when profile `materials` is enabled. Without MinIO,
+      # Materials upload routes fail at request time; /health stays ok.
+      S3_ENDPOINT: ${S3_ENDPOINT_DOCKER:-http://minio:9000}
       # Presigned URLs for the host browser / curl against published port 9000.
       S3_PUBLIC_ENDPOINT: ${S3_PUBLIC_ENDPOINT:-http://127.0.0.1:9000}
       S3_BUCKET: ${S3_BUCKET:-academia-materials}
@@ -65,8 +70,6 @@ services:
     depends_on:
       db:
         condition: service_healthy
-      minio-init:
-        condition: service_completed_successfully
     volumes:
       - ./apps/api:/app/apps/api
       - ./packages/shared:/app/packages/shared
@@ -77,6 +80,10 @@ services:
       - /app/node_modules
       - /app/apps/api/node_modules
       - /app/packages/shared/node_modules
+      # Prisma client is gitignored and may be root-owned on the host from an
+      # older container run. Shadow it so `prisma generate` always has a
+      # writable path inside the container.
+      - /app/apps/api/src/generated
 
   web:
     build:
@@ -84,6 +91,8 @@ services:
       dockerfile: docker/web.dev.Dockerfile
     environment:
       NODE_ENV: development
+      # Container → API service name (never host localhost).
+      API_INTERNAL_URL: ${API_INTERNAL_URL:-http://api:4000}
     ports:
       - '${WEB_PORT:-3000}:3000'
     volumes:

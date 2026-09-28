@@ -10,7 +10,8 @@
 > - SSR en `apps/web` llama al API interno **sin** `/api`.
 >
 > Fuentes primarias: `apps/api/src/http/**`, `packages/shared/src/**`,
-> `apps/web/next.config.ts`, `academia-front/app/**` + `lib/academy-data.ts`.
+> `apps/web/next.config.ts`. Referencia histórica UI demo: sibling `academia-front`
+> (el monorepo ya no usa `lib/academy-data.ts` — eliminado en Fase 4).
 >
 > Nota git (2026-09-24): `git pull` en `featured/stage-5` no tenía upstream;
 > se ejecutó `git fetch` + `git pull origin main` (merge). El working tree
@@ -534,6 +535,39 @@ Referencia UI: **`academia-front`** (demo).
 | **D** | Calendar + classes CRUD + generate |
 | **E** | — |
 | **F** | Civil range + TZ; no mutar arrays locales |
+
+#### `/dashboard/student` (+ `/classes`, `/materials`, `/attendance`)
+
+| | |
+| - | - |
+| **A** | (antes) no existía hub real |
+| **B** | `GET /students/me`, `/students/me/materials`, `/students/me/attendance?from&to`; clases vía `GET /classes/calendar` (scope por sesión STUDENT) |
+| **C** | Próxima clase, listados próximas/pasadas, materiales LINK/FILE, asistencia RO |
+| **D** | Student Hub OpenAPI tag; download material reutiliza `GET /materials/:id/download` |
+| **E** | Progress, reprogramación, pago online |
+| **F** | Ownership solo por sesión — nunca confiar `studentId` del cliente; finance omite split academia/profesor |
+
+#### `/dashboard/student/finance`
+
+| | |
+| - | - |
+| **A** | (antes) fuera del Student Hub |
+| **B** | `GET /students/me/finance`; `POST /students/me/finance/charges/:chargeId/pay` |
+| **C** | Resumen, cargos, pagos; botón **Pagar** solo en Charge OPEN sin Payment; “Pago pendiente” si Payment PENDING |
+| **D** | Student Hub OpenAPI; serializers curados; checkout → PENDING via provider stub |
+| **E** | Live MP/Stripe SDK / redirect checkout |
+| **F** | Ownership solo sesión; no MANUAL desde alumno; no allocations/settlements/academyPercentage; no “marcar pagado” en UI |
+
+#### `/dashboard/teacher` (+ classes / students / attendance / materials / earnings)
+
+| | |
+| - | - |
+| **A** | (antes) TEACHER veía nav ops admin |
+| **B** | `GET /teachers/me*`; clases vía calendar scoped; earnings vía `/finance/allocations` + `settlements` (teacherId forzado por sesión); asistencia/notas vía `/classes/:id/*` |
+| **C** | Próxima clase, alumnos (Assignment ∪ Enrollment), materiales owned, earnings RO |
+| **D** | Teacher Hub OpenAPI; group read/roster con ownership teacher |
+| **E** | Payout automático, requests de pago |
+| **F** | Nunca confiar `teacherId` del cliente; IDOR entre teachers / students ajenos |
 
 #### `/dashboard/permissions`
 

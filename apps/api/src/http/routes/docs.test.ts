@@ -72,8 +72,11 @@ describe('OpenAPI document', () => {
       expect(doc.paths).toHaveProperty(path);
     }
 
-    expect(doc.info.version).toBe('0.5.0');
+    expect(doc.info.version).toBe('0.6.0');
     expect(doc.tags.some((t) => t.name === 'Materials')).toBe(true);
+    expect(doc.tags.some((t) => t.name === 'Finance')).toBe(true);
+    expect(doc.paths).toHaveProperty('/finance/settings');
+    expect(doc.paths).toHaveProperty('/finance/webhooks/mercado-pago');
 
     expect(doc.components.securitySchemes.sessionCookie).toMatchObject({
       type: 'apiKey',

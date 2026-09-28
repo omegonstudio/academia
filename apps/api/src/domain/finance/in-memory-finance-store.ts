@@ -285,7 +285,101 @@ export function createInMemoryFinanceStore(): InMemoryFinanceStore {
       return row ? cloneCharge(row) : null;
     },
 
+    async findChargeByClassSessionId(classSessionId) {
+      for (const row of charges.values()) {
+        if (row.classSessionId === classSessionId) return cloneCharge(row);
+      }
+      return null;
+    },
+
+    async findChargeByEnrollmentPeriod(input) {
+      const startKey = input.periodStart.toISOString().slice(0, 10);
+      const endKey = input.periodEnd.toISOString().slice(0, 10);
+      for (const row of charges.values()) {
+        if (row.enrollmentId !== input.enrollmentId) continue;
+        if (!row.periodStart || !row.periodEnd) continue;
+        if (
+          row.periodStart.toISOString().slice(0, 10) === startKey &&
+          row.periodEnd.toISOString().slice(0, 10) === endKey
+        ) {
+          return cloneCharge(row);
+        }
+      }
+      return null;
+    },
+
+    async listActiveEnrollmentsForClassSession(classSessionId) {
+      const session = academic.classSessions.get(classSessionId);
+      if (!session) return [];
+      return [...session.enrolledStudentIds]
+        .sort((a, b) => a.localeCompare(b))
+        .map((studentId) => {
+          const enrollment = [...academic.enrollments.entries()].find(
+            ([, row]) =>
+              row.groupId === session.groupId && row.studentId === studentId,
+          );
+          return {
+            enrollmentId: enrollment?.[0] ?? studentId,
+            studentId,
+            serviceType: session.serviceType,
+          };
+        });
+    },
+
+    async listCharges(filters) {
+      return [...charges.values()]
+        .filter((row) => {
+          if (filters.studentId && row.studentId !== filters.studentId) {
+            return false;
+          }
+          if (filters.courseId && row.courseId !== filters.courseId) {
+            return false;
+          }
+          if (
+            filters.classSessionId &&
+            row.classSessionId !== filters.classSessionId
+          ) {
+            return false;
+          }
+          if (filters.status && row.status !== filters.status) return false;
+          if (filters.currency && row.currency !== filters.currency) {
+            return false;
+          }
+          if (filters.teacherId) {
+            if (!row.groupId) return false;
+            if (academic.groupTeachers.get(row.groupId) !== filters.teacherId) {
+              return false;
+            }
+          }
+          return true;
+        })
+        .map(cloneCharge)
+        .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+    },
+
     async createCharge(input) {
+      if (input.classSessionId) {
+        for (const row of charges.values()) {
+          if (row.classSessionId === input.classSessionId) {
+            throw new FinanceConflictError('Charge unique constraint violated.');
+          }
+        }
+      }
+      if (input.enrollmentId && input.periodStart && input.periodEnd) {
+        const startKey = input.periodStart.toISOString().slice(0, 10);
+        const endKey = input.periodEnd.toISOString().slice(0, 10);
+        for (const row of charges.values()) {
+          if (row.enrollmentId !== input.enrollmentId) continue;
+          if (!row.periodStart || !row.periodEnd) continue;
+          if (
+            row.periodStart.toISOString().slice(0, 10) === startKey &&
+            row.periodEnd.toISOString().slice(0, 10) === endKey
+          ) {
+            throw new FinanceConflictError('Charge unique constraint violated.');
+          }
+        }
+      }
+
       const now = new Date();
       const row: ChargeRecord = {
         id: randomUUID(),
@@ -319,6 +413,37 @@ export function createInMemoryFinanceStore(): InMemoryFinanceStore {
     async findPaymentById(id) {
       const row = payments.get(id);
       return row ? clonePayment(row) : null;
+    },
+
+    async listPayments(filters) {
+      return [...payments.values()]
+        .filter((row) => {
+          if (filters.studentId && row.studentId !== filters.studentId) {
+            return false;
+          }
+          if (filters.chargeId && row.chargeId !== filters.chargeId) {
+            return false;
+          }
+          if (filters.status && row.status !== filters.status) return false;
+          if (filters.currency && row.currency !== filters.currency) {
+            return false;
+          }
+          if (filters.provider && row.provider !== filters.provider) {
+            return false;
+          }
+          if (filters.teacherId) {
+            const charge = charges.get(row.chargeId);
+            if (!charge?.groupId) return false;
+            if (
+              academic.groupTeachers.get(charge.groupId) !== filters.teacherId
+            ) {
+              return false;
+            }
+          }
+          return true;
+        })
+        .map(clonePayment)
+        .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
     },
 
     async findPaymentByIdempotencyKey(key) {
@@ -397,6 +522,36 @@ export function createInMemoryFinanceStore(): InMemoryFinanceStore {
         }
       }
       return null;
+    },
+
+    async findAllocationById(id) {
+      const row = allocations.get(id);
+      return row ? cloneAllocation(row) : null;
+    },
+
+    async listAllocations(filters) {
+      return [...allocations.values()]
+        .filter((row) => {
+          if (filters.studentId && row.studentId !== filters.studentId) {
+            return false;
+          }
+          if (filters.teacherId && row.teacherId !== filters.teacherId) {
+            return false;
+          }
+          if (filters.paymentId && row.paymentId !== filters.paymentId) {
+            return false;
+          }
+          if (filters.chargeId && row.chargeId !== filters.chargeId) {
+            return false;
+          }
+          if (filters.kind && row.kind !== filters.kind) return false;
+          if (filters.currency && row.currency !== filters.currency) {
+            return false;
+          }
+          return true;
+        })
+        .map(cloneAllocation)
+        .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
     },
 
     async createAllocation(input) {
@@ -483,6 +638,29 @@ export function createInMemoryFinanceStore(): InMemoryFinanceStore {
         : null;
     },
 
+    async listSettlements(filters) {
+      return [...settlements.values()]
+        .filter((row) => {
+          if (filters.teacherId && row.teacherId !== filters.teacherId) {
+            return false;
+          }
+          if (filters.status && row.status !== filters.status) return false;
+          if (filters.currency && row.currency !== filters.currency) {
+            return false;
+          }
+          return true;
+        })
+        .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+        .map((row) => ({
+          ...row,
+          periodStart: new Date(row.periodStart),
+          periodEnd: new Date(row.periodEnd),
+          markedPaidAt: row.markedPaidAt ? new Date(row.markedPaidAt) : null,
+          createdAt: new Date(row.createdAt),
+          updatedAt: new Date(row.updatedAt),
+        }));
+    },
+
     async findSettlementByKey(input) {
       for (const row of settlements.values()) {
         if (
@@ -555,6 +733,40 @@ export function createInMemoryFinanceStore(): InMemoryFinanceStore {
       };
       webhooks.set(row.id, row);
       return { ...row, createdAt: new Date(row.createdAt) };
+    },
+
+    async findWebhookEvent(provider, providerEventId) {
+      for (const row of webhooks.values()) {
+        if (
+          row.provider === provider &&
+          row.providerEventId === providerEventId
+        ) {
+          return {
+            ...row,
+            processedAt: row.processedAt ? new Date(row.processedAt) : null,
+            createdAt: new Date(row.createdAt),
+          };
+        }
+      }
+      return null;
+    },
+
+    async markWebhookProcessed(id, input) {
+      const current = webhooks.get(id);
+      if (!current) {
+        throw new FinanceNotFoundError('WebhookEvent not found.');
+      }
+      const next: WebhookEventRecord = {
+        ...current,
+        processedAt: new Date(),
+        error: input.error,
+      };
+      webhooks.set(id, next);
+      return {
+        ...next,
+        processedAt: next.processedAt ? new Date(next.processedAt) : null,
+        createdAt: new Date(next.createdAt),
+      };
     },
 
     async loadClassSessionFinanceContext(input) {

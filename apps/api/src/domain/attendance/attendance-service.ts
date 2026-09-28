@@ -80,6 +80,23 @@ export interface AttendanceListFilter {
   studentId?: string;
 }
 
+export interface StudentAttendanceHistoryRecord extends AttendanceRecord {
+  classSession: {
+    id: string;
+    startAt: Date;
+    endAt: Date;
+    group: {
+      id: string;
+      name: string;
+      course: {
+        id: string;
+        name: string;
+        serviceType: string;
+      };
+    };
+  };
+}
+
 export interface AttendanceStore {
   findClassSession(
     classSessionId: string,
@@ -90,6 +107,18 @@ export interface AttendanceStore {
     classSessionId: string,
     filter?: AttendanceListFilter,
   ): Promise<AttendanceRecord[]>;
+  /** Self-scope history: only rows for this studentId in the time window. */
+  listForStudentInRange(input: {
+    studentId: string;
+    rangeStart: Date;
+    rangeEndExclusive: Date;
+  }): Promise<StudentAttendanceHistoryRecord[]>;
+  /** Teacher Hub: rows for ClassSessions owned by this teacher (Group.teacherId). */
+  listForTeacherInRange(input: {
+    teacherId: string;
+    rangeStart: Date;
+    rangeEndExclusive: Date;
+  }): Promise<StudentAttendanceHistoryRecord[]>;
   findByClassSessionAndStudent(
     classSessionId: string,
     studentId: string,

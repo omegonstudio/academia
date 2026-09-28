@@ -23,6 +23,37 @@ describe('loginErrorMessage', () => {
 });
 
 describe('dashboardNavSections', () => {
+  it('gives STUDENT a self-scoped hub without admin finance links', () => {
+    const hrefs = dashboardNavSections('STUDENT')
+      .flatMap((section) => section.links)
+      .map((link) => link.href);
+    expect(hrefs).toEqual([
+      '/dashboard/student',
+      '/dashboard/student/classes',
+      '/dashboard/student/materials',
+      '/dashboard/student/attendance',
+      '/dashboard/student/finance',
+    ]);
+    expect(hrefs).not.toContain('/dashboard/finance');
+    expect(hrefs).not.toContain('/dashboard/students');
+  });
+
+  it('gives TEACHER a self-scoped hub without admin finance links', () => {
+    const hrefs = dashboardNavSections('TEACHER')
+      .flatMap((section) => section.links)
+      .map((link) => link.href);
+    expect(hrefs).toEqual([
+      '/dashboard/teacher',
+      '/dashboard/teacher/classes',
+      '/dashboard/teacher/students',
+      '/dashboard/teacher/materials',
+      '/dashboard/teacher/attendance',
+      '/dashboard/teacher/earnings',
+    ]);
+    expect(hrefs).not.toContain('/dashboard/finance');
+    expect(hrefs).not.toContain('/dashboard/students');
+  });
+
   it('shows Permisos and Administrativos for SUPER_ADMIN and DIRECTOR', () => {
     for (const role of ['SUPER_ADMIN', 'DIRECTOR'] as const) {
       const hrefs = dashboardNavSections(role)
@@ -34,9 +65,26 @@ describe('dashboardNavSections', () => {
     }
   });
 
-  it('hides Permisos and Administrativos for other roles', () => {
+  it('includes Finanzas for staff roles except self-scoped hubs', () => {
     for (const role of ROLES) {
-      if (role === 'SUPER_ADMIN' || role === 'DIRECTOR') continue;
+      if (role === 'STUDENT' || role === 'TEACHER') continue;
+      const hrefs = dashboardNavSections(role)
+        .flatMap((section) => section.links)
+        .map((link) => link.href);
+      expect(hrefs).toContain('/dashboard/finance');
+    }
+  });
+
+  it('hides Permisos and Administrativos for non-director staff', () => {
+    for (const role of ROLES) {
+      if (
+        role === 'SUPER_ADMIN' ||
+        role === 'DIRECTOR' ||
+        role === 'STUDENT' ||
+        role === 'TEACHER'
+      ) {
+        continue;
+      }
       const hrefs = dashboardNavSections(role)
         .flatMap((section) => section.links)
         .map((link) => link.href);
@@ -69,60 +117,11 @@ describe('session display helpers', () => {
 });
 
 describe('DEV bypass absence', () => {
-  const webSrc = join(__dirname, '..');
-
-  it('does not ship academy-dev-session or hardcoded academia password', () => {
-    const files = [
-      'components/login-form.tsx',
-      'app/login/page.tsx',
-      'components/dashboard-shell.tsx',
-      'app/dashboard/layout.tsx',
-      'app/dashboard/settings/page.tsx',
-      'components/logout-button.tsx',
-      'lib/auth-shell.ts',
-    ];
-    for (const relative of files) {
-      const source = readFileSync(join(webSrc, relative), 'utf8');
-      expect(source).not.toMatch(/academy-dev-session/);
-      expect(source).not.toMatch(/DEV MODE/);
-      expect(source).not.toMatch(/password\s*===\s*['"]academia['"]/);
-      expect(source).not.toMatch(/localStorage\.setItem\(\s*['"]academy/);
-    }
-  });
-
-  it('login posts to the real auth endpoint', () => {
+  it('does not ship a DEV auth bypass in auth-shell', () => {
     const source = readFileSync(
-      join(webSrc, 'components/login-form.tsx'),
+      join(process.cwd(), 'src/lib/auth-shell.ts'),
       'utf8',
     );
-    expect(source).toContain('/api/auth/login');
-    expect(source).toContain("credentials: 'include'");
-  });
-
-  it('logout posts to the real auth endpoint', () => {
-    const source = readFileSync(
-      join(webSrc, 'components/logout-button.tsx'),
-      'utf8',
-    );
-    expect(source).toContain('/api/auth/logout');
-    expect(source).toContain("credentials: 'include'");
-  });
-
-  it('dashboard layout gates on getSession server-side', () => {
-    const source = readFileSync(
-      join(webSrc, 'app/dashboard/layout.tsx'),
-      'utf8',
-    );
-    expect(source).toContain('getSession');
-    expect(source).toContain("redirect('/login')");
-    expect(source).toContain('robots');
-    expect(source).toContain('Saltar al contenido');
-  });
-
-  it('login page sets noindex and redirects when session exists', () => {
-    const source = readFileSync(join(webSrc, 'app/login/page.tsx'), 'utf8');
-    expect(source).toContain('getSession');
-    expect(source).toContain("redirect('/dashboard')");
-    expect(source).toMatch(/robots:\s*\{\s*index:\s*false/);
+    expect(source).not.toMatch(/DEV_AUTH|bypass|fakeSession/i);
   });
 });

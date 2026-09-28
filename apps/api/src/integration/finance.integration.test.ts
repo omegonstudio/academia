@@ -480,4 +480,239 @@ describe('finance integration', () => {
     });
     expect(payment.provider).toBe('STRIPE');
   });
+
+  it('auto-charge ONE_TO_ONE is idempotent under PostgreSQL unique index', async () => {
+    const seeded = await seedOneToOne();
+    const store = createFinanceStore(database);
+    const { ensureAutoChargeForClassSession } = await import(
+      '../domain/finance/auto-charge.js'
+    );
+
+    const first = await ensureAutoChargeForClassSession(store, {
+      classSessionId: seeded.session.id,
+      createdByUserId: seeded.director.id,
+    });
+    expect(first).not.toBeNull();
+    expect(first!.amountMinor).toBe(10001n);
+
+    const [a, b] = await Promise.all([
+      ensureAutoChargeForClassSession(store, {
+        classSessionId: seeded.session.id,
+        createdByUserId: seeded.director.id,
+      }),
+      createChargeForClassSession(store, {
+        classSessionId: seeded.session.id,
+        studentId: seeded.studentId,
+        createdByUserId: seeded.director.id,
+      }),
+    ]);
+    expect(a!.id).toBe(first!.id);
+    expect(b.id).toBe(first!.id);
+
+    const count = await database.charge.count({
+      where: { classSessionId: seeded.session.id },
+    });
+    expect(count).toBe(1);
+  });
+
+  it('auto-charge GROUP_120 month is idempotent under PostgreSQL unique index', async () => {
+    const passwordHash = await hashPassword('irrelevant-password-12');
+    const director = await database.user.create({
+      data: {
+        email: `${PREFIX}-auto-group-dir@academia.test`,
+        name: 'Dir',
+        passwordHash,
+        role: 'DIRECTOR',
+        isActive: true,
+      },
+    });
+    const teacherUser = await database.user.create({
+      data: {
+        email: `${PREFIX}-auto-group-t@academia.test`,
+        name: 'T',
+        passwordHash,
+        role: 'TEACHER',
+        isActive: true,
+        teacher: {
+          create: {
+            firstName: 'T',
+            lastName: 'G',
+            level: 'C1',
+            availability: 'AVAILABLE',
+            isActive: true,
+          },
+        },
+      },
+      include: { teacher: true },
+    });
+    const studentUser = await database.user.create({
+      data: {
+        email: `${PREFIX}-auto-group-s@academia.test`,
+        name: 'S',
+        passwordHash,
+        role: 'STUDENT',
+        isActive: true,
+        student: {
+          create: {
+            firstName: 'S',
+            lastName: 'G',
+            level: 'B1',
+            isActive: true,
+          },
+        },
+      },
+      include: { student: true },
+    });
+    const course = await database.course.create({
+      data: {
+        name: `${PREFIX}-auto-group-course`,
+        description: null,
+        courseType: 'REGULAR',
+        serviceType: 'GROUP_120',
+        amountMinor: 80000n,
+        currency: 'ARS',
+        isActive: true,
+      },
+    });
+    const group = await database.group.create({
+      data: {
+        courseId: course.id,
+        name: `${PREFIX}-auto-group`,
+        teacherId: teacherUser.teacher!.id,
+        isActive: true,
+      },
+    });
+    const enrollment = await database.enrollment.create({
+      data: {
+        groupId: group.id,
+        studentId: studentUser.student!.id,
+        isActive: true,
+      },
+    });
+
+    const store = createFinanceStore(database);
+    const { ensureAutoChargeForEnrollmentMonth } = await import(
+      '../domain/finance/auto-charge.js'
+    );
+    const { DEFAULT_ACADEMY_TIMEZONE } = await import('@academia/shared');
+    const now = new Date('2026-09-15T18:00:00.000Z');
+
+    const first = await ensureAutoChargeForEnrollmentMonth(store, {
+      enrollmentId: enrollment.id,
+      createdByUserId: director.id,
+      businessTimezone: DEFAULT_ACADEMY_TIMEZONE,
+      now,
+    });
+    expect(first).not.toBeNull();
+
+    const second = await ensureAutoChargeForEnrollmentMonth(store, {
+      enrollmentId: enrollment.id,
+      createdByUserId: director.id,
+      businessTimezone: DEFAULT_ACADEMY_TIMEZONE,
+      now,
+    });
+    expect(second!.id).toBe(first!.id);
+
+    const count = await database.charge.count({
+      where: { enrollmentId: enrollment.id },
+    });
+    expect(count).toBe(1);
+  });
+
+  it('student finance portal only returns the authenticated student rows', async () => {
+    const seededA = await seedOneToOne();
+    const store = createFinanceStore(database);
+    await getOrCreateFinanceSettings(store);
+
+    const chargeA = await createChargeForClassSession(store, {
+      classSessionId: seededA.session.id,
+      studentId: seededA.studentId,
+      createdByUserId: seededA.director.id,
+    });
+    const paymentA = await createPayment(store, {
+      chargeId: chargeA.id,
+      provider: 'MANUAL',
+      idempotencyKey: `${PREFIX}-portal-a`,
+    });
+    await succeedPayment(store, paymentA.id);
+
+    const passwordHash = await hashPassword('student-password-12');
+    const otherUser = await database.user.create({
+      data: {
+        email: `${PREFIX}-portal-b@academia.test`,
+        passwordHash,
+        role: 'STUDENT',
+        isActive: true,
+        student: {
+          create: {
+            firstName: 'Other',
+            lastName: 'Student',
+            level: 'A2',
+            isActive: true,
+          },
+        },
+      },
+      include: { student: true },
+    });
+    const studentBId = otherUser.student!.id;
+
+    const courseB = await database.course.create({
+      data: {
+        name: `${PREFIX}-portal-b-course`,
+        courseType: 'REGULAR',
+        serviceType: 'ONE_TO_ONE_60',
+        amountMinor: 5000n,
+        currency: 'ARS',
+        isActive: true,
+      },
+    });
+    const teacherB = await database.teacher.findFirst({
+      where: { id: seededA.teacherAId },
+    });
+    const groupB = await database.group.create({
+      data: {
+        courseId: courseB.id,
+        name: `${PREFIX}-portal-b-group`,
+        teacherId: teacherB!.id,
+        isActive: true,
+      },
+    });
+    await database.enrollment.create({
+      data: {
+        groupId: groupB.id,
+        studentId: studentBId,
+        isActive: true,
+      },
+    });
+    const sessionB = await database.classSession.create({
+      data: {
+        groupId: groupB.id,
+        startAt: new Date('2026-09-22T15:00:00.000Z'),
+        endAt: new Date('2026-09-22T16:00:00.000Z'),
+        isActive: true,
+      },
+    });
+    const chargeB = await createChargeForClassSession(store, {
+      classSessionId: sessionB.id,
+      studentId: studentBId,
+      createdByUserId: seededA.director.id,
+    });
+
+    const { getStudentFinancePortal } = await import(
+      '../domain/finance/student-finance-portal.js'
+    );
+    const portalA = await getStudentFinancePortal(store, seededA.studentId);
+    expect(portalA.charges.map((c) => c.id)).toEqual([chargeA.id]);
+    expect(portalA.payments).toHaveLength(1);
+    expect(portalA.payments[0]?.status).toBe('SUCCEEDED');
+    expect(portalA.charges.map((c) => c.id)).not.toContain(chargeB.id);
+    const raw = JSON.stringify(portalA);
+    expect(raw).not.toMatch(/academyPercentage/);
+    expect(raw).not.toMatch(/teacherAmountMinor/);
+    expect(raw).not.toMatch(/createdByUserId/);
+
+    const portalB = await getStudentFinancePortal(store, studentBId);
+    expect(portalB.charges.map((c) => c.id)).toEqual([chargeB.id]);
+    expect(portalB.payments).toHaveLength(0);
+  });
 });

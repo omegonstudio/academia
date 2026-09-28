@@ -1,22 +1,262 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import type {
+  Course,
+  GenerateClassSessionsResponse,
+  Group,
+  ScheduleOption,
+  Teacher,
+} from '@academia/shared'
 import { X } from 'lucide-react'
-import { Alert, Button, Card, Field, Input, Select } from '@/components/ui/primitives'
-import { demoClasses, demoGroups } from '@/lib/academy-data'
+import {
+  Alert,
+  Button,
+  Card,
+  Field,
+  Input,
+  Select,
+} from '@/components/ui/primitives'
+import {
+  courseServiceTypeLabels,
+  generateClassSessionsBrowser,
+  personFullName,
+} from '@/lib/api-browser'
+import { validateGenerateDateRange } from '@/lib/class-session-generate'
 
-type Form = { groupId: string; from: string; to: string; days: number[]; start: string; end: string }
-type Errors = Partial<Record<'group' | 'from' | 'to' | 'days' | 'time', string>>
-const days = [{ n: 1, label: 'Lun' }, { n: 2, label: 'Mar' }, { n: 3, label: 'Mié' }, { n: 4, label: 'Jue' }, { n: 5, label: 'Vie' }, { n: 6, label: 'Sáb' }, { n: 0, label: 'Dom' }]
-const initial: Form = { groupId: '', from: '', to: '', days: [], start: '', end: '' }
-const estimatedCount = (from: string, to: string, selected: number[]) => { if (!from || !to) return 0; let count = 0; const cursor = new Date(`${from}T12:00:00`); const finish = new Date(`${to}T12:00:00`); for (; cursor <= finish; cursor.setDate(cursor.getDate() + 1)) if (selected.includes(cursor.getDay())) count++; return count }
+type Form = { groupId: string; from: string; to: string }
 
-export function ClassGenerationDialog({ onClose, onCreated }: { onClose: () => void; onCreated: (count: number) => void }) {
-  const [form, setForm] = useState<Form>(initial); const [errors, setErrors] = useState<Errors>({}); const [busy, setBusy] = useState(false)
-  const group = demoGroups.find((item) => item.id === form.groupId); const count = useMemo(() => estimatedCount(form.from, form.to, form.days), [form.from, form.to, form.days])
-  function update<K extends keyof Form>(key: K, value: Form[K]) { setForm((current) => ({ ...current, [key]: value })); setErrors((current) => ({ ...current, [key]: undefined, time: key === 'start' || key === 'end' ? undefined : current.time })) }
-  function selectGroup(groupId: string) { const selected = demoGroups.find((item) => item.id === groupId); const match = selected?.schedule.match(/(\d{1,2}:\d{2})/); const selectedDays = selected?.schedule.includes('Lunes y Miércoles') ? [1, 3] : selected?.schedule.includes('Martes y Jueves') ? [2, 4] : selected ? [1, 2, 3, 4, 5] : []; setForm((current) => ({ ...current, groupId, days: selectedDays, start: match?.[1] ?? '' })); setErrors((current) => ({ ...current, group: undefined })) }
-  function validate() { const next: Errors = {}; if (!form.groupId) next.group = 'Seleccioná un grupo'; if (!form.from) next.from = 'Indicá la fecha desde'; if (!form.to) next.to = 'Indicá la fecha hasta'; if (form.from && form.to && form.to < form.from) next.to = 'La fecha hasta no puede ser anterior'; if (!form.days.length) next.days = 'Seleccioná al menos un día'; if (!form.start || !form.end) next.time = 'Completá ambas horas'; else if (form.end <= form.start) next.time = 'La hora de fin debe ser posterior al inicio'; setErrors(next); return !Object.keys(next).length }
-  function submit(event: React.FormEvent) { event.preventDefault(); if (busy || !validate() || !group) return; setBusy(true); window.setTimeout(() => { const minutes = Number(form.end.slice(0, 2)) * 60 + Number(form.end.slice(3)) - Number(form.start.slice(0, 2)) * 60 - Number(form.start.slice(3)); let created = 0; const cursor = new Date(`${form.from}T12:00:00`); const finish = new Date(`${form.to}T12:00:00`); for (; cursor <= finish; cursor.setDate(cursor.getDate() + 1)) { if (!form.days.includes(cursor.getDay())) continue; const date = cursor.toISOString().slice(0, 10); const startAt = `${date}T${form.start}:00`; if (demoClasses.some((item) => item.groupId === group.id && item.startAt === startAt)) continue; demoClasses.unshift({ id: `cls-${Date.now()}-${created}`, groupId: group.id, groupName: group.name, courseId: group.courseId, courseName: group.courseName, teacherId: group.teacherId, teacherName: group.teacherName, startAt, endAt: `${date}T${form.end}:00`, durationMinutes: minutes, modality: 'Grupal', meetingUrl: '', isActive: true, students: [], attendance: `0 de ${group.studentCount} presentes`, notes: '', materials: [], status: 'SCHEDULED' }); created++ } onCreated(created) }, 500) }
-  return <div className="fixed inset-0 z-50 isolate flex items-end justify-center bg-foreground/50 p-0 sm:items-center sm:p-5" role="dialog" aria-modal="true" aria-labelledby="generation-title"><div className="max-h-[calc(100vh-1.5rem)] w-full overflow-y-auto rounded-t-3xl border border-border bg-surface p-5 shadow-2xl sm:max-w-2xl sm:rounded-3xl sm:p-7"><div className="flex items-start justify-between gap-4"><div><h2 id="generation-title" className="text-xl font-semibold">Generar clases</h2><p className="mt-1 text-sm text-muted-foreground">Creá varias clases respetando la agenda del grupo.</p></div><Button type="button" variant="ghost" size="sm" onClick={onClose} disabled={busy} aria-label="Cerrar"><X /></Button></div><form onSubmit={submit} className="mt-6 flex flex-col gap-5">{Object.keys(errors).length > 0 && <Alert>Revisá los campos indicados para continuar.</Alert>}<Field label="Grupo" htmlFor="generation-group" error={errors.group}><Select id="generation-group" value={form.groupId} onChange={(event) => selectGroup(event.target.value)} aria-invalid={Boolean(errors.group)}><option value="">Seleccioná un grupo</option>{demoGroups.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</Select></Field>{group && <Card className="grid gap-3 bg-surface-muted/45 p-4 sm:grid-cols-2"><div><p className="text-xs text-muted-foreground">Curso</p><p className="mt-1 text-sm font-semibold">{group.courseName}</p></div><div><p className="text-xs text-muted-foreground">Profesor</p><p className="mt-1 text-sm font-semibold">{group.teacherName}</p></div><div><p className="text-xs text-muted-foreground">Modalidad</p><p className="mt-1 text-sm font-semibold">Grupal · {group.studentCount} estudiantes</p></div><div><p className="text-xs text-muted-foreground">Horario habitual</p><p className="mt-1 text-sm font-semibold">{group.schedule}</p></div></Card>}<div className="grid gap-5 sm:grid-cols-2"><Field label="Fecha desde" htmlFor="generation-from" error={errors.from}><Input id="generation-from" type="date" value={form.from} onChange={(event) => update('from', event.target.value)} aria-invalid={Boolean(errors.from)} /></Field><Field label="Fecha hasta" htmlFor="generation-to" error={errors.to}><Input id="generation-to" type="date" value={form.to} onChange={(event) => update('to', event.target.value)} aria-invalid={Boolean(errors.to)} /></Field></div><Field label="Días de la semana" htmlFor="generation-days" error={errors.days}><div className="flex flex-wrap gap-2">{days.map((day) => <Button key={day.n} type="button" size="sm" variant={form.days.includes(day.n) ? 'primary' : 'outline'} onClick={() => update('days', form.days.includes(day.n) ? form.days.filter((item) => item !== day.n) : [...form.days, day.n])} aria-pressed={form.days.includes(day.n)}>{day.label}</Button>)}</div></Field><div className="grid gap-5 sm:grid-cols-2"><Field label="Hora de inicio" htmlFor="generation-start"><Input id="generation-start" type="time" value={form.start} onChange={(event) => update('start', event.target.value)} aria-invalid={Boolean(errors.time)} /></Field><Field label="Hora de fin" htmlFor="generation-end" error={errors.time}><Input id="generation-end" type="time" value={form.end} onChange={(event) => update('end', event.target.value)} aria-invalid={Boolean(errors.time)} /></Field></div><Card className="border-primary/20 bg-primary/5 p-5"><p className="text-sm font-semibold">Resumen de generación</p><div className="mt-3 grid gap-2 text-sm text-muted-foreground sm:grid-cols-2"><p><strong className="text-foreground">Grupo:</strong> {group?.name ?? '—'}</p><p><strong className="text-foreground">Rango:</strong> {form.from || '—'} — {form.to || '—'}</p><p><strong className="text-foreground">Días:</strong> {form.days.length ? form.days.map((day) => days.find((item) => item.n === day)?.label).join(', ') : '—'}</p><p><strong className="text-foreground">Horario:</strong> {form.start || '—'} — {form.end || '—'}</p><p><strong className="text-foreground">Clases estimadas:</strong> {count}</p></div></Card><div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end"><Button type="button" variant="outline" onClick={onClose} disabled={busy}>Cancelar</Button><Button type="submit" disabled={busy}>{busy ? 'Generando…' : 'Generar clases'}</Button></div></form></div></div>
+const initial: Form = { groupId: '', from: '', to: '' }
+
+export function ClassGenerationDialog({
+  groups,
+  courses,
+  teachers,
+  scheduleOptions,
+  onClose,
+  onCreated,
+}: {
+  groups: Group[]
+  courses: Course[]
+  teachers: Teacher[]
+  scheduleOptions: ScheduleOption[]
+  onClose: () => void
+  onCreated: (result: GenerateClassSessionsResponse) => void
+}) {
+  const [form, setForm] = useState<Form>(initial)
+  const [error, setError] = useState('')
+  const [busy, setBusy] = useState(false)
+
+  const eligibleGroups = useMemo(
+    () =>
+      groups.filter(
+        (group) => group.isActive && Boolean(group.scheduleOptionId),
+      ),
+    [groups],
+  )
+  const courseById = useMemo(
+    () => new Map(courses.map((course) => [course.id, course])),
+    [courses],
+  )
+  const teacherById = useMemo(
+    () => new Map(teachers.map((teacher) => [teacher.id, teacher])),
+    [teachers],
+  )
+  const scheduleById = useMemo(
+    () => new Map(scheduleOptions.map((option) => [option.id, option])),
+    [scheduleOptions],
+  )
+
+  const group = eligibleGroups.find((item) => item.id === form.groupId)
+  const course = group ? courseById.get(group.courseId) : undefined
+  const teacher = group?.teacherId
+    ? teacherById.get(group.teacherId)
+    : undefined
+  const schedule = group?.scheduleOptionId
+    ? scheduleById.get(group.scheduleOptionId)
+    : undefined
+
+  const rangePreview = validateGenerateDateRange(form.from, form.to)
+
+  useEffect(() => {
+    function onKey(event: KeyboardEvent) {
+      if (event.key === 'Escape' && !busy) onClose()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [busy, onClose])
+
+  function update<K extends keyof Form>(key: K, value: Form[K]) {
+    setForm((current) => ({ ...current, [key]: value }))
+    if (error) setError('')
+  }
+
+  async function submit(event: React.FormEvent) {
+    event.preventDefault()
+    if (busy) return
+    setError('')
+
+    if (!form.groupId) {
+      setError('Seleccioná un grupo.')
+      return
+    }
+    const range = validateGenerateDateRange(form.from, form.to)
+    if (!range.ok) {
+      setError(range.message)
+      return
+    }
+
+    setBusy(true)
+    const result = await generateClassSessionsBrowser(form.groupId, {
+      from: range.from,
+      to: range.to,
+    })
+    setBusy(false)
+    if (!result.ok) {
+      setError(result.message)
+      return
+    }
+    onCreated(result.data)
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 isolate flex items-end justify-center bg-foreground/50 p-0 sm:items-center sm:p-5"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="generation-title"
+    >
+      <div className="max-h-[calc(100vh-1.5rem)] w-full overflow-y-auto rounded-t-3xl border border-border bg-surface p-5 shadow-2xl sm:max-w-2xl sm:rounded-3xl sm:p-7">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h2 id="generation-title" className="text-xl font-semibold">
+              Generar clases
+            </h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Creá sesiones semanales según la franja horaria del grupo.
+            </p>
+          </div>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={onClose}
+            disabled={busy}
+            aria-label="Cerrar"
+          >
+            <X />
+          </Button>
+        </div>
+        <form onSubmit={submit} className="mt-6 flex flex-col gap-5">
+          {error && <Alert>{error}</Alert>}
+          <Field label="Grupo" htmlFor="generation-group">
+            <Select
+              id="generation-group"
+              value={form.groupId}
+              onChange={(event) => update('groupId', event.target.value)}
+            >
+              <option value="">Seleccioná un grupo</option>
+              {eligibleGroups.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.name}
+                </option>
+              ))}
+            </Select>
+          </Field>
+          {eligibleGroups.length === 0 && (
+            <Alert tone="info">
+              No hay grupos activos con franja horaria. Asigná un horario en el
+              detalle del grupo.
+            </Alert>
+          )}
+          {group && (
+            <Card className="grid gap-3 bg-surface-muted/45 p-4 sm:grid-cols-2">
+              <div>
+                <p className="text-xs text-muted-foreground">Curso</p>
+                <p className="mt-1 text-sm font-semibold">
+                  {course?.name ?? '—'}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Profesor</p>
+                <p className="mt-1 text-sm font-semibold">
+                  {teacher ? personFullName(teacher) : 'Sin asignar'}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Modalidad</p>
+                <p className="mt-1 text-sm font-semibold">
+                  {course
+                    ? courseServiceTypeLabels[course.serviceType]
+                    : '—'}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Franja</p>
+                <p className="mt-1 text-sm font-semibold">
+                  {schedule?.label ?? '—'}
+                </p>
+              </div>
+            </Card>
+          )}
+          <div className="grid gap-5 sm:grid-cols-2">
+            <Field label="Fecha desde" htmlFor="generation-from">
+              <Input
+                id="generation-from"
+                type="date"
+                value={form.from}
+                onChange={(event) => update('from', event.target.value)}
+              />
+            </Field>
+            <Field label="Fecha hasta" htmlFor="generation-to">
+              <Input
+                id="generation-to"
+                type="date"
+                value={form.to}
+                onChange={(event) => update('to', event.target.value)}
+              />
+            </Field>
+          </div>
+          <Card className="border-primary/20 bg-primary/5 p-5">
+            <p className="text-sm font-semibold">Resumen de generación</p>
+            <div className="mt-3 grid gap-2 text-sm text-muted-foreground sm:grid-cols-2">
+              <p>
+                <strong className="text-foreground">Grupo:</strong>{' '}
+                {group?.name ?? '—'}
+              </p>
+              <p>
+                <strong className="text-foreground">Rango:</strong>{' '}
+                {form.from || '—'} — {form.to || '—'}
+              </p>
+              <p>
+                <strong className="text-foreground">Franja:</strong>{' '}
+                {schedule?.label ?? '—'}
+              </p>
+              <p>
+                <strong className="text-foreground">Días del rango:</strong>{' '}
+                {rangePreview.ok ? rangePreview.dayCount : '—'}
+              </p>
+            </div>
+            <p className="mt-3 text-xs text-muted-foreground">
+              Solo se crean los días que coinciden con la franja del grupo. Las
+              sesiones existentes o en conflicto se omiten.
+            </p>
+          </Card>
+          <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onClose}
+              disabled={busy}
+            >
+              Cancelar
+            </Button>
+            <Button type="submit" disabled={busy || eligibleGroups.length === 0}>
+              {busy ? 'Generando…' : 'Generar clases'}
+            </Button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
 }

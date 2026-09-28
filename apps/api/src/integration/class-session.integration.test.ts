@@ -235,8 +235,10 @@ describe('class session integration', () => {
       { from: '2026-09-01', to: '2026-09-30' },
       ACADEMY,
     );
-    expect(september.classSessions).toHaveLength(1);
-    expect(september.classSessions[0]).toMatchObject({
+    // Shared DB may contain other September sessions (e.g. smoke); assert ours.
+    const mine = september.classSessions.filter((row) => row.group.id === group.id);
+    expect(mine).toHaveLength(1);
+    expect(mine[0]).toMatchObject({
       startAt: '2026-09-14T21:00:00.000Z',
       group: {
         id: group.id,

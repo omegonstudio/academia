@@ -331,6 +331,34 @@ export async function listMaterials(
   return rows.map(toMaterialDto);
 }
 
+/**
+ * Student Hub: all READY materials the student is entitled to (course or
+ * class-session association), without requiring a client-supplied scope id.
+ */
+export async function listEntitledMaterialsForStudent(
+  store: MaterialStore,
+  studentId: string,
+): Promise<Material[]> {
+  const rows = await store.list({
+    actor: { mode: 'student', studentId },
+  });
+  return rows.map(toMaterialDto);
+}
+
+/**
+ * Teacher Hub: materials on courses/sessions owned via Group.teacherId,
+ * without requiring a client-supplied courseId / classSessionId.
+ */
+export async function listOwnedMaterialsForTeacher(
+  store: MaterialStore,
+  teacherId: string,
+): Promise<Material[]> {
+  const rows = await store.list({
+    actor: { mode: 'teacher', teacherId },
+  });
+  return rows.map(toMaterialDto);
+}
+
 export async function getMaterial(
   store: MaterialStore,
   actor: MaterialReadActor,
