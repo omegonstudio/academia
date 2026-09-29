@@ -13,6 +13,7 @@ const nextConfig: NextConfig = {
   output: 'standalone',
   // Workspace packages live outside apps/web, so tracing starts at the repo root.
   outputFileTracingRoot: path.join(import.meta.dirname, '../..'),
+  transpilePackages: ['@academia/shared'],
   reactStrictMode: true,
   poweredByHeader: false,
   // Allow `/api/docs/` to keep its trailing slash (Swagger relative assets need it).
