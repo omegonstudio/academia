@@ -10,6 +10,7 @@ import {
   groupListResponseSchema,
   groupResponseSchema,
   groupTeacherResponseSchema,
+  materialListResponseSchema,
   scheduleOptionListResponseSchema,
   sessionResponseSchema,
   studentListResponseSchema,
@@ -25,6 +26,7 @@ import {
   type Course,
   type Enrollment,
   type Group,
+  type Material,
   type ScheduleOption,
   type SessionUser,
   type Student,
@@ -34,6 +36,10 @@ import {
   type PermissionRef,
 } from '@academia/shared';
 import { cookies } from 'next/headers';
+import {
+  materialsListPath,
+  type MaterialsScope,
+} from './materials';
 
 /**
  * Server-side address of the API. Distinct from the browser path (`/api`),
@@ -535,6 +541,46 @@ export async function fetchClassSessionNotes(
       };
     }
     return { ok: true, notes: parsed.data.notes };
+  } catch {
+    return {
+      ok: false,
+      status: 503,
+      message: 'No pudimos conectar con el servidor.',
+    };
+  }
+}
+
+export type MaterialsFetchResult =
+  | { ok: true; materials: Material[] }
+  | { ok: false; status: number; message: string };
+
+/** Scoped materials list — exactly one of courseId / classSessionId. */
+export async function fetchMaterials(
+  scope: MaterialsScope,
+): Promise<MaterialsFetchResult> {
+  try {
+    const response = await apiFetch(materialsListPath(scope));
+    if (!response.ok) {
+      return {
+        ok: false,
+        status: response.status,
+        message:
+          response.status === 403
+            ? 'No tenés permiso para ver los materiales.'
+            : response.status === 400
+              ? 'Indicá un curso o una clase para listar materiales.'
+              : 'No pudimos cargar los materiales.',
+      };
+    }
+    const parsed = materialListResponseSchema.safeParse(await response.json());
+    if (!parsed.success) {
+      return {
+        ok: false,
+        status: 500,
+        message: 'Respuesta inválida del servidor.',
+      };
+    }
+    return { ok: true, materials: parsed.data.materials };
   } catch {
     return {
       ok: false,

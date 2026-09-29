@@ -3,12 +3,11 @@
 Operational platform for a Spanish-language academy: teacher training, teacher
 network, student assignment, classes, tracking and settlements.
 
-**Current stage: Stage 4 — Classes & Calendar (partial).** Core ClassSession API,
-calendar UI, attendance and notes are in place; remaining Stage 4 items include
-classes UI, advanced timezones, GiST and automated meeting provisioning. Stages
-1–3 API foundations are done (Stage 3 UI and assignment history still open). See
-[`TODO.md`](TODO.md) and [`ROUTE-MAP.md`](ROUTE-MAP.md). Branching:
-[`docs/BRANCHING.md`](docs/BRANCHING.md) (`feature/*` → `dev` → `main`).
+**Current stage: Stage 5 — Materials DONE (5A design, 5B API+Storage, 5C
+contextual UI).** Stages 0–4 foundations remain. Materials live on Course and
+ClassSession detail pages (no materials hub). Student/Teacher hubs and Finance
+are later stages. See [`TODO.md`](TODO.md) and [`ROUTE-MAP.md`](ROUTE-MAP.md).
+Branching: [`docs/BRANCHING.md`](docs/BRANCHING.md) (`feature/*` → `dev` → `main`).
 
 ## Stack
 
@@ -17,6 +16,7 @@ classes UI, advanced timezones, GiST and automated meeting provisioning. Stages
 | Frontend | Next.js 16 (App Router), React 19, TypeScript       |
 | Backend  | Node.js 22, Express 5, TypeScript                   |
 | Database | PostgreSQL 17, Prisma 7 (versioned migrations)       |
+| Objects  | S3-compatible (MinIO development / Spaces production)|
 | Runtime  | Docker + Docker Compose, separate dev and prod       |
 | CI/CD    | GitHub Actions                                      |
 
@@ -27,7 +27,7 @@ Requires Docker, Docker Compose and Node.js 22.
 ```bash
 cp .env.example .env      # then edit: set POSTGRES_PASSWORD, AUTH_SECRET, SUPERADMIN_PASSWORD
 npm install
-npm run dev               # builds images, starts db + api + web, waits for health
+npm run dev               # builds images, starts db + minio + api + web, waits for health
                           # (compose: docker-compose.yml + docker-compose.dev.yml)
 ```
 
@@ -51,6 +51,11 @@ Once up:
 | http://localhost:3000/api/openapi.json | OpenAPI 3 document                |
 | http://localhost:4000/health    | API health (direct, development only)   |
 | localhost:5433                  | PostgreSQL (host port, development only) |
+| http://localhost:9000           | MinIO S3 API (development only)         |
+| http://localhost:9001           | MinIO console (development only)        |
+
+Development MinIO defaults (also in `.env.example`): bucket `academia-materials`,
+access key `academia-dev-access-key`, secret `academia-dev-secret-key`.
 
 ```bash
 npm run dev:logs          # tail logs

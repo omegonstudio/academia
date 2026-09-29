@@ -8,9 +8,11 @@ Two environments, isolated by construction.
 | ------------------ | ------------------------------ | --------------------------------- |
 | Compose project    | `academia-dev`                 | `academia-prod`                   |
 | Database volume    | `academia-dev_db_data_dev`     | `academia-prod_db_data`           |
+| Object storage     | MinIO service + `minio_data_dev` | DigitalOcean Spaces (external)  |
 | Database host port | published (`5433` by default)  | **not published** (internal only) |
 | API host port      | published (`4000`)             | **not published** (internal only) |
 | Web host port      | `3000`                         | `3000`, behind a TLS terminator   |
+| MinIO ports        | `9000` (API) / `9001` (console)| **not present**                   |
 | Images             | `*.dev.Dockerfile`, bind mounts | multi-stage, immutable, non-root |
 | Payment mode       | sandbox / test (later stages)  | live (later stages)               |
 | Seed data          | optional (`LOAD_SEED_DATA`)    | forbidden — refuses to start      |
@@ -68,7 +70,27 @@ and re-run `npm ci` when it drifts (`docker/sync-node-modules.sh`). Rebuild +
 recreate the service after adding packages (`npm run dev`, or recreate `api`/`web`);
 do **not** delete the named PostgreSQL volume.
 
-Startup is ordered by health, not by luck: `db` healthy → `api` healthy → `web`.
+Startup is ordered by health, not by luck: `db` healthy → MinIO bucket init →
+`api` healthy → `web`. MinIO is **development-only** (not in the production
+override). Production API talks to DigitalOcean Spaces via the same
+`S3_*` environment variables.
+
+### Object storage (Materials — Stage 5B)
+
+|                    | Development                         | Production                |
+| ------------------ | ----------------------------------- | ------------------------- |
+| Provider           | MinIO (`minio` Compose service; image from `quay.io/minio/*`) | DigitalOcean Spaces |
+| Endpoint (typical) | `http://minio:9000` (ops) + `S3_PUBLIC_ENDPOINT` for signed URLs | Spaces regional endpoint |
+| Bucket             | `academia-materials` (created by `minio-init`) | private Spaces bucket |
+| Credentials        | Compose defaults (`academia-dev-*`)    | Spaces keys (secrets)     |
+| Path style         | `S3_FORCE_PATH_STYLE=true`          | usually `false`           |
+
+Host tooling against MinIO: API `http://127.0.0.1:9000`, console
+`http://127.0.0.1:9001`. Compose sets `S3_ENDPOINT=http://minio:9000` for
+server-side ops and `S3_PUBLIC_ENDPOINT=http://127.0.0.1:9000` so presigned
+URLs work from the host browser. See `.env.example`. Never promote MinIO sample
+keys to production (`evaluateConfiguration` rejects them when
+`NODE_ENV=production`).
 
 ### How the browser reaches the API
 

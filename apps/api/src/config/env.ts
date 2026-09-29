@@ -1,6 +1,9 @@
 import { z } from 'zod';
 import {
   DEFAULT_ACADEMY_TIMEZONE,
+  MATERIAL_DEFAULT_MAX_AUDIO_BYTES,
+  MATERIAL_DEFAULT_MAX_IMAGE_BYTES,
+  MATERIAL_DEFAULT_MAX_PDF_BYTES,
   ianaTimeZoneSchema,
 } from '@academia/shared';
 
@@ -112,6 +115,49 @@ export const envSchema = z.object({
    * ScheduleOption local times convert to ClassSession timestamptz via this value.
    */
   ACADEMY_TIMEZONE: ianaTimeZoneSchema.default(DEFAULT_ACADEMY_TIMEZONE),
+
+  // -------------------------------------------------------------------------
+  // Object storage (S3-compatible: MinIO in development, Spaces in production)
+  // -------------------------------------------------------------------------
+  S3_ENDPOINT: z.string().url('S3_ENDPOINT must be a URL'),
+  /**
+   * Optional browser/host-facing endpoint for presigned URLs.
+   * In Compose, the API talks to MinIO as `http://minio:9000` while the host
+   * browser must use `http://127.0.0.1:9000`. When unset, signed URLs use
+   * S3_ENDPOINT (correct for DigitalOcean Spaces).
+   */
+  S3_PUBLIC_ENDPOINT: z.string().url().optional(),
+  S3_BUCKET: z.string().min(1, 'S3_BUCKET is required'),
+  S3_REGION: z.string().min(1).default('us-east-1'),
+  S3_ACCESS_KEY: z.string().min(1, 'S3_ACCESS_KEY is required'),
+  S3_SECRET_KEY: z.string().min(1, 'S3_SECRET_KEY is required'),
+  S3_FORCE_PATH_STYLE: booleanFromEnv,
+
+  MATERIAL_MAX_PDF_BYTES: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(MATERIAL_DEFAULT_MAX_PDF_BYTES),
+  MATERIAL_MAX_IMAGE_BYTES: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(MATERIAL_DEFAULT_MAX_IMAGE_BYTES),
+  MATERIAL_MAX_AUDIO_BYTES: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(MATERIAL_DEFAULT_MAX_AUDIO_BYTES),
+  MATERIAL_UPLOAD_URL_TTL_SECONDS: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(900),
+  MATERIAL_DOWNLOAD_URL_TTL_SECONDS: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(120),
 });
 
 export type Env = z.infer<typeof envSchema>;
@@ -122,6 +168,13 @@ export type Env = z.infer<typeof envSchema>;
  */
 const REJECTED_PRODUCTION_SECRETS = new Set([
   'development-only-secret-change-me-32-chars-min',
+]);
+
+/** Development MinIO sample keys — must never ship to production Spaces. */
+const REJECTED_PRODUCTION_S3_KEYS = new Set([
+  'academia-dev-access-key',
+  'academia-dev-secret-key',
+  'minioadmin',
 ]);
 
 /**
@@ -140,6 +193,12 @@ export function evaluateConfiguration(env: Env): string[] {
     }
     if (env.LOAD_SEED_DATA) {
       issues.push('LOAD_SEED_DATA must be false in production');
+    }
+    if (
+      REJECTED_PRODUCTION_S3_KEYS.has(env.S3_ACCESS_KEY) ||
+      REJECTED_PRODUCTION_S3_KEYS.has(env.S3_SECRET_KEY)
+    ) {
+      issues.push('S3 credentials still hold development sample values');
     }
   }
 

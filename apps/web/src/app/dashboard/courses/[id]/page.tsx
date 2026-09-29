@@ -1,96 +1,46 @@
-import type { Metadata } from 'next';
-import Link from 'next/link';
-import { redirect } from 'next/navigation';
-import { CourseDetailActions } from '@/components/course-detail-actions';
-import { PageHeader } from '@/components/page-header';
-import {
-  canMutateAcademicStructureUi,
-  courseServiceTypeLabel,
-  courseTypeLabel,
-  derivedDurationLabel,
-} from '@/lib/academic-structure';
-import { fetchCourse, getSession } from '@/lib/api';
+import Link from 'next/link'
+import { ArrowLeft, BookOpen, Users } from 'lucide-react'
+import { notFound } from 'next/navigation'
+import { DashboardShell } from '@/components/dashboard-shell'
+import { Badge, Button } from '@/components/ui/primitives'
+import { demoCourses } from '@/lib/academy-data'
 
-export const metadata: Metadata = {
-  title: 'Curso',
-  robots: { index: false, follow: false },
-};
-
-export default async function CourseDetailPage({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
-  const user = await getSession();
-  if (!user) redirect('/login');
-
-  const { id } = await params;
-  const result = await fetchCourse(id);
-  const canWrite = canMutateAcademicStructureUi(user.role);
-
-  if (!result.ok) {
-    return (
-      <>
-        <PageHeader title="Curso" />
-        <p role="alert" className="text-sm text-danger">
-          {result.message}
-        </p>
-        <p className="mt-6 text-sm">
-          <Link href="/dashboard/courses" className="underline">
-            Volver al listado
-          </Link>
-        </p>
-      </>
-    );
-  }
-
-  const { course } = result;
-
+export default async function CourseDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
+  const course = demoCourses.find((item) => item.id === id) ?? demoCourses[0]
+  if (!course) notFound()
   return (
-    <>
-      <PageHeader
-        title={course.name}
-        intro={course.isActive ? 'Curso activo.' : 'Curso inactivo.'}
-      />
-
-      <dl className="grid max-w-md gap-3 text-sm">
-        <div className="flex justify-between gap-4">
-          <dt className="text-ink-muted">Descripción</dt>
-          <dd className="text-right text-ink">
-            {course.description?.trim() ? course.description : '—'}
-          </dd>
+    <DashboardShell title="Detalle de curso">
+      <Link href="/dashboard/courses" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
+        <ArrowLeft className="size-4" />Volver a cursos
+      </Link>
+      <div className="mt-8 flex flex-col gap-6">
+        <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-start">
+          <div>
+            <div className="flex items-center gap-3">
+              <span className="flex size-12 items-center justify-center rounded-xl bg-primary/10 text-primary"><BookOpen /></span>
+              <Badge tone="success">Activo</Badge>
+            </div>
+            <h2 className="mt-5 text-3xl font-semibold tracking-tight">{course.name}</h2>
+            <p className="mt-2 max-w-2xl text-muted-foreground">{course.description}</p>
+          </div>
+          <Button>Editar curso</Button>
         </div>
-        <div className="flex justify-between gap-4">
-          <dt className="text-ink-muted">Tipo</dt>
-          <dd className="text-ink">{courseTypeLabel(course.courseType)}</dd>
+        <div className="grid gap-4 sm:grid-cols-3">
+          <div className="rounded-2xl border border-border bg-surface p-5">
+            <p className="text-sm text-muted-foreground">Nivel</p>
+            <p className="mt-2 text-2xl font-semibold">{course.level}</p>
+          </div>
+          <div className="rounded-2xl border border-border bg-surface p-5">
+            <p className="text-sm text-muted-foreground">Estudiantes</p>
+            <p className="mt-2 flex items-center gap-2 text-2xl font-semibold"><Users className="size-5 text-primary" />{course.studentCount}</p>
+          </div>
+          <div className="rounded-2xl border border-border bg-surface p-5">
+            <p className="text-sm text-muted-foreground">Estado</p>
+            <p className="mt-2 text-2xl font-semibold">Activo</p>
+          </div>
         </div>
-        <div className="flex justify-between gap-4">
-          <dt className="text-ink-muted">Modalidad</dt>
-          <dd className="text-ink">
-            {courseServiceTypeLabel(course.serviceType)}
-          </dd>
-        </div>
-        <div className="flex justify-between gap-4">
-          <dt className="text-ink-muted">Duración</dt>
-          <dd className="text-ink">
-            {derivedDurationLabel(course.serviceType)}
-          </dd>
-        </div>
-        <div className="flex justify-between gap-4">
-          <dt className="text-ink-muted">Estado</dt>
-          <dd className="text-ink">
-            {course.isActive ? 'Activo' : 'Inactivo'}
-          </dd>
-        </div>
-      </dl>
-
-      {canWrite ? <CourseDetailActions course={course} /> : null}
-
-      <p className="mt-8 text-sm">
-        <Link href="/dashboard/courses" className="underline">
-          Volver al listado
-        </Link>
-      </p>
-    </>
-  );
+      </div>
+    </DashboardShell>
+  )
 }

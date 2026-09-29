@@ -40,6 +40,8 @@ export function createInMemoryCourseStore(): InMemoryCourseStore {
         description: input.description,
         courseType: input.courseType,
         serviceType: input.serviceType,
+        amountMinor: input.amountMinor,
+        currency: input.currency,
         isActive: input.isActive,
         createdAt: now,
         updatedAt: now,
@@ -60,6 +62,12 @@ export function createInMemoryCourseStore(): InMemoryCourseStore {
             : current.description,
         courseType: patch.courseType ?? current.courseType,
         serviceType: patch.serviceType ?? current.serviceType,
+        amountMinor:
+          patch.amountMinor !== undefined
+            ? patch.amountMinor
+            : current.amountMinor,
+        currency:
+          patch.currency !== undefined ? patch.currency : current.currency,
         isActive: patch.isActive ?? current.isActive,
         updatedAt: new Date(),
       };

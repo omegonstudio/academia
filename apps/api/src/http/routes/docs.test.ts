@@ -63,9 +63,17 @@ describe('OpenAPI document', () => {
       '/classes/{id}/attendance',
       '/classes/{id}/notes',
       '/groups/{id}/classes/generate',
+      '/materials',
+      '/materials/uploads',
+      '/materials/{id}',
+      '/materials/{id}/complete',
+      '/materials/{id}/download',
     ]) {
       expect(doc.paths).toHaveProperty(path);
     }
+
+    expect(doc.info.version).toBe('0.5.0');
+    expect(doc.tags.some((t) => t.name === 'Materials')).toBe(true);
 
     expect(doc.components.securitySchemes.sessionCookie).toMatchObject({
       type: 'apiKey',

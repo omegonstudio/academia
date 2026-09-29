@@ -12,6 +12,12 @@ function baseEnv(): NodeJS.ProcessEnv {
   return {
     DATABASE_URL: 'postgresql://user:pw@db:5432/academia_test?schema=public',
     AUTH_SECRET: VALID_SECRET,
+    S3_ENDPOINT: 'http://127.0.0.1:9000',
+    S3_BUCKET: 'academia-materials',
+    S3_REGION: 'us-east-1',
+    S3_ACCESS_KEY: 'academia-dev-access-key',
+    S3_SECRET_KEY: 'academia-dev-secret-key',
+    S3_FORCE_PATH_STYLE: 'true',
   };
 }
 
@@ -26,6 +32,13 @@ describe('parseEnv', () => {
     expect(env.SUPERADMIN_EMAIL).toBe('omegon.info@gmail.com');
     expect(env.ACADEMY_TIMEZONE).toBe('America/Argentina/Buenos_Aires');
     expect(env.API_DOCS_ENABLED).toBeUndefined();
+    expect(env.S3_BUCKET).toBe('academia-materials');
+    expect(env.S3_FORCE_PATH_STYLE).toBe(true);
+    expect(env.MATERIAL_MAX_PDF_BYTES).toBe(20 * 1024 * 1024);
+    expect(env.MATERIAL_MAX_IMAGE_BYTES).toBe(5 * 1024 * 1024);
+    expect(env.MATERIAL_MAX_AUDIO_BYTES).toBe(30 * 1024 * 1024);
+    expect(env.MATERIAL_UPLOAD_URL_TTL_SECONDS).toBe(900);
+    expect(env.MATERIAL_DOWNLOAD_URL_TTL_SECONDS).toBe(120);
   });
 
   it('parses an explicit API_DOCS_ENABLED flag', () => {
@@ -123,7 +136,7 @@ describe('describeDatabaseUrlProblem', () => {
   it('is enforced by the environment schema', () => {
     expect(() =>
       parseEnv({
-        AUTH_SECRET: VALID_SECRET,
+        ...baseEnv(),
         DATABASE_URL: 'postgresql://user:ab/cd@db:5432/academia',
       }),
     ).toThrow(/DATABASE_URL/);
@@ -137,13 +150,22 @@ describe('evaluateConfiguration', () => {
   });
 
   it('accepts a valid production configuration', () => {
-    expect(evaluateConfiguration(productionEnv())).toEqual([]);
+    expect(
+      evaluateConfiguration(
+        productionEnv({
+          S3_ACCESS_KEY: 'prod-spaces-access-key',
+          S3_SECRET_KEY: 'prod-spaces-secret-key-value',
+        }),
+      ),
+    ).toEqual([]);
   });
 
   it('flags the development sample secret in production', () => {
     const issues = evaluateConfiguration(
       productionEnv({
         AUTH_SECRET: 'development-only-secret-change-me-32-chars-min',
+        S3_ACCESS_KEY: 'prod-spaces-access-key',
+        S3_SECRET_KEY: 'prod-spaces-secret-key-value',
       }),
     );
 
@@ -152,9 +174,20 @@ describe('evaluateConfiguration', () => {
   });
 
   it('flags development seed data in production', () => {
-    const issues = evaluateConfiguration(productionEnv({ LOAD_SEED_DATA: true }));
+    const issues = evaluateConfiguration(
+      productionEnv({
+        LOAD_SEED_DATA: true,
+        S3_ACCESS_KEY: 'prod-spaces-access-key',
+        S3_SECRET_KEY: 'prod-spaces-secret-key-value',
+      }),
+    );
 
     expect(issues).toContainEqual(expect.stringMatching(/LOAD_SEED_DATA/));
+  });
+
+  it('flags development S3 sample credentials in production', () => {
+    const issues = evaluateConfiguration(productionEnv());
+    expect(issues.some((issue) => /S3 credentials/.test(issue))).toBe(true);
   });
 
   it('tolerates the sample secret outside production', () => {

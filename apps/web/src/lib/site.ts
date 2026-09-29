@@ -13,14 +13,19 @@ export const site = {
   url: process.env['NEXT_PUBLIC_APP_URL'] ?? DEFAULT_URL,
 } as const;
 
-/** Public, indexable routes. Private areas are deliberately excluded. */
+/**
+ * Public, indexable routes after Phase 1 UI swap (landing one-page).
+ * Legacy `/about|/courses|/teachers|/contact` pages were removed with the
+ * academia-front shell; anchors live on `/` until product decides otherwise.
+ */
 export const publicRoutes = [
-  { path: '/', changeFrequency: 'monthly', priority: 1 },
-  { path: '/about', changeFrequency: 'yearly', priority: 0.8 },
-  { path: '/courses', changeFrequency: 'monthly', priority: 0.9 },
-  { path: '/teachers', changeFrequency: 'yearly', priority: 0.7 },
-  { path: '/contact', changeFrequency: 'yearly', priority: 0.6 },
+  { path: '/', changeFrequency: 'monthly' as const, priority: 1 },
 ] as const;
 
 /** Routes that must never be indexed. */
-export const privateRoutePrefixes = ['/dashboard', '/login', '/api'] as const;
+export const privateRoutePrefixes = [
+  '/dashboard',
+  '/login',
+  '/design-system',
+  '/api',
+] as const;

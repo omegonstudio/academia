@@ -17,6 +17,9 @@ export const courseSchema = z.object({
   serviceType: courseServiceTypeSchema,
   /** Derived from serviceType — single source of truth for ClassSession. */
   durationMinutes: z.union([z.literal(60), z.literal(90), z.literal(120)]),
+  /** List price minor units (#44). Null until priced. */
+  amountMinor: z.string().regex(/^\d+$/).nullable(),
+  currency: z.enum(['ARS', 'USD']).nullable(),
   isActive: z.boolean(),
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),
@@ -36,13 +39,21 @@ export const courseResponseSchema = z.object({
 
 export type CourseResponse = z.infer<typeof courseResponseSchema>;
 
-export const createCourseRequestSchema = z.object({
-  name: nameSchema,
-  description: descriptionSchema.optional(),
-  courseType: courseTypeSchema,
-  serviceType: courseServiceTypeSchema,
-  isActive: z.boolean().optional(),
-});
+export const createCourseRequestSchema = z
+  .object({
+    name: nameSchema,
+    description: descriptionSchema.optional(),
+    courseType: courseTypeSchema,
+    serviceType: courseServiceTypeSchema,
+    amountMinor: z.string().regex(/^\d+$/).optional(),
+    currency: z.enum(['ARS', 'USD']).optional(),
+    isActive: z.boolean().optional(),
+  })
+  .refine(
+    (value) =>
+      (value.amountMinor === undefined) === (value.currency === undefined),
+    { message: 'amountMinor and currency must be provided together.' },
+  );
 
 export type CreateCourseRequest = z.infer<typeof createCourseRequestSchema>;
 
@@ -52,6 +63,8 @@ export const updateCourseRequestSchema = z
     description: descriptionSchema.nullable().optional(),
     courseType: courseTypeSchema.optional(),
     serviceType: courseServiceTypeSchema.optional(),
+    amountMinor: z.string().regex(/^\d+$/).nullable().optional(),
+    currency: z.enum(['ARS', 'USD']).nullable().optional(),
     isActive: z.boolean().optional(),
   })
   .refine(
@@ -60,8 +73,31 @@ export const updateCourseRequestSchema = z
       value.description !== undefined ||
       value.courseType !== undefined ||
       value.serviceType !== undefined ||
+      value.amountMinor !== undefined ||
+      value.currency !== undefined ||
       value.isActive !== undefined,
     { message: 'At least one field is required.' },
+  )
+  .refine(
+    (value) => {
+      const clearing =
+        value.amountMinor === null || value.currency === null;
+      const setting =
+        typeof value.amountMinor === 'string' ||
+        (value.currency !== undefined && value.currency !== null);
+      if (clearing) {
+        return value.amountMinor === null && value.currency === null;
+      }
+      if (setting) {
+        return (
+          typeof value.amountMinor === 'string' &&
+          value.currency !== undefined &&
+          value.currency !== null
+        );
+      }
+      return true;
+    },
+    { message: 'amountMinor and currency must be cleared or set together.' },
   );
 
 export type UpdateCourseRequest = z.infer<typeof updateCourseRequestSchema>;
