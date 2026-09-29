@@ -187,7 +187,7 @@ jobs:
       - name: Assert .env.example carries no filled-in secret
         run: |
           # Every secret-ish key must be empty or an obvious placeholder.
-          violations="$(grep -nE '^(AUTH_SECRET|POSTGRES_PASSWORD|SUPERADMIN_PASSWORD|STRIPE_SECRET_KEY|STRIPE_WEBHOOK_SECRET|MERCADOPAGO_ACCESS_TOKEN|MERCADOPAGO_WEBHOOK_SECRET)=.+' .env.example \
+          violations="$(grep -nE '^(AUTH_SECRET|POSTGRES_PASSWORD|SUPERADMIN_PASSWORD|DIRECTOR_PASSWORD|STRIPE_SECRET_KEY|STRIPE_WEBHOOK_SECRET|MERCADOPAGO_ACCESS_TOKEN|MERCADOPAGO_WEBHOOK_SECRET)=.+' .env.example \
             | grep -viE '=(change-me|development-only|your-|placeholder|<)' || true)"
           if [ -n "$violations" ]; then
             echo "Suspicious values in .env.example:" >&2

@@ -7,6 +7,7 @@ import {
   type AttendanceRecord,
   type AttendanceStore,
   type AttendanceStudentLookup,
+  type StudentAttendanceHistoryRecord,
 } from './attendance-service.js';
 
 export interface InMemoryAttendanceStore extends AttendanceStore {
@@ -20,6 +21,10 @@ export interface InMemoryAttendanceDeps {
   ) => Promise<AttendanceClassSessionRef | null>;
   findStudent: (id: string) => Promise<AttendanceStudentLookup | null>;
   hasActiveEnrollment: (groupId: string, studentId: string) => Promise<boolean>;
+  /** Optional: used by Student Hub attendance history. */
+  resolveHistoryContext?: (
+    classSessionId: string,
+  ) => Promise<StudentAttendanceHistoryRecord['classSession'] | null>;
 }
 
 export function createInMemoryAttendanceStore(
@@ -69,6 +74,57 @@ export function createInMemoryAttendanceStore(
         return true;
       });
       return sortRows(rows);
+    },
+
+    async listForStudentInRange(input) {
+      const results: StudentAttendanceHistoryRecord[] = [];
+      for (const row of byKey.values()) {
+        if (row.studentId !== input.studentId) continue;
+        const context = deps.resolveHistoryContext
+          ? await deps.resolveHistoryContext(row.classSessionId)
+          : null;
+        if (!context) continue;
+        if (
+          context.startAt < input.rangeStart ||
+          context.startAt >= input.rangeEndExclusive
+        ) {
+          continue;
+        }
+        results.push({
+          ...row,
+          student: { ...row.student },
+          classSession: context,
+        });
+      }
+      return results.sort(
+        (a, b) => b.classSession.startAt.getTime() - a.classSession.startAt.getTime(),
+      );
+    },
+
+    async listForTeacherInRange(input) {
+      const results: StudentAttendanceHistoryRecord[] = [];
+      for (const row of byKey.values()) {
+        const session = await deps.findClassSession(row.classSessionId);
+        if (!session || session.teacherId !== input.teacherId) continue;
+        const context = deps.resolveHistoryContext
+          ? await deps.resolveHistoryContext(row.classSessionId)
+          : null;
+        if (!context) continue;
+        if (
+          context.startAt < input.rangeStart ||
+          context.startAt >= input.rangeEndExclusive
+        ) {
+          continue;
+        }
+        results.push({
+          ...row,
+          student: { ...row.student },
+          classSession: context,
+        });
+      }
+      return results.sort(
+        (a, b) => b.classSession.startAt.getTime() - a.classSession.startAt.getTime(),
+      );
     },
 
     async findByClassSessionAndStudent(classSessionId, studentId) {

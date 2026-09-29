@@ -10,10 +10,12 @@ import {
   type EnrollmentListResponse,
   type EnrollmentResponse,
   type GenerateClassSessionsResponse,
+  type SessionUser,
 } from '@academia/shared';
 import { Router } from 'express';
 import type { AcademyBusinessConfig } from '../../domain/academy/academy-config.js';
 import type { PermissionGrantStore } from '../../domain/authorization/has-permission.js';
+import { hasPermission } from '../../domain/authorization/has-permission.js';
 import {
   ClassSessionValidationError,
   generateClassSessionsForGroup,
@@ -40,7 +42,13 @@ import {
   unenrollStudentFromGroup,
   type EnrollmentStore,
 } from '../../domain/enrollments/enrollment-service.js';
-import { BadRequestError, NotFoundError } from '../errors.js';
+import {
+  runAutoChargeForClassSessions,
+  runAutoChargeForEnrollmentMonth,
+} from '../../domain/finance/auto-charge-runner.js';
+import type { FinanceStore } from '../../domain/finance/finance-store.js';
+import type { TeacherStore } from '../../domain/teachers/teacher-service.js';
+import { BadRequestError, ForbiddenError, NotFoundError } from '../errors.js';
 import {
   authenticate,
   type AuthenticateOptions,
@@ -54,6 +62,40 @@ export interface GroupsDependencies {
   classSessions: ClassSessionStore;
   academy: AcademyBusinessConfig;
   permissionGrants: PermissionGrantStore;
+  /** Optional: enables Teacher Hub ownership on group read / roster. */
+  teachers?: TeacherStore;
+  /** Optional: auto-charge after enroll / generate (GROUP / ONE_TO_ONE). */
+  finance?: FinanceStore;
+}
+
+/**
+ * Admin `groups.read`, or TEACHER who owns the group (Group.teacherId).
+ * Non-teachers without the grant get 403 without probing existence.
+ * Session identity only.
+ */
+async function assertCanReadGroup(
+  grants: PermissionGrantStore,
+  teachers: TeacherStore | undefined,
+  groups: GroupStore,
+  user: SessionUser,
+  groupId: string,
+): Promise<void> {
+  if (await hasPermission(grants, user.role, 'groups', 'read')) {
+    return;
+  }
+  if (user.role === 'TEACHER' && teachers) {
+    const group = await getGroup(groups, groupId);
+    const teacher = await teachers.findByUserId(user.id);
+    if (teacher && group.teacherId === teacher.id) {
+      return;
+    }
+    throw new ForbiddenError(
+      'You do not have permission to perform this action.',
+    );
+  }
+  throw new ForbiddenError(
+    'You do not have permission to perform this action.',
+  );
 }
 
 function pathId(raw: string | string[] | undefined): string | undefined {
@@ -67,6 +109,8 @@ export function createGroupsRouter({
   classSessions,
   academy,
   permissionGrants,
+  teachers,
+  finance,
 }: GroupsDependencies): Router {
   const router = Router();
 
@@ -118,12 +162,18 @@ export function createGroupsRouter({
   router.get(
     '/groups/:id',
     authenticate(authOptions),
-    requirePermission(permissionGrants, 'groups', 'read'),
     (req, res, next) => {
       void (async () => {
         try {
           const id = pathId(req.params['id']);
           if (!id) throw new BadRequestError('Group id is required.');
+          await assertCanReadGroup(
+            permissionGrants,
+            teachers,
+            groups,
+            req.user!,
+            id,
+          );
           const group = await getGroup(groups, id);
           const body: GroupResponse = { group };
           res.status(200).json(body);
@@ -281,18 +331,27 @@ export function createGroupsRouter({
   router.get(
     '/groups/:id/students',
     authenticate(authOptions),
-    requirePermission(permissionGrants, 'groups', 'read'),
     (req, res, next) => {
       void (async () => {
         try {
           const id = pathId(req.params['id']);
           if (!id) throw new BadRequestError('Group id is required.');
+          await assertCanReadGroup(
+            permissionGrants,
+            teachers,
+            groups,
+            req.user!,
+            id,
+          );
           const body: EnrollmentListResponse = {
             enrollments: await listGroupEnrollments(enrollments, id),
           };
           res.status(200).json(body);
         } catch (error) {
-          if (error instanceof EnrollmentNotFoundError) {
+          if (
+            error instanceof EnrollmentNotFoundError ||
+            error instanceof GroupNotFoundError
+          ) {
             next(new NotFoundError(error.message));
             return;
           }
@@ -320,6 +379,13 @@ export function createGroupsRouter({
             id,
             parsed.data,
           );
+          if (finance) {
+            await runAutoChargeForEnrollmentMonth(finance, {
+              enrollmentId: enrollment.id,
+              createdByUserId: req.user!.id,
+              businessTimezone: academy.businessTimezone,
+            });
+          }
           const body: EnrollmentResponse = { enrollment };
           res.status(201).json(body);
         } catch (error) {
@@ -385,6 +451,12 @@ export function createGroupsRouter({
               parsed.data,
               academy,
             );
+          if (finance && body.classSessions.length > 0) {
+            await runAutoChargeForClassSessions(finance, {
+              classSessionIds: body.classSessions.map((s) => s.id),
+              createdByUserId: req.user!.id,
+            });
+          }
           res.status(200).json(body);
         } catch (error) {
           if (error instanceof ClassSessionValidationError) {

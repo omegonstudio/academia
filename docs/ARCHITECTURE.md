@@ -15,7 +15,7 @@ academia/
 │   │       │   └── identity/
 │   │       ├── http/          Express: routes, middleware, error envelope
 │   │       ├── lib/           logger, password, cookies, database
-│   │       ├── seed/          idempotent SuperAdmin bootstrap
+│   │       ├── seed/          idempotent SuperAdmin + Director bootstrap
 │   │       └── generated/     Prisma client (gitignored, regenerated)
 │   └── web/                  Next.js App Router
 │       └── src/

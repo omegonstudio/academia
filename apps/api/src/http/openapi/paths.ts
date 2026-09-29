@@ -298,6 +298,214 @@ export function buildOpenApiPaths(): Record<string, Record<string, Operation>> {
       },
     },
 
+    '/students/me': {
+      get: {
+        tags: ['StudentHub'],
+        summary: 'Get authenticated student profile',
+        description:
+          'Session-only. STUDENT role required. Resolves the Student profile for `req.user.id` — never accepts a client studentId.',
+        operationId: 'getStudentMe',
+        security: session,
+        responses: {
+          '200': { description: 'Own profile', ...jsonSchema('StudentResponse') },
+          '401': error('Unauthenticated'),
+          '403': error('Forbidden'),
+          '404': error('Student profile not found'),
+        },
+      },
+    },
+
+    '/students/me/materials': {
+      get: {
+        tags: ['StudentHub'],
+        summary: 'List materials entitled to the authenticated student',
+        description:
+          'READY materials for courses/class sessions where the student has an active enrollment. Session identity only.',
+        operationId: 'listStudentMeMaterials',
+        security: session,
+        responses: {
+          '200': { description: 'List', ...jsonSchema('MaterialListResponse') },
+          '401': error('Unauthenticated'),
+          '403': error('Forbidden'),
+          '404': error('Student profile not found'),
+        },
+      },
+    },
+
+    '/students/me/attendance': {
+      get: {
+        tags: ['StudentHub'],
+        summary: 'List own attendance in a civil date range',
+        description:
+          'Read-only. Session identity only. Query `from`/`to` civil dates (academy timezone), same window rules as calendar.',
+        operationId: 'listStudentMeAttendance',
+        security: session,
+        parameters: [
+          {
+            name: 'from',
+            in: 'query',
+            required: true,
+            schema: { type: 'string', format: 'date' },
+          },
+          {
+            name: 'to',
+            in: 'query',
+            required: true,
+            schema: { type: 'string', format: 'date' },
+          },
+        ],
+        responses: {
+          '200': {
+            description: 'Own attendance rows',
+            ...jsonSchema('StudentAttendanceListResponse'),
+          },
+          '400': error('Invalid range'),
+          '401': error('Unauthenticated'),
+          '403': error('Forbidden'),
+          '404': error('Student profile not found'),
+        },
+      },
+    },
+
+    '/students/me/finance': {
+      get: {
+        tags: ['StudentHub'],
+        summary: 'Finance portal for the authenticated student',
+        description:
+          'Session-only. Returns charges, payments, refunds and a summary for the student resolved from `req.user.id`. Never accepts a client studentId. Omits academy/teacher split and settlements.',
+        operationId: 'getStudentMeFinance',
+        security: session,
+        responses: {
+          '200': {
+            description: 'Own finance snapshot',
+            ...jsonSchema('StudentFinanceResponse'),
+          },
+          '401': error('Unauthenticated'),
+          '403': error('Forbidden'),
+          '404': error('Student profile not found'),
+        },
+      },
+    },
+
+    '/students/me/finance/charges/{chargeId}/pay': {
+      post: {
+        tags: ['StudentHub'],
+        summary: 'Start checkout for an owned OPEN charge',
+        description:
+          'Session STUDENT only. Resolves Student from session, verifies Charge ownership and OPEN status, creates a PENDING Payment via the currency→provider stub (ARS→Mercado Pago, USD→Stripe). Never uses MANUAL. Idempotent: retries return the same PENDING Payment. Does not mark SUCCEEDED or create RevenueAllocation — that happens via provider webhook.',
+        operationId: 'payStudentMeFinanceCharge',
+        security: session,
+        parameters: [
+          {
+            name: 'chargeId',
+            in: 'path',
+            required: true,
+            schema: { type: 'string', format: 'uuid' },
+          },
+        ],
+        responses: {
+          '201': {
+            description: 'PENDING Payment (new or idempotent re-entry)',
+            ...jsonSchema('StudentFinanceCheckoutResponse'),
+          },
+          '400': error('Charge not OPEN or invalid chargeId'),
+          '401': error('Unauthenticated'),
+          '403': error('Forbidden'),
+          '404': error('Charge or student profile not found'),
+          '409': error('Charge already has a non-PENDING Payment'),
+        },
+      },
+    },
+
+    '/teachers/me': {
+      get: {
+        tags: ['TeacherHub'],
+        summary: 'Get authenticated teacher profile',
+        description:
+          'Session-only. TEACHER role required. Resolves the Teacher profile for `req.user.id` — never accepts a client teacherId.',
+        operationId: 'getTeacherMe',
+        security: session,
+        responses: {
+          '200': { description: 'Own profile', ...jsonSchema('TeacherResponse') },
+          '401': error('Unauthenticated'),
+          '403': error('Forbidden'),
+          '404': error('Teacher profile not found'),
+        },
+      },
+    },
+
+    '/teachers/me/students': {
+      get: {
+        tags: ['TeacherHub'],
+        summary: 'List students related to the authenticated teacher',
+        description:
+          'Union of TeacherAssignment and active enrollments in groups taught by the session teacher. Session identity only.',
+        operationId: 'listTeacherMeStudents',
+        security: session,
+        responses: {
+          '200': {
+            description: 'Related students',
+            ...jsonSchema('TeacherHubStudentListResponse'),
+          },
+          '401': error('Unauthenticated'),
+          '403': error('Forbidden'),
+          '404': error('Teacher profile not found'),
+        },
+      },
+    },
+
+    '/teachers/me/materials': {
+      get: {
+        tags: ['TeacherHub'],
+        summary: 'List materials owned by the authenticated teacher',
+        description:
+          'Materials on courses/class sessions where Group.teacherId matches the session teacher. Session identity only.',
+        operationId: 'listTeacherMeMaterials',
+        security: session,
+        responses: {
+          '200': { description: 'List', ...jsonSchema('MaterialListResponse') },
+          '401': error('Unauthenticated'),
+          '403': error('Forbidden'),
+          '404': error('Teacher profile not found'),
+        },
+      },
+    },
+
+    '/teachers/me/attendance': {
+      get: {
+        tags: ['TeacherHub'],
+        summary: 'List attendance for own ClassSessions in a civil date range',
+        description:
+          'Read-only aggregate. Session identity only. Query `from`/`to` civil dates (academy timezone).',
+        operationId: 'listTeacherMeAttendance',
+        security: session,
+        parameters: [
+          {
+            name: 'from',
+            in: 'query',
+            required: true,
+            schema: { type: 'string', format: 'date' },
+          },
+          {
+            name: 'to',
+            in: 'query',
+            required: true,
+            schema: { type: 'string', format: 'date' },
+          },
+        ],
+        responses: {
+          '200': {
+            description: 'Attendance on owned sessions',
+            ...jsonSchema('TeacherAttendanceListResponse'),
+          },
+          '400': error('Invalid range'),
+          '401': error('Unauthenticated'),
+          '403': error('Forbidden'),
+          '404': error('Teacher profile not found'),
+        },
+      },
+    },
+
     '/students/{id}': {
       get: {
         tags: ['Students'],
@@ -1292,6 +1500,540 @@ export function buildOpenApiPaths(): Record<string, Record<string, Operation>> {
           '401': error('Unauthenticated'),
           '403': error('Forbidden'),
           '404': error('Not found'),
+        },
+      },
+    },
+
+    '/finance/settings': {
+      get: {
+        tags: ['Finance'],
+        summary: 'Get finance settings',
+        description:
+          '`requirePermission(finance, read)`. SUPER_ADMIN/DIRECTOR bypass. ' +
+          'Returns current `academyPercentage` (creates defaults if absent).',
+        operationId: 'getFinanceSettings',
+        security: session,
+        responses: {
+          '200': {
+            description: 'Settings',
+            ...jsonSchema('FinanceSettingsResponse'),
+          },
+          '401': error('Unauthenticated'),
+          '403': error('Forbidden'),
+        },
+      },
+      patch: {
+        tags: ['Finance'],
+        summary: 'Update finance settings',
+        description:
+          'SUPER_ADMIN/DIRECTOR role gate only (not `finance.update`). ' +
+          '`academyPercentage` ∈ {20, 30, 40, 50}. Does not rewrite frozen allocations.',
+        operationId: 'updateFinanceSettings',
+        security: session,
+        requestBody: {
+          required: true,
+          ...jsonSchema('UpdateFinanceSettingsRequest'),
+        },
+        responses: {
+          '200': {
+            description: 'Updated',
+            ...jsonSchema('FinanceSettingsResponse'),
+          },
+          '400': error('Invalid academyPercentage'),
+          '401': error('Unauthenticated'),
+          '403': error('Forbidden'),
+        },
+      },
+    },
+
+    '/finance/charges': {
+      get: {
+        tags: ['Finance'],
+        summary: 'List charges',
+        description:
+          'Auth required. `finance.read` (admin) → all; STUDENT/TEACHER → ownership scope. ' +
+          'Optional filters: studentId, teacherId, courseId, classSessionId, status, currency.',
+        operationId: 'listCharges',
+        security: session,
+        parameters: [
+          {
+            name: 'studentId',
+            in: 'query',
+            required: false,
+            schema: { type: 'string', format: 'uuid' },
+            description: 'Filter by student',
+          },
+          {
+            name: 'teacherId',
+            in: 'query',
+            required: false,
+            schema: { type: 'string', format: 'uuid' },
+            description: 'Filter by teacher (resolved from charge association)',
+          },
+          {
+            name: 'courseId',
+            in: 'query',
+            required: false,
+            schema: { type: 'string', format: 'uuid' },
+            description: 'Filter by course',
+          },
+          {
+            name: 'classSessionId',
+            in: 'query',
+            required: false,
+            schema: { type: 'string', format: 'uuid' },
+            description: 'Filter by class session',
+          },
+          {
+            name: 'status',
+            in: 'query',
+            required: false,
+            schema: { type: 'string', enum: ['OPEN', 'PAID', 'CANCELLED'] },
+            description: 'Charge status',
+          },
+          {
+            name: 'currency',
+            in: 'query',
+            required: false,
+            schema: { type: 'string', enum: ['ARS', 'USD'] },
+            description: 'Currency',
+          },
+        ],
+        responses: {
+          '200': { description: 'List', ...jsonSchema('ChargeListResponse') },
+          '400': error('Invalid query'),
+          '401': error('Unauthenticated'),
+          '403': error('Forbidden'),
+        },
+      },
+      post: {
+        tags: ['Finance'],
+        summary: 'Create charge',
+        description:
+          '`requirePermission(finance, create)`. Kind CLASS_SESSION or ENROLLMENT_PERIOD.',
+        operationId: 'createCharge',
+        security: session,
+        requestBody: { required: true, ...jsonSchema('CreateChargeRequest') },
+        responses: {
+          '201': { description: 'Created', ...jsonSchema('ChargeResponse') },
+          '400': error('Invalid body'),
+          '401': error('Unauthenticated'),
+          '403': error('Forbidden'),
+          '404': error('Related entity not found'),
+          '409': error('Conflict'),
+        },
+      },
+    },
+
+    '/finance/charges/{id}': {
+      get: {
+        tags: ['Finance'],
+        summary: 'Get charge',
+        description:
+          'Ownership or `finance.read`. Out-of-scope id → 403 (IDOR-safe).',
+        operationId: 'getCharge',
+        security: session,
+        parameters: [idParam('id', 'Charge id')],
+        responses: {
+          '200': { description: 'Charge', ...jsonSchema('ChargeResponse') },
+          '401': error('Unauthenticated'),
+          '403': error('Forbidden'),
+          '404': error('Not found'),
+        },
+      },
+    },
+
+    '/finance/payments': {
+      get: {
+        tags: ['Finance'],
+        summary: 'List payments',
+        description:
+          'Auth required. `finance.read` (admin) → all; STUDENT/TEACHER → ownership scope. ' +
+          'Optional filters: studentId, teacherId, chargeId, status, currency, provider.',
+        operationId: 'listPayments',
+        security: session,
+        parameters: [
+          {
+            name: 'studentId',
+            in: 'query',
+            required: false,
+            schema: { type: 'string', format: 'uuid' },
+            description: 'Filter by student',
+          },
+          {
+            name: 'teacherId',
+            in: 'query',
+            required: false,
+            schema: { type: 'string', format: 'uuid' },
+            description: 'Filter by teacher (via charge association)',
+          },
+          {
+            name: 'chargeId',
+            in: 'query',
+            required: false,
+            schema: { type: 'string', format: 'uuid' },
+            description: 'Filter by charge',
+          },
+          {
+            name: 'status',
+            in: 'query',
+            required: false,
+            schema: {
+              type: 'string',
+              enum: ['PENDING', 'SUCCEEDED', 'FAILED', 'CANCELLED', 'REFUNDED'],
+            },
+            description: 'Payment status',
+          },
+          {
+            name: 'currency',
+            in: 'query',
+            required: false,
+            schema: { type: 'string', enum: ['ARS', 'USD'] },
+            description: 'Currency',
+          },
+          {
+            name: 'provider',
+            in: 'query',
+            required: false,
+            schema: {
+              type: 'string',
+              enum: ['MERCADOPAGO', 'STRIPE', 'MANUAL'],
+            },
+            description: 'Payment provider',
+          },
+        ],
+        responses: {
+          '200': { description: 'List', ...jsonSchema('PaymentListResponse') },
+          '400': error('Invalid query'),
+          '401': error('Unauthenticated'),
+          '403': error('Forbidden'),
+        },
+      },
+      post: {
+        tags: ['Finance'],
+        summary: 'Create payment',
+        description:
+          '`requirePermission(finance, create)`. Requires chargeId, provider, idempotencyKey. ' +
+          'Optional providerPaymentId; otherwise stub provider creates a reference.',
+        operationId: 'createPayment',
+        security: session,
+        requestBody: { required: true, ...jsonSchema('CreatePaymentRequest') },
+        responses: {
+          '201': { description: 'Created', ...jsonSchema('PaymentResponse') },
+          '400': error('Invalid body'),
+          '401': error('Unauthenticated'),
+          '403': error('Forbidden'),
+          '404': error('Charge not found'),
+          '409': error('Conflict / idempotency'),
+        },
+      },
+    },
+
+    '/finance/payments/{id}': {
+      get: {
+        tags: ['Finance'],
+        summary: 'Get payment',
+        description:
+          'Ownership or `finance.read`. Out-of-scope id → 403 (IDOR-safe).',
+        operationId: 'getPayment',
+        security: session,
+        parameters: [idParam('id', 'Payment id')],
+        responses: {
+          '200': { description: 'Payment', ...jsonSchema('PaymentResponse') },
+          '401': error('Unauthenticated'),
+          '403': error('Forbidden'),
+          '404': error('Not found'),
+        },
+      },
+    },
+
+    '/finance/payments/{id}/succeed': {
+      post: {
+        tags: ['Finance'],
+        summary: 'Mark MANUAL payment SUCCEEDED',
+        description:
+          '`requirePermission(finance, update)`. Only `provider=MANUAL`. ' +
+          'Triggers Freeze: immutable RevenueAllocation with frozen academyPercentage. ' +
+          'MERCADOPAGO/STRIPE must use webhooks.',
+        operationId: 'succeedManualPayment',
+        security: session,
+        parameters: [idParam('id', 'Payment id')],
+        responses: {
+          '200': { description: 'Succeeded', ...jsonSchema('PaymentResponse') },
+          '400': error('Not MANUAL / invalid transition'),
+          '401': error('Unauthenticated'),
+          '403': error('Forbidden'),
+          '404': error('Not found'),
+          '409': error('Invalid transition / conflict'),
+        },
+      },
+    },
+
+    '/finance/payments/{id}/refunds': {
+      post: {
+        tags: ['Finance'],
+        summary: 'Confirm total refund',
+        description:
+          '`requirePermission(finance, update)`. Total refund only (MVP). ' +
+          'Creates REVERSAL allocation with negative minors.',
+        operationId: 'createPaymentRefund',
+        security: session,
+        parameters: [idParam('id', 'Payment id')],
+        requestBody: { required: true, ...jsonSchema('CreateRefundRequest') },
+        responses: {
+          '201': { description: 'Refunded', ...jsonSchema('RefundResponse') },
+          '400': error('Invalid body / not refundable'),
+          '401': error('Unauthenticated'),
+          '403': error('Forbidden'),
+          '404': error('Not found'),
+          '409': error('Conflict / already refunded'),
+        },
+      },
+    },
+
+    '/finance/allocations': {
+      get: {
+        tags: ['Finance'],
+        summary: 'List revenue allocations',
+        description:
+          'Read-only immutable allocations. Ownership or `finance.read`. ' +
+          'Optional filters: studentId, teacherId, paymentId, chargeId, kind, currency.',
+        operationId: 'listRevenueAllocations',
+        security: session,
+        parameters: [
+          {
+            name: 'studentId',
+            in: 'query',
+            required: false,
+            schema: { type: 'string', format: 'uuid' },
+            description: 'Filter by student',
+          },
+          {
+            name: 'teacherId',
+            in: 'query',
+            required: false,
+            schema: { type: 'string', format: 'uuid' },
+            description: 'Filter by teacher',
+          },
+          {
+            name: 'paymentId',
+            in: 'query',
+            required: false,
+            schema: { type: 'string', format: 'uuid' },
+            description: 'Filter by payment',
+          },
+          {
+            name: 'chargeId',
+            in: 'query',
+            required: false,
+            schema: { type: 'string', format: 'uuid' },
+            description: 'Filter by charge',
+          },
+          {
+            name: 'kind',
+            in: 'query',
+            required: false,
+            schema: { type: 'string', enum: ['ORIGINAL', 'REVERSAL'] },
+            description: 'Allocation kind',
+          },
+          {
+            name: 'currency',
+            in: 'query',
+            required: false,
+            schema: { type: 'string', enum: ['ARS', 'USD'] },
+            description: 'Currency',
+          },
+        ],
+        responses: {
+          '200': {
+            description: 'List',
+            ...jsonSchema('RevenueAllocationListResponse'),
+          },
+          '400': error('Invalid query'),
+          '401': error('Unauthenticated'),
+          '403': error('Forbidden'),
+        },
+      },
+    },
+
+    '/finance/allocations/{id}': {
+      get: {
+        tags: ['Finance'],
+        summary: 'Get revenue allocation',
+        description:
+          'Read-only. Ownership or `finance.read`. Out-of-scope → 403.',
+        operationId: 'getRevenueAllocation',
+        security: session,
+        parameters: [idParam('id', 'RevenueAllocation id')],
+        responses: {
+          '200': {
+            description: 'Allocation',
+            ...jsonSchema('RevenueAllocationResponse'),
+          },
+          '401': error('Unauthenticated'),
+          '403': error('Forbidden'),
+          '404': error('Not found'),
+        },
+      },
+    },
+
+    '/finance/settlements': {
+      get: {
+        tags: ['Finance'],
+        summary: 'List teacher settlements',
+        description:
+          'Auth required. `finance.read` (admin) → all; TEACHER → own only; STUDENT → 403. ' +
+          'Status is OPEN | MARKED_PAID (no OWED). Optional: teacherId, status, currency.',
+        operationId: 'listTeacherSettlements',
+        security: session,
+        parameters: [
+          {
+            name: 'teacherId',
+            in: 'query',
+            required: false,
+            schema: { type: 'string', format: 'uuid' },
+            description: 'Filter by teacher',
+          },
+          {
+            name: 'status',
+            in: 'query',
+            required: false,
+            schema: { type: 'string', enum: ['OPEN', 'MARKED_PAID'] },
+            description: 'Settlement status (OPEN, not OWED)',
+          },
+          {
+            name: 'currency',
+            in: 'query',
+            required: false,
+            schema: { type: 'string', enum: ['ARS', 'USD'] },
+            description: 'Currency',
+          },
+        ],
+        responses: {
+          '200': {
+            description: 'List',
+            ...jsonSchema('TeacherSettlementListResponse'),
+          },
+          '400': error('Invalid query'),
+          '401': error('Unauthenticated'),
+          '403': error('Forbidden'),
+        },
+      },
+      post: {
+        tags: ['Finance'],
+        summary: 'Create teacher settlement',
+        description:
+          '`requirePermission(finance, create)`. Creates settlement in status OPEN.',
+        operationId: 'createTeacherSettlement',
+        security: session,
+        requestBody: {
+          required: true,
+          ...jsonSchema('CreateTeacherSettlementRequest'),
+        },
+        responses: {
+          '201': {
+            description: 'Created',
+            ...jsonSchema('TeacherSettlementResponse'),
+          },
+          '400': error('Invalid body'),
+          '401': error('Unauthenticated'),
+          '403': error('Forbidden'),
+          '404': error('Teacher not found'),
+          '409': error('Conflict'),
+        },
+      },
+    },
+
+    '/finance/settlements/{id}': {
+      get: {
+        tags: ['Finance'],
+        summary: 'Get teacher settlement',
+        description:
+          '`finance.read` or owning TEACHER. STUDENT → 403. Status OPEN | MARKED_PAID.',
+        operationId: 'getTeacherSettlement',
+        security: session,
+        parameters: [idParam('id', 'TeacherSettlement id')],
+        responses: {
+          '200': {
+            description: 'Settlement',
+            ...jsonSchema('TeacherSettlementResponse'),
+          },
+          '401': error('Unauthenticated'),
+          '403': error('Forbidden'),
+          '404': error('Not found'),
+        },
+      },
+    },
+
+    '/finance/settlements/{id}/mark-paid': {
+      post: {
+        tags: ['Finance'],
+        summary: 'Mark settlement paid',
+        description:
+          '`requirePermission(finance, update)`. Transition OPEN → MARKED_PAID only.',
+        operationId: 'markTeacherSettlementPaid',
+        security: session,
+        parameters: [idParam('id', 'TeacherSettlement id')],
+        requestBody: {
+          required: true,
+          ...jsonSchema('MarkTeacherSettlementPaidRequest'),
+        },
+        responses: {
+          '200': {
+            description: 'Marked paid',
+            ...jsonSchema('TeacherSettlementResponse'),
+          },
+          '400': error('Invalid body'),
+          '401': error('Unauthenticated'),
+          '403': error('Forbidden'),
+          '404': error('Not found'),
+          '409': error('Invalid transition / conflict'),
+        },
+      },
+    },
+
+    '/finance/webhooks/mercado-pago': {
+      post: {
+        tags: ['Finance'],
+        summary: 'Mercado Pago webhook',
+        description:
+          'No session auth. Idempotent inbox via providerEventId. ' +
+          'TODO: provider signature verification when SDK/credentials are introduced.',
+        operationId: 'mercadoPagoWebhook',
+        requestBody: {
+          required: true,
+          ...jsonSchema('FinanceWebhookRequest'),
+        },
+        responses: {
+          '200': {
+            description: 'Received',
+            ...jsonSchema('FinanceWebhookResponse'),
+          },
+          '400': error('Invalid body'),
+          '409': error('Conflict'),
+        },
+      },
+    },
+
+    '/finance/webhooks/stripe': {
+      post: {
+        tags: ['Finance'],
+        summary: 'Stripe webhook',
+        description:
+          'No session auth. Idempotent inbox via providerEventId. ' +
+          'TODO: provider signature verification when SDK/credentials are introduced.',
+        operationId: 'stripeWebhook',
+        requestBody: {
+          required: true,
+          ...jsonSchema('FinanceWebhookRequest'),
+        },
+        responses: {
+          '200': {
+            description: 'Received',
+            ...jsonSchema('FinanceWebhookResponse'),
+          },
+          '400': error('Invalid body'),
+          '409': error('Conflict'),
         },
       },
     },

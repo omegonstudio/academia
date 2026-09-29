@@ -11,6 +11,7 @@ import { createPermissionGrantStore } from './domain/authorization/permission-gr
 import { createStudentStore } from './domain/students/student-store.js';
 import { createTeacherStore } from './domain/teachers/teacher-store.js';
 import { createTeacherAssignmentStore } from './domain/assignments/assignment-store.js';
+import { createTeacherRelatedStudentsStore } from './domain/teachers/teacher-related-students-store.js';
 import { createCourseStore } from './domain/courses/course-store.js';
 import { createGroupStore } from './domain/groups/group-store.js';
 import { createEnrollmentStore } from './domain/enrollments/enrollment-store.js';
@@ -20,6 +21,7 @@ import { createClassSessionStore } from './domain/classes/class-session-store.js
 import { createAttendanceStore } from './domain/attendance/attendance-store.js';
 import { createClassNoteStore } from './domain/class-notes/class-note-store.js';
 import { createMaterialStore } from './domain/materials/material-store.js';
+import { createFinanceStore } from './domain/finance/prisma-finance-store.js';
 import { createSessionCodec } from './domain/identity/session.js';
 import { createUserRepository } from './domain/identity/user-repository.js';
 import { createApp } from './http/app.js';
@@ -58,6 +60,7 @@ async function main(): Promise<void> {
   const studentProfiles = createStudentStore(database);
   const teacherProfiles = createTeacherStore(database);
   const teacherAssignments = createTeacherAssignmentStore(database);
+  const teacherRelatedStudents = createTeacherRelatedStudentsStore(database);
   const courses = createCourseStore(database);
   const groups = createGroupStore(database);
   const enrollments = createEnrollmentStore(database);
@@ -66,6 +69,7 @@ async function main(): Promise<void> {
   const attendances = createAttendanceStore(database);
   const classNotes = createClassNoteStore(database);
   const materials = createMaterialStore(database);
+  const finance = createFinanceStore(database);
   const objectStorage = createS3CompatibleStorage({
     endpoint: env.S3_ENDPOINT,
     publicEndpoint: env.S3_PUBLIC_ENDPOINT,
@@ -126,6 +130,22 @@ async function main(): Promise<void> {
       students: studentProfiles,
       permissionGrants,
     },
+    studentHub: {
+      authenticate: authOptions,
+      students: studentProfiles,
+      materials,
+      attendances,
+      academy: getAcademyBusinessConfig(env),
+      finance,
+    },
+    teacherHub: {
+      authenticate: authOptions,
+      teachers: teacherProfiles,
+      relatedStudents: teacherRelatedStudents,
+      materials,
+      attendances,
+      academy: getAcademyBusinessConfig(env),
+    },
     teacherRegistry: {
       authenticate: authOptions,
       teachers: teacherProfiles,
@@ -148,6 +168,8 @@ async function main(): Promise<void> {
       classSessions,
       academy: getAcademyBusinessConfig(env),
       permissionGrants,
+      teachers: teacherProfiles,
+      finance,
     },
     scheduleOptions: {
       authenticate: authOptions,
@@ -163,6 +185,7 @@ async function main(): Promise<void> {
       students: studentProfiles,
       academy: getAcademyBusinessConfig(env),
       permissionGrants,
+      finance,
     },
     materials: {
       authenticate: authOptions,
@@ -183,6 +206,13 @@ async function main(): Promise<void> {
       logError: (payload, message) => {
         logger.error(payload, message);
       },
+    },
+    finance: {
+      authenticate: authOptions,
+      finance,
+      permissionGrants,
+      students: studentProfiles,
+      teachers: teacherProfiles,
     },
     administrativePermissions: {
       authenticate: authOptions,

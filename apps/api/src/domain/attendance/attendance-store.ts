@@ -119,6 +119,116 @@ export function createAttendanceStore(database: DbClient): AttendanceStore {
       return rows.map(mapRow);
     },
 
+    async listForStudentInRange(input) {
+      const rows = await database.attendance.findMany({
+        where: {
+          studentId: input.studentId,
+          classSession: {
+            startAt: {
+              gte: input.rangeStart,
+              lt: input.rangeEndExclusive,
+            },
+          },
+        },
+        include: {
+          student: { select: studentSelect },
+          classSession: {
+            select: {
+              id: true,
+              startAt: true,
+              endAt: true,
+              group: {
+                select: {
+                  id: true,
+                  name: true,
+                  course: {
+                    select: {
+                      id: true,
+                      name: true,
+                      serviceType: true,
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+        orderBy: [{ classSession: { startAt: 'desc' } }, { id: 'asc' }],
+      });
+      return rows.map((row) => ({
+        ...mapRow(row),
+        classSession: {
+          id: row.classSession.id,
+          startAt: row.classSession.startAt,
+          endAt: row.classSession.endAt,
+          group: {
+            id: row.classSession.group.id,
+            name: row.classSession.group.name,
+            course: {
+              id: row.classSession.group.course.id,
+              name: row.classSession.group.course.name,
+              serviceType: row.classSession.group.course.serviceType,
+            },
+          },
+        },
+      }));
+    },
+
+    async listForTeacherInRange(input) {
+      const rows = await database.attendance.findMany({
+        where: {
+          classSession: {
+            group: { teacherId: input.teacherId },
+            startAt: {
+              gte: input.rangeStart,
+              lt: input.rangeEndExclusive,
+            },
+          },
+        },
+        include: {
+          student: { select: studentSelect },
+          classSession: {
+            select: {
+              id: true,
+              startAt: true,
+              endAt: true,
+              group: {
+                select: {
+                  id: true,
+                  name: true,
+                  course: {
+                    select: {
+                      id: true,
+                      name: true,
+                      serviceType: true,
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+        orderBy: [{ classSession: { startAt: 'desc' } }, { id: 'asc' }],
+      });
+      return rows.map((row) => ({
+        ...mapRow(row),
+        classSession: {
+          id: row.classSession.id,
+          startAt: row.classSession.startAt,
+          endAt: row.classSession.endAt,
+          group: {
+            id: row.classSession.group.id,
+            name: row.classSession.group.name,
+            course: {
+              id: row.classSession.group.course.id,
+              name: row.classSession.group.course.name,
+              serviceType: row.classSession.group.course.serviceType,
+            },
+          },
+        },
+      }));
+    },
+
     async findByClassSessionAndStudent(classSessionId, studentId) {
       const row = await database.attendance.findUnique({
         where: {

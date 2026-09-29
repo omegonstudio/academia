@@ -163,7 +163,22 @@ export function materialMutationErrorMessage(
       return 'Conflicto al guardar. Actualizá la página e intentá de nuevo.';
     case 413:
       return 'El archivo es demasiado grande.';
+    case 502:
+    case 503:
+      if (action === 'upload' || action === 'complete' || action === 'download') {
+        return (
+          'El almacenamiento de archivos no está disponible. ' +
+          'En desarrollo, levantá MinIO con el profile materials.'
+        );
+      }
+      return 'El servicio no está disponible. Intentá de nuevo.';
     default:
+      if (status >= 500 && (action === 'upload' || action === 'complete')) {
+        return (
+          'No pudimos preparar la subida al almacenamiento. ' +
+          'En desarrollo, verificá que MinIO esté en marcha (profile materials).'
+        );
+      }
       if (action === 'download') {
         return 'No pudimos preparar la descarga. Intentá de nuevo.';
       }
@@ -175,8 +190,17 @@ export function materialStoragePutErrorMessage(status: number): string {
   if (status === 403 || status === 401) {
     return 'El almacenamiento rechazó la subida. Pedí una nueva URL e intentá de nuevo.';
   }
+  if (status === 0 || !Number.isFinite(status)) {
+    return (
+      'No pudimos conectar con el almacenamiento. ' +
+      'En desarrollo, levantá MinIO con el profile materials.'
+    );
+  }
   if (status >= 500) {
-    return 'El almacenamiento no respondió. Intentá de nuevo.';
+    return (
+      'El almacenamiento no respondió. ' +
+      'En desarrollo, verificá que MinIO esté en marcha (profile materials).'
+    );
   }
   return `La subida al almacenamiento falló (${status}).`;
 }

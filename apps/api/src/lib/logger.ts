@@ -22,6 +22,7 @@ export const REDACTED_PATHS = [
   'AUTH_SECRET',
   'DATABASE_URL',
   'SUPERADMIN_PASSWORD',
+  'DIRECTOR_PASSWORD',
 ];
 
 const VALID_LEVELS = new Set([

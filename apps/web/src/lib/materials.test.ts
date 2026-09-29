@@ -4,6 +4,7 @@ import {
   canMutateMaterialsUi,
   formatBytes,
   materialMutationErrorMessage,
+  materialStoragePutErrorMessage,
   materialsListPath,
   maxBytesForMime,
   validateMaterialExternalUrlDraft,
@@ -106,7 +107,15 @@ describe('materials helpers', () => {
     expect(materialMutationErrorMessage(403, 'download')).toMatch(/ver/i);
     expect(materialMutationErrorMessage(400, 'upload')).toMatch(/archivo/i);
     expect(materialMutationErrorMessage(413)).toMatch(/grande/i);
+    expect(materialMutationErrorMessage(503, 'upload')).toMatch(/minio|almacenamiento/i);
+    expect(materialMutationErrorMessage(500, 'upload')).toMatch(/minio|almacenamiento/i);
     expect(materialMutationErrorMessage(401)).toMatch(/sesión/i);
     expect(materialMutationErrorMessage(404)).toMatch(/encontr/i);
+  });
+
+  it('maps storage PUT failures including offline MinIO', () => {
+    expect(materialStoragePutErrorMessage(0)).toMatch(/minio|almacenamiento/i);
+    expect(materialStoragePutErrorMessage(503)).toMatch(/minio|almacenamiento/i);
+    expect(materialStoragePutErrorMessage(403)).toMatch(/rechazó/i);
   });
 });

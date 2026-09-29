@@ -5,11 +5,27 @@ Does **not** delete or overwrite production/seed identities unless you choose to
 
 ## Prerequisites
 
-1. Stack up (dev Compose or local):
+1. Stack up (preferred):
+   ```bash
+   npm run dev
+   # or: docker compose up --build -d   # when .env has COMPOSE_FILE from .env.example
+   ```
    - Web: `http://localhost:3000`
    - API (direct): `http://localhost:4000` (dev only; production does not publish the API port)
-2. A known login (e.g. SuperAdmin from bootstrap, or a DIRECTOR from seed).
+2. A known login (e.g. SuperAdmin from bootstrap — set `SUPERADMIN_PASSWORD` in `.env`).
 3. Docs enabled (default in development). Production requires `API_DOCS_ENABLED=true` explicitly.
+
+### Automated web smoke
+
+After the stack is healthy:
+
+```bash
+npm run smoke    # scripts/smoke-web.sh
+```
+
+Checks rewrite health, SuperAdmin login, `/dashboard`, `/dashboard/membership`,
+Finance list endpoints, **auto-charge ONE_TO_ONE → student checkout → webhook stub → Allocation**,
+Student/Teacher hubs, logout, and `/auth/me` → 401. No DEV auth bypass.
 
 Public surfaces via Next rewrite:
 

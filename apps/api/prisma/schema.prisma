@@ -546,6 +546,9 @@ model Charge {
   payments           Payment[]
   revenueAllocations RevenueAllocation[]
 
+  /// Partial unique indexes (NULLs excluded) live in migration
+  /// `20260925230000_charge_commercial_unique` — one Charge per ClassSession
+  /// and one Charge per Enrollment+period. Prisma cannot express WHERE NOT NULL.
   @@index([studentId, status])
   @@index([courseId])
   @@index([groupId])

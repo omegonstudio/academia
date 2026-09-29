@@ -12,6 +12,9 @@ POSTGRES_DB_VALUE="$(grep -E '^POSTGRES_DB=' .env | cut -d= -f2-)"
 POSTGRES_USER_VALUE="$(grep -E '^POSTGRES_USER=' .env | cut -d= -f2-)"
 POSTGRES_PASSWORD_VALUE="$(grep -E '^POSTGRES_PASSWORD=' .env | cut -d= -f2-)"
 POSTGRES_PORT_VALUE="$(grep -E '^POSTGRES_PORT=' .env | cut -d= -f2- || echo 5433)"
+SUPERADMIN_PASSWORD_VALUE="$(grep -E '^SUPERADMIN_PASSWORD=' .env | cut -d= -f2- || true)"
+DIRECTOR_EMAIL_VALUE="$(grep -E '^DIRECTOR_EMAIL=' .env | cut -d= -f2- || true)"
+DIRECTOR_PASSWORD_VALUE="$(grep -E '^DIRECTOR_PASSWORD=' .env | cut -d= -f2- || true)"
 
 if [[ -z "${POSTGRES_DB_VALUE}" || -z "${POSTGRES_USER_VALUE}" || -z "${POSTGRES_PASSWORD_VALUE}" ]]; then
   echo "POSTGRES_DB, POSTGRES_USER and POSTGRES_PASSWORD must be set in .env" >&2
@@ -39,6 +42,16 @@ export DATABASE_URL="$(
   POSTGRES_DB="${POSTGRES_DB_VALUE}" \
   node "${REPO_ROOT}/docker/database-url.mjs"
 )"
+# Identity suite deletes bootstrap accounts; restore with live passwords.
+if [[ -n "${SUPERADMIN_PASSWORD_VALUE}" ]]; then
+  export SUPERADMIN_PASSWORD="${SUPERADMIN_PASSWORD_VALUE}"
+fi
+if [[ -n "${DIRECTOR_EMAIL_VALUE}" ]]; then
+  export DIRECTOR_EMAIL="${DIRECTOR_EMAIL_VALUE}"
+fi
+if [[ -n "${DIRECTOR_PASSWORD_VALUE}" ]]; then
+  export DIRECTOR_PASSWORD="${DIRECTOR_PASSWORD_VALUE}"
+fi
 
 echo "==> Applying migrations"
 npm run db:deploy -w @academia/api

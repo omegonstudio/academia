@@ -288,23 +288,99 @@ function createFinanceStoreForDb(
       return row ? mapCharge(row) : null;
     },
 
-    async createCharge(input) {
-      const row = await db.charge.create({
-        data: {
-          studentId: input.studentId,
-          amountMinor: input.amountMinor,
-          currency: input.currency,
-          courseId: input.courseId,
-          groupId: input.groupId,
+    async findChargeByClassSessionId(classSessionId) {
+      const row = await db.charge.findFirst({
+        where: { classSessionId },
+      });
+      return row ? mapCharge(row) : null;
+    },
+
+    async findChargeByEnrollmentPeriod(input) {
+      const row = await db.charge.findFirst({
+        where: {
           enrollmentId: input.enrollmentId,
-          classSessionId: input.classSessionId,
-          description: input.description,
-          createdByUserId: input.createdByUserId,
           periodStart: input.periodStart,
           periodEnd: input.periodEnd,
         },
       });
-      return mapCharge(row);
+      return row ? mapCharge(row) : null;
+    },
+
+    async listActiveEnrollmentsForClassSession(classSessionId) {
+      const session = await db.classSession.findUnique({
+        where: { id: classSessionId },
+        select: {
+          group: {
+            select: {
+              course: { select: { serviceType: true } },
+              enrollments: {
+                where: { isActive: true },
+                select: { id: true, studentId: true },
+                orderBy: { studentId: 'asc' },
+              },
+            },
+          },
+        },
+      });
+      if (!session) return [];
+      const serviceType = session.group.course.serviceType;
+      if (!isCourseServiceType(serviceType)) {
+        throw new Error(`Invalid course serviceType: ${serviceType}`);
+      }
+      return session.group.enrollments.map((row) => ({
+        enrollmentId: row.id,
+        studentId: row.studentId,
+        serviceType: serviceType as CourseServiceType,
+      }));
+    },
+
+    async listCharges(filters) {
+      const rows = await db.charge.findMany({
+        where: {
+          ...(filters.studentId ? { studentId: filters.studentId } : {}),
+          ...(filters.courseId ? { courseId: filters.courseId } : {}),
+          ...(filters.classSessionId
+            ? { classSessionId: filters.classSessionId }
+            : {}),
+          ...(filters.status ? { status: filters.status } : {}),
+          ...(filters.currency ? { currency: filters.currency } : {}),
+          ...(filters.teacherId
+            ? { group: { teacherId: filters.teacherId } }
+            : {}),
+        },
+        orderBy: { createdAt: 'desc' },
+      });
+      return rows.map(mapCharge);
+    },
+
+    async createCharge(input) {
+      try {
+        const row = await db.charge.create({
+          data: {
+            studentId: input.studentId,
+            amountMinor: input.amountMinor,
+            currency: input.currency,
+            courseId: input.courseId,
+            groupId: input.groupId,
+            enrollmentId: input.enrollmentId,
+            classSessionId: input.classSessionId,
+            description: input.description,
+            createdByUserId: input.createdByUserId,
+            periodStart: input.periodStart,
+            periodEnd: input.periodEnd,
+          },
+        });
+        return mapCharge(row);
+      } catch (error) {
+        const code =
+          error && typeof error === 'object' && 'code' in error
+            ? String((error as { code: unknown }).code)
+            : '';
+        if (code === 'P2002') {
+          throw new FinanceConflictError('Charge unique constraint violated.');
+        }
+        throw error;
+      }
     },
 
     async updateChargeStatus(id, status) {
@@ -318,6 +394,23 @@ function createFinanceStoreForDb(
     async findPaymentById(id) {
       const row = await db.payment.findUnique({ where: { id } });
       return row ? mapPayment(row) : null;
+    },
+
+    async listPayments(filters) {
+      const rows = await db.payment.findMany({
+        where: {
+          ...(filters.studentId ? { studentId: filters.studentId } : {}),
+          ...(filters.chargeId ? { chargeId: filters.chargeId } : {}),
+          ...(filters.status ? { status: filters.status } : {}),
+          ...(filters.currency ? { currency: filters.currency } : {}),
+          ...(filters.provider ? { provider: filters.provider } : {}),
+          ...(filters.teacherId
+            ? { charge: { group: { teacherId: filters.teacherId } } }
+            : {}),
+        },
+        orderBy: { createdAt: 'desc' },
+      });
+      return rows.map(mapPayment);
     },
 
     async findPaymentByIdempotencyKey(key) {
@@ -379,6 +472,26 @@ function createFinanceStoreForDb(
         where: { paymentId_kind: { paymentId, kind } },
       });
       return row ? mapAllocation(row) : null;
+    },
+
+    async findAllocationById(id) {
+      const row = await db.revenueAllocation.findUnique({ where: { id } });
+      return row ? mapAllocation(row) : null;
+    },
+
+    async listAllocations(filters) {
+      const rows = await db.revenueAllocation.findMany({
+        where: {
+          ...(filters.studentId ? { studentId: filters.studentId } : {}),
+          ...(filters.teacherId ? { teacherId: filters.teacherId } : {}),
+          ...(filters.paymentId ? { paymentId: filters.paymentId } : {}),
+          ...(filters.chargeId ? { chargeId: filters.chargeId } : {}),
+          ...(filters.kind ? { kind: filters.kind } : {}),
+          ...(filters.currency ? { currency: filters.currency } : {}),
+        },
+        orderBy: { createdAt: 'desc' },
+      });
+      return rows.map(mapAllocation);
     },
 
     async createAllocation(input) {
@@ -453,6 +566,18 @@ function createFinanceStoreForDb(
       return row ? mapSettlement(row) : null;
     },
 
+    async listSettlements(filters) {
+      const rows = await db.teacherSettlement.findMany({
+        where: {
+          ...(filters.teacherId ? { teacherId: filters.teacherId } : {}),
+          ...(filters.status ? { status: filters.status } : {}),
+          ...(filters.currency ? { currency: filters.currency } : {}),
+        },
+        orderBy: { createdAt: 'desc' },
+      });
+      return rows.map(mapSettlement);
+    },
+
     async findSettlementByKey(input) {
       const row = await db.teacherSettlement.findUnique({
         where: {
@@ -522,6 +647,26 @@ function createFinanceStoreForDb(
         }
         throw error;
       }
+    },
+
+    async findWebhookEvent(provider, providerEventId) {
+      const row = await db.webhookEvent.findUnique({
+        where: {
+          provider_providerEventId: { provider, providerEventId },
+        },
+      });
+      return row ? mapWebhook(row) : null;
+    },
+
+    async markWebhookProcessed(id, input) {
+      const row = await db.webhookEvent.update({
+        where: { id },
+        data: {
+          processedAt: new Date(),
+          error: input.error,
+        },
+      });
+      return mapWebhook(row);
     },
 
     async loadClassSessionFinanceContext(input) {

@@ -1,16 +1,17 @@
 # Base topology shared by both environments.
 #
-# This file is never used on its own. Always combine it with exactly one
-# override, which is what scripts/dev-up.sh and scripts/prod-up.sh do:
+# Pair with exactly one override (scripts/dev-up.sh and scripts/prod-up.sh do):
 #
 #   docker compose -f docker-compose.yml -f docker-compose.dev.yml  up
 #   docker compose -f docker-compose.yml -f docker-compose.prod.yml up
 #
+# Development convenience: `.env.example` sets COMPOSE_FILE to the base+dev pair
+# and COMPOSE_PROJECT_NAME=academia-dev so bare `docker compose up` matches
+# `npm run dev`. Prefer `npm run dev` when you want an explicit health wait.
+#
 # Environment isolation rests on COMPOSE_PROJECT_NAME: it namespaces the volumes
 # and the network, so a dev stack can never attach to production data. The
-# scripts set it from the environment they were given; the fallback below only
-# applies to a raw `docker compose` call, and is intentionally neither
-# academia-dev nor academia-prod so such a call cannot touch either stack.
+# scripts always export academia-dev / academia-prod for their invocations.
 #
 # Each service receives only the variables it needs. The web container is not
 # given DATABASE_URL or AUTH_SECRET.
@@ -55,6 +56,8 @@ services:
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-}
       SUPERADMIN_EMAIL: ${SUPERADMIN_EMAIL:-omegon.info@gmail.com}
       SUPERADMIN_PASSWORD: ${SUPERADMIN_PASSWORD:-}
+      DIRECTOR_EMAIL: ${DIRECTOR_EMAIL:-saragarfu@gmail.com}
+      DIRECTOR_PASSWORD: ${DIRECTOR_PASSWORD:-}
       LOAD_SEED_DATA: ${LOAD_SEED_DATA:-false}
       # Academy business IANA timezone (ScheduleOption local → ClassSession timestamptz).
       ACADEMY_TIMEZONE: ${ACADEMY_TIMEZONE:-America/Argentina/Buenos_Aires}

@@ -60,6 +60,8 @@ import {
 } from '../../domain/classes/class-session-service.js';
 import type { StudentStore } from '../../domain/students/student-service.js';
 import type { TeacherStore } from '../../domain/teachers/teacher-service.js';
+import { runAutoChargeForClassSession } from '../../domain/finance/auto-charge-runner.js';
+import type { FinanceStore } from '../../domain/finance/finance-store.js';
 import {
   BadRequestError,
   ConflictError,
@@ -80,6 +82,8 @@ export interface ClassSessionsDependencies {
   students: StudentStore;
   academy: AcademyBusinessConfig;
   permissionGrants: PermissionGrantStore;
+  /** Optional: auto-charge after ClassSession create (ONE_TO_ONE). */
+  finance?: FinanceStore;
 }
 
 function pathId(raw: string | string[] | undefined): string | undefined {
@@ -154,6 +158,7 @@ export function createClassSessionsRouter({
   students,
   academy,
   permissionGrants,
+  finance,
 }: ClassSessionsDependencies): Router {
   const router = Router();
 
@@ -265,6 +270,12 @@ export function createClassSessionsRouter({
           parsed.data,
           actor,
         );
+        if (finance) {
+          await runAutoChargeForClassSession(finance, {
+            classSessionId: classSession.id,
+            createdByUserId: req.user!.id,
+          });
+        }
         const body: ClassSessionResponse = { classSession };
         res.status(201).json(body);
       } catch (error) {

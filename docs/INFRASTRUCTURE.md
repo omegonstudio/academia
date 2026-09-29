@@ -51,14 +51,17 @@ Always combined, which the scripts do for you:
 # Preferred (sets COMPOSE_PROJECT_NAME=academia-dev, waits for healthy):
 npm run dev
 
+# Bare compose (when .env has COMPOSE_FILE from .env.example):
+docker compose up --build -d
+
 # Equivalent raw compose (never use either file alone):
 docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build -d
 docker compose -f docker-compose.yml -f docker-compose.prod.yml up --build -d
 ```
 
-Running `docker compose config` or `docker compose -f docker-compose.dev.yml …`
-**alone** fails with `has neither an image nor a build context` — that is expected:
-the base file owns health/env wiring; the override owns `build`/`ports`/`volumes`.
+Running `docker compose -f docker-compose.dev.yml …` **alone** fails with
+`has neither an image nor a build context` — that is expected: the base file owns
+health/env wiring; the override owns `build`/`ports`/`volumes`.
 
 ### Dev `node_modules` anonymous volumes
 
@@ -70,10 +73,39 @@ and re-run `npm ci` when it drifts (`docker/sync-node-modules.sh`). Rebuild +
 recreate the service after adding packages (`npm run dev`, or recreate `api`/`web`);
 do **not** delete the named PostgreSQL volume.
 
-Startup is ordered by health, not by luck: `db` healthy → MinIO bucket init →
-`api` healthy → `web`. MinIO is **development-only** (not in the production
-override). Production API talks to DigitalOcean Spaces via the same
+The API also mounts an anonymous volume at `/app/apps/api/src/generated` so
+`prisma generate` is not blocked by root-owned gitignored files left on the host
+from an earlier container run. If host `npm run build` / `prisma generate` hits
+`EACCES` on that tree, clear it with the **native** Docker socket (not Desktop's
+VM root mapping) and regenerate:
+
+```bash
+DOCKER_HOST=unix:///var/run/docker.sock docker run --rm \
+  -v "$PWD/apps/api/src/generated:/out" \
+  -e HOST_UID="$(id -u)" -e HOST_GID="$(id -g)" \
+  alpine:3.20 sh -c 'rm -rf /out/*; chown "$HOST_UID:$HOST_GID" /out'
+npm run prisma:generate -w @academia/api
+```
+
+Startup is ordered by health, not by luck: `db` healthy → `api` healthy → `web`.
+MinIO is **development-only** and lives under Compose profile `materials`
+(`docker compose --profile materials up`). Auth, membership UI, and most routes
+do not need MinIO. Production API talks to DigitalOcean Spaces via the same
 `S3_*` environment variables.
+
+Web smoke (session + membership, no payments):
+
+```bash
+npm run smoke    # scripts/smoke-web.sh — requires SUPERADMIN_* in .env
+```
+
+If host ports `3000` / `4000` / `5433` are already taken (stale `docker-proxy`
+from an old stack), free them or override for one run:
+
+```bash
+POSTGRES_PORT=15433 API_PORT=14000 WEB_PORT=13000 npm run dev
+WEB_PORT=13000 npm run smoke
+```
 
 ### Object storage (Materials — Stage 5B)
 

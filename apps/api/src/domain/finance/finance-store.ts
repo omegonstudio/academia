@@ -1,10 +1,12 @@
 import type {
   AcademyPercentage,
   ChargeStatus,
+  CourseServiceType,
   FinanceCurrency,
   PaymentProvider,
   PaymentStatus,
   RevenueAllocationKind,
+  TeacherSettlementStatus,
 } from '@academia/shared';
 import type {
   AcademyFinanceSettingsRecord,
@@ -28,6 +30,30 @@ export interface FinanceStore {
   }): Promise<AcademyFinanceSettingsRecord>;
 
   findChargeById(id: string): Promise<ChargeRecord | null>;
+  findChargeByClassSessionId(
+    classSessionId: string,
+  ): Promise<ChargeRecord | null>;
+  findChargeByEnrollmentPeriod(input: {
+    enrollmentId: string;
+    periodStart: Date;
+    periodEnd: Date;
+  }): Promise<ChargeRecord | null>;
+  listCharges(filters: {
+    studentId?: string;
+    teacherId?: string;
+    courseId?: string;
+    classSessionId?: string;
+    status?: ChargeStatus;
+    currency?: FinanceCurrency;
+  }): Promise<ChargeRecord[]>;
+  /** Active enrollments on the ClassSession's group (for auto-charge). */
+  listActiveEnrollmentsForClassSession(classSessionId: string): Promise<
+    Array<{
+      enrollmentId: string;
+      studentId: string;
+      serviceType: CourseServiceType;
+    }>
+  >;
   createCharge(input: {
     studentId: string;
     amountMinor: bigint;
@@ -47,6 +73,14 @@ export interface FinanceStore {
   ): Promise<ChargeRecord>;
 
   findPaymentById(id: string): Promise<PaymentRecord | null>;
+  listPayments(filters: {
+    studentId?: string;
+    teacherId?: string;
+    chargeId?: string;
+    status?: PaymentStatus;
+    currency?: FinanceCurrency;
+    provider?: PaymentProvider;
+  }): Promise<PaymentRecord[]>;
   findPaymentByIdempotencyKey(
     key: string,
   ): Promise<PaymentRecord | null>;
@@ -74,6 +108,15 @@ export interface FinanceStore {
     paymentId: string,
     kind: RevenueAllocationKind,
   ): Promise<RevenueAllocationRecord | null>;
+  findAllocationById(id: string): Promise<RevenueAllocationRecord | null>;
+  listAllocations(filters: {
+    studentId?: string;
+    teacherId?: string;
+    paymentId?: string;
+    chargeId?: string;
+    kind?: RevenueAllocationKind;
+    currency?: FinanceCurrency;
+  }): Promise<RevenueAllocationRecord[]>;
   createAllocation(input: {
     paymentId: string;
     chargeId: string;
@@ -106,6 +149,11 @@ export interface FinanceStore {
   }): Promise<RefundRecord>;
 
   findSettlementById(id: string): Promise<TeacherSettlementRecord | null>;
+  listSettlements(filters: {
+    teacherId?: string;
+    status?: TeacherSettlementStatus;
+    currency?: FinanceCurrency;
+  }): Promise<TeacherSettlementRecord[]>;
   findSettlementByKey(input: {
     teacherId: string;
     periodStart: Date;
@@ -130,6 +178,14 @@ export interface FinanceStore {
     providerEventId: string;
     payload: unknown;
   }): Promise<WebhookEventRecord>;
+  findWebhookEvent(
+    provider: PaymentProvider,
+    providerEventId: string,
+  ): Promise<WebhookEventRecord | null>;
+  markWebhookProcessed(
+    id: string,
+    input: { error: string | null },
+  ): Promise<WebhookEventRecord>;
 
   loadClassSessionFinanceContext(input: {
     classSessionId: string;

@@ -70,3 +70,64 @@ export async function bootstrapSuperAdmin(
   logger.info({ email: normalized }, 'SuperAdmin created');
   return 'created';
 }
+
+/**
+ * Provisions the academy DIRECTOR account (operational leadership).
+ *
+ * Same idempotency rules as SuperAdmin. Never overwrites an existing password.
+ * Never demotes a SUPER_ADMIN if the emails were misconfigured to collide.
+ * A missing DIRECTOR_PASSWORD skips bootstrap without failing the deploy.
+ */
+export async function bootstrapDirector(
+  database: Database,
+  { email, password }: BootstrapOptions,
+): Promise<BootstrapOutcome> {
+  const normalized = normalizeEmail(email);
+
+  const existing = await database.user.findUnique({
+    where: { email: normalized },
+    select: { id: true, role: true, isActive: true },
+  });
+
+  if (existing) {
+    if (existing.role === 'SUPER_ADMIN') {
+      logger.warn(
+        { email: normalized },
+        'Director bootstrap skipped: email already holds SUPER_ADMIN',
+      );
+      return 'skipped';
+    }
+
+    if (existing.role !== 'DIRECTOR' || !existing.isActive) {
+      await database.user.update({
+        where: { id: existing.id },
+        data: { role: 'DIRECTOR', isActive: true },
+      });
+      logger.info({ email: normalized }, 'Director role re-asserted');
+    } else {
+      logger.info({ email: normalized }, 'Director already provisioned');
+    }
+    return 'reasserted';
+  }
+
+  if (!password) {
+    logger.warn(
+      { email: normalized },
+      'DIRECTOR_PASSWORD is not set; skipping Director bootstrap',
+    );
+    return 'skipped';
+  }
+
+  await database.user.create({
+    data: {
+      email: normalized,
+      name: 'Directora',
+      passwordHash: await hashPassword(password),
+      role: 'DIRECTOR',
+      isActive: true,
+    },
+  });
+
+  logger.info({ email: normalized }, 'Director created');
+  return 'created';
+}

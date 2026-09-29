@@ -53,7 +53,7 @@ opposite on purpose.
 | LaQQ practice                                                       | What Academia does instead                                                                 |
 | ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
 | No real health endpoint; Docker probes `/admin/login/`               | `GET /health` runs `SELECT 1` and separates `configuration` from `database`                 |
-| SuperAdmin hardcoded in the entrypoint with a fixed address           | Bootstrap reads `SUPERADMIN_EMAIL`/`SUPERADMIN_PASSWORD`; never hardcoded, never overwrites an existing password |
+| SuperAdmin hardcoded in the entrypoint with a fixed address           | Bootstrap reads `SUPERADMIN_EMAIL`/`SUPERADMIN_PASSWORD` (+ optional `DIRECTOR_*`); never hardcoded passwords, never overwrites an existing password |
 | `makemigrations` runs automatically in the dev entrypoint            | Containers only ever run `migrate deploy`; authoring a migration is an explicit developer action |
 | Real-looking credentials committed in `Backend/.env.example`          | `.env.example` holds placeholders only, and CI fails the build if that changes              |
 | JWTs encrypted in `localStorage` with a key shipped to the browser    | `HttpOnly` `SameSite=Lax` cookie; client JavaScript never touches the token                 |

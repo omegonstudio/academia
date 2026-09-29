@@ -46,8 +46,8 @@ while :; do
   sleep "$RETRY_DELAY_SECONDS"
 done
 
-# Skipped without failing when SUPERADMIN_PASSWORD is unset.
-echo "[entrypoint] running SuperAdmin bootstrap"
+# Skipped without failing when SUPERADMIN_PASSWORD / DIRECTOR_PASSWORD are unset.
+echo "[entrypoint] running identity bootstrap (SuperAdmin + Director)"
 node dist/seed/cli.js
 
 echo "[entrypoint] starting: $*"

@@ -15,37 +15,34 @@ Legend:
 
 | Status | Route       | Notes                                                              |
 | ------ | ----------- | ------------------------------------------------------------------ |
-| `[x]`  | `/`         | Landing one-page (academia-front Phase 1). Anchors `#cursos`, `#metodo`, `#academia`, `#contacto`. |
-| `[ ]`  | `/about`    | Removed in Phase 1 UI swap — content folded into `/#academia`. Restore or keep anchors: TBD. |
-| `[ ]`  | `/courses`  | Removed in Phase 1 UI swap — content folded into `/#cursos`. |
-| `[ ]`  | `/teachers` | Removed in Phase 1 UI swap — content folded into landing. |
-| `[ ]`  | `/contact`  | Removed in Phase 1 UI swap — content folded into `/#contacto`. |
+| `[x]`  | `/`         | Landing one-page. Anchors `#cursos`, `#metodo`, `#academia`, `#contacto`. Única ruta pública indexable (Fase 4). |
+| `[x]`  | —           | **Decisión producto (Fase 4):** no se restauran `/about`, `/courses`, `/teachers`, `/contact` como páginas; contenido en anchors de `/`. Sitemap solo lista `/`. |
 
-Phase 1 note: private dashboard routes below still exist but render **demo data**
-(`lib/academy-data.ts`) until Phase 2+ wires the real API. Auth shell still allows
-DEV localStorage bypass from academia-front (to be removed in Phase 2).
+Auth & shell: HttpOnly session (`GET /auth/me`). Módulos operativos del dashboard
+cableados a API real (Fase 3). Sin DEV bypass. `lib/academy-data.ts` eliminado (Fase 4).
 
 ### Private web routes (never indexed)
 
 | Status | Route        | Access                                                                 |
 | ------ | ------------ | ---------------------------------------------------------------------- |
-| `[x]`  | `/login`     | Public UI. Demo still includes DEV bypass (Phase 2 removes it). Real `POST /api/auth/login` form present. |
-| `[~]`  | `/dashboard` | Hub UI (demo session / localStorage DEV). Not yet gated by `/auth/me`. |
-| `[~]`  | `/dashboard/students` | UI + demo data. API wiring → Phase 3. |
-| `[~]`  | `/dashboard/students/[id]` | UI + demo data. |
-| `[~]`  | `/dashboard/teachers` | UI + demo data. |
-| `[~]`  | `/dashboard/teachers/[id]` | UI + demo data. |
-| `[~]`  | `/dashboard/assignments` | UI + demo data. |
-| `[~]`  | `/dashboard/courses` | UI + demo data (shape ≠ API `courseType`/`serviceType`). |
-| `[~]`  | `/dashboard/courses/[id]` | UI + demo data. |
-| `[~]`  | `/dashboard/groups` | UI + demo data. |
-| `[~]`  | `/dashboard/groups/[id]` | UI + demo data. |
-| `[~]`  | `/dashboard/calendar` | UI + demo data (not yet `GET /classes/calendar`). |
-| `[~]`  | `/dashboard/classes` | UI + demo data. |
-| `[~]`  | `/dashboard/classes/[id]` | UI + demo data. |
-| `[~]`  | `/dashboard/administratives` | UI create form (fake success until Phase 3). |
-| `[~]`  | `/dashboard/permissions` | UI matrix (fake save until Phase 3). |
-| `[~]`  | `/dashboard/settings` | UI hardcode session until Phase 2. |
+| `[x]`  | `/login`     | Real `POST /api/auth/login` (credentials include). No DEV bypass. `noindex`. Redirects to `/dashboard` if session exists. |
+| `[x]`  | `/dashboard` | Gated by server `getSession()` → `/login`. Shell identity from `/auth/me`. Hub operativo vía módulos Fase 3. |
+| `[x]`  | `/dashboard/membership` | UI planes Nivel Plata (mensual/trimestral/anual). Selección local; sin pagos ni API de suscripción. |
+| `[x]`  | `/dashboard/students` | API real `GET/POST /students`. Session gate via layout. |
+| `[x]`  | `/dashboard/students/[id]` | API real `GET/PATCH/DELETE`; teacher via `/students/:id/teacher`. |
+| `[x]`  | `/dashboard/teachers` | API real `GET/POST /teachers` (+ level, availability). |
+| `[x]`  | `/dashboard/teachers/[id]` | API real `GET/PATCH/DELETE`. |
+| `[x]`  | `/dashboard/assignments` | API real assign via `POST /students/:id/teacher`. |
+| `[x]`  | `/dashboard/courses` | API real `GET/POST /courses` (`courseType`/`serviceType`). Session gate via layout. |
+| `[x]`  | `/dashboard/courses/[id]` | API real `GET/PATCH/DELETE` (soft-delete) + sección Materiales (LINK + FILE 3-step). Session gate via layout. |
+| `[x]`  | `/dashboard/groups` | API real `GET/POST /groups` (+ teacher/schedule opcionales al crear). Session gate via layout. |
+| `[x]`  | `/dashboard/groups/[id]` | API real detail: PATCH/DELETE; teacher; scheduleOptionId; enrollment máx. 15. Session gate via layout. |
+| `[x]`  | `/dashboard/calendar` | API real `GET /classes/calendar?from&to` (mes civil). Session gate via layout. |
+| `[x]`  | `/dashboard/classes` | API real `GET/POST /classes` + generate `POST /groups/:id/classes/generate`. Session gate via layout. |
+| `[x]`  | `/dashboard/classes/[id]` | API real detail: PATCH/DELETE; attendance + notes + materials panels. Session gate via layout. |
+| `[x]`  | `/dashboard/administratives` | API real `POST /users/administratives` (create-only; no list). Nav: SUPER_ADMIN/DIRECTOR only. |
+| `[x]`  | `/dashboard/permissions` | API real catalog + grant/revoke ADMINISTRATIVE. Nav: SUPER_ADMIN/DIRECTOR only. |
+| `[x]`  | `/dashboard/settings` | Session from `/auth/me`; logout `POST /api/auth/logout`. Theme still local. |
 | `[x]`  | `/design-system` | Internal UI kit page from academia-front (`noindex` via robots disallow). |
 
 ### API routes
@@ -242,28 +239,35 @@ Storage: private S3-compatible bucket (MinIO dev / Spaces prod); short-lived sig
 ## Stage 6 — Finance & Settlements
 
 **Stage 6A design: DONE** (`docs/DECISIONS.md` #41 + #44).  
-**Stage 6B API + domain: NOT IMPLEMENTED.**  
-**Stage 6C UI: NOT IMPLEMENTED.**
+**Stage 6B-1 domain: DONE.**  
+**Stage 6B-2 Finance API: DONE** (HTTP + OpenAPI + webhooks stub + MANUAL).  
+**Stage 6C Finance UI: DONE** (integrated with API; no mocks).  
+**Stage 6D Auto-charge: DONE** (ONE_TO_ONE on ClassSession create/generate;
+GROUP_120 on enroll for current academy-timezone month; unique DB constraints;
+Payment MANUAL still explicit).
 
-### UI surfaces — PLANNED / NOT IMPLEMENTED
+### UI surfaces
 
-- [ ] `/dashboard/finance` — Director/admin overview (charges, payments, allocations)
-- [ ] `/dashboard/finance/students/[id]` — student finance detail
-- [ ] `/dashboard/finance/teachers/[id]` — teacher earnings / settlement detail
-- [ ] Academy revenue-split settings (`academyPercentage` ∈ {20,30,40,50}; default 40) —
-      Director/SuperAdmin write only (exact route TBD; may live under `/dashboard/settings`
-      or `/dashboard/finance`)
-- [ ] Student-facing charges/payments (exact route TBD; Stage 7 hub may host later)
-- [ ] Teacher-facing earnings (exact route TBD; Stage 8 `/dashboard/teacher/earnings` may host)
+- [x] `/dashboard/finance` — settings + charges + payments + allocations + settlements
+- [x] `/dashboard/finance/students/[id]` — student charges/payments (API ownership)
+- [x] `/dashboard/finance/teachers/[id]` — teacher allocations/settlements
+- [x] Academy revenue-split settings on `/dashboard/finance` (SUPER_ADMIN/DIRECTOR PATCH)
+- [x] Auto-generated Charges appear on refresh (no frontend create button)
+- [ ] Student-facing finance hub (Stage 7)
+- [x] Teacher-facing earnings hub (Stage 8) — `/dashboard/teacher/earnings`
 
-### Planned API themes (6B — not mounted yet)
+### API (mounted)
 
-Do **not** treat these as live endpoints until Stage 6B lands them:
-
-- Finance settings (GET/PATCH `academyPercentage`)
-- Charges / Payments / RevenueAllocations / TeacherSettlements
-- Webhooks Mercado Pago / Stripe (when providers are wired)
-- Manual payment recording for authorized admins
+| Status | Route | Notes |
+| ------ | ----- | ----- |
+| `[x]` | `GET/PATCH /finance/settings` | PATCH: SUPER_ADMIN/DIRECTOR only |
+| `[x]` | `GET/POST /finance/charges`, `GET /finance/charges/:id` | ownership + finance.*; POST admin backfill (idempotent) |
+| `[x]` | `GET/POST /finance/payments`, succeed MANUAL, refunds | Freeze on SUCCEEDED |
+| `[x]` | `GET /finance/allocations` (+ `:id`) | read-only immutable |
+| `[x]` | `GET/POST /finance/settlements`, mark-paid | OPEN → MARKED_PAID |
+| `[x]` | `POST /finance/webhooks/mercado-pago\|stripe` | idempotent WebhookEvent; signature TODO |
+| `[x]` | `POST /classes` + generate | side-effect: auto Charge ONE_TO_ONE when priced + enrolled |
+| `[x]` | `POST /groups/:id/students` | side-effect: auto monthly Charge GROUP_120 |
 
 ### Product rules (reference)
 
@@ -274,35 +278,65 @@ Do **not** treat these as live endpoints until Stage 6B lands them:
 
 ## Stage 7 — Student Experience
 
-- [ ] `/dashboard/student`
-- [ ] `/dashboard/student/classes`
-- [ ] `/dashboard/student/materials`
-- [ ] `/dashboard/student/progress`
+**Stage 7A Student Hub MVP: DONE** (self-scoped session APIs + UI).
 
-TODO:
-- Next class.
-- Meeting link.
-- Materials.
-- Attendance history.
-- Basic progress.
-- Empty/loading/error states.
+### UI
+
+- [x] `/dashboard/student` — próxima clase (calendar scoped)
+- [x] `/dashboard/student/classes` — próximas / pasadas
+- [x] `/dashboard/student/materials` — materiales entitled (READY)
+- [x] `/dashboard/student/attendance` — historial read-only
+- [x] `/dashboard/student/finance` — charges/payments + Pagar (OPEN)
+- [ ] `/dashboard/student/progress` — futuro
+
+### API (mounted)
+
+| Status | Route | Notes |
+| ------ | ----- | ----- |
+| `[x]` | `GET /students/me` | Session STUDENT → own profile |
+| `[x]` | `GET /students/me/materials` | Entitlement via enrollment |
+| `[x]` | `GET /students/me/attendance?from&to` | Own rows + class context |
+| `[x]` | `GET /students/me/finance` | Curated charges/payments/refunds + summary; no split |
+| `[x]` | `POST /students/me/finance/charges/:chargeId/pay` | Owned OPEN → Payment PENDING (currency→provider stub) |
+| `[x]` | `GET /classes/calendar` | Reused; student scope by session |
+
+### Product rules
+
+- Never trust client `studentId` for hub reads or checkout.
+- STUDENT cannot write attendance / materials / classes.
+- Student Finance omits academy/teacher split + settlements.
+- Checkout creates PENDING only; SUCCEEDED via webhook stub (no student “mark paid”).
 
 ## Stage 8 — Teacher Experience
 
-- [ ] `/dashboard/teacher`
-- [ ] `/dashboard/teacher/students`
-- [ ] `/dashboard/teacher/classes`
-- [ ] `/dashboard/teacher/materials`
-- [ ] `/dashboard/teacher/earnings`
+**Stage 8 Teacher Hub MVP: DONE** (self-scoped session APIs + UI).
 
-TODO:
-- Assigned students.
-- Upcoming classes.
-- Class notes.
-- Attendance.
-- Material management.
-- Earnings visibility driven by academy revenue-split config (derived teacher %).
-- Prevent access to other teachers' students.
+### UI
+
+- [x] `/dashboard/teacher` — próxima clase + resumen del día
+- [x] `/dashboard/teacher/classes` — próximas / pasadas
+- [x] `/dashboard/teacher/students` — Assignment ∪ grupos propios
+- [x] `/dashboard/teacher/attendance` — historial read-only
+- [x] `/dashboard/teacher/materials` — materiales owned
+- [x] `/dashboard/teacher/earnings` — allocations + settlements RO
+
+### API (mounted)
+
+| Status | Route | Notes |
+| ------ | ----- | ----- |
+| `[x]` | `GET /teachers/me` | Session TEACHER → own profile |
+| `[x]` | `GET /teachers/me/students` | Assignment ∪ Enrollment |
+| `[x]` | `GET /teachers/me/materials` | Group.teacherId ownership |
+| `[x]` | `GET /teachers/me/attendance?from&to` | Own ClassSessions |
+| `[x]` | `GET /classes/calendar` | Reused; teacher scope by session |
+| `[x]` | `GET /finance/allocations` / `settlements` | Forced teacherId from session |
+| `[x]` | Group read / roster | Teacher ownership bypass for own groups |
+
+### Product rules
+
+- Never trust client `teacherId` for hub reads.
+- TEACHER cannot read other teachers' classes/students/earnings.
+- Earnings are read-only (no mark-paid / settings).
 
 ## Stage 9 — Production Hardening
 
