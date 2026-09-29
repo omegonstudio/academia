@@ -123,20 +123,25 @@ lookup per request.
 
 ---
 
-## 8. Browser reaches the API through a Next.js rewrite
+## 8. Browser reaches the API through a Next.js same-origin proxy
 
-**Decision.** `/api/:path*` is rewritten to `API_INTERNAL_URL`. In production the
-API publishes no host port.
+**Decision.** `/api/:path*` is handled by `apps/web/src/app/api/[...path]/route.ts`,
+which forwards to `API_INTERNAL_URL` at request time. In production Compose the
+API publishes no host port. On Vercel Services the `api` service stays internal
+and is bound into `web` as `API_INTERNAL_URL`.
 
 **Why.** Requests become same-origin, so the session cookie needs no
 `SameSite=None`, no CORS configuration, and the API is not directly addressable
-from the internet. This mirrors LaQQ's Nginx-proxies-`/api` topology using the
-server we already run.
+from the internet. A Route Handler (not `next.config` rewrites) is required so
+Vercel service bindings — which exist only at runtime — can supply the upstream
+URL. This mirrors LaQQ's Nginx-proxies-`/api` topology using the server we
+already run.
 
 **Consequence.** `CORS_ALLOWED_ORIGINS` exists and is wired into the Express
-app, but is empty by default for the same-origin rewrite topology. Unit coverage
+app, but is empty by default for the same-origin proxy topology. Unit coverage
 for the CORS middleware itself is deferred until a deployment exposes the API on
-its own hostname.
+its own hostname. Do not set `API_INTERNAL_URL` manually on Vercel; the binding
+injects it.
 
 ---
 
@@ -279,27 +284,29 @@ would refuse a `DATABASE_URL_OVERRIDE` that works.
 
 ---
 
-## 17. The web image bakes its API address and binds all interfaces
+## 17. The web image sets its API address and binds all interfaces
 
 **Context.** Two production-only defects, both invisible in development:
 
-- `/api/health` returned 500 in production while working in dev. Next.js
-  serializes `rewrites()` destinations into the build output, so the standalone
-  image — built without `API_INTERNAL_URL` — proxied `/api` to its own
-  `localhost:4000`. `next dev` re-evaluates the config at startup, which is why
-  development never showed it.
+- `/api/health` returned 500 in production while working in dev. At the time,
+  Next.js `rewrites()` destinations were serialized into the build output, so
+  the standalone image — built without `API_INTERNAL_URL` — proxied `/api` to
+  its own `localhost:4000`. `next dev` re-evaluates the config at startup, which
+  is why development never showed it. The proxy later moved to a runtime Route
+  Handler (decision 8); the image still sets `API_INTERNAL_URL` at runtime.
 - The container never reported healthy despite serving traffic. The standalone
   server binds to `$HOSTNAME`, which Docker sets to the container ID; that
   resolves to one interface, so a `127.0.0.1` healthcheck could not connect.
 
 **Decision.** `docker/web.Dockerfile` takes `API_INTERNAL_URL` as a build `ARG`
 (defaulting to the Compose service name `http://api:4000`, stable across both
-stacks) and sets `ENV HOSTNAME=0.0.0.0` in the runtime stage.
-`docker-compose.prod.yml` passes the value through `build.args`.
+stacks), re-declares it in the runtime stage, and sets `ENV HOSTNAME=0.0.0.0`.
+`docker-compose.prod.yml` passes the value through `build.args` and service env.
 
-**Consequence.** Pointing the API at a different address requires rebuilding the
-web image, or a reverse proxy in front. Both stacks name the service `api`, so
-the default holds for the deployment this repository describes.
+**Consequence.** Changing `NEXT_PUBLIC_APP_URL` still requires rebuilding the
+web image. Changing only the API upstream address no longer does, as long as
+the runtime env is updated. Both stacks name the service `api`, so the default
+holds for the Compose deployment this repository describes.
 
 **Lesson recorded.** Neither defect was reachable from the development stack or
 from the acceptance checklist as written. The production stack is smoke-tested

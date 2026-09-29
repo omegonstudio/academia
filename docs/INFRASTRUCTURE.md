@@ -72,26 +72,38 @@ Startup is ordered by health, not by luck: `db` healthy → `api` healthy → `w
 
 ### How the browser reaches the API
 
-The browser only ever talks to the web service. Next.js rewrites `/api/:path*` to
-`API_INTERNAL_URL`, so requests are same-origin: the session cookie needs no
-`SameSite=None`, CORS is unnecessary, and in production the API publishes no host
-port at all.
+The browser only ever talks to the web service. The App Router handler
+`apps/web/src/app/api/[...path]/route.ts` proxies `/api/*` to `API_INTERNAL_URL`
+at **request time**, so requests stay same-origin: the session cookie needs no
+`SameSite=None`, CORS is unnecessary, and in production Compose the API
+publishes no host port at all.
 
-`API_INTERNAL_URL` is a **build argument**, not just a runtime variable. Next.js
-serializes rewrite destinations into the build output, so a value supplied only at
-runtime leaves the standalone server proxying `/api` to its own localhost — which
-fails in production while working in development, because `next dev` re-evaluates
-the config at startup. `NEXT_PUBLIC_APP_URL` has the same constraint: canonicals,
-Open Graph URLs, `robots.txt` and `sitemap.xml` would otherwise ship as
-`http://localhost:3000`.
+`API_INTERNAL_URL` is a **runtime** variable for both the proxy and
+`getSession()`. Default in Compose is the service name `http://api:4000`.
 
-`docker-compose.prod.yml` therefore passes both through `build.args`. The same
-`API_INTERNAL_URL` Compose variable is also set on the web service at runtime so
-`getSession()` (which reads the env at request time) cannot diverge from the
-baked rewrite destination. Default for the API address is the Compose service
-name `http://api:4000`.
+`NEXT_PUBLIC_APP_URL` remains a **build** input: Next.js inlines `NEXT_PUBLIC_*`
+into the client bundle, so canonicals, Open Graph URLs, `robots.txt` and
+`sitemap.xml` would otherwise ship as `http://localhost:3000`.
+`docker-compose.prod.yml` passes it through `build.args` (and still passes
+`API_INTERNAL_URL` as a build arg for image parity; only the runtime value is
+required for the proxy).
 
-Consequence: changing either value means rebuilding the web image.
+### Vercel Services (optional parallel path)
+
+`vercel.json` at the repo root defines two services: `web` (public at `/`) and
+`api` (internal). A service binding injects the API base URL into `web` as
+`API_INTERNAL_URL` — do not set that variable yourself in the Vercel dashboard.
+
+Set manually on the Vercel project (Production / Preview as needed):
+
+- `DATABASE_URL` (Postgres reachable from Vercel)
+- `AUTH_SECRET`
+- `NEXT_PUBLIC_APP_URL` (the deployment URL; rebuild after changing)
+- S3 / object-storage vars used by the API (`S3_*`)
+- any other keys required by `apps/api/src/config/env.ts`
+
+Run migrations out of band (`npm run db:deploy`) before relying on the API.
+The primary production path documented below remains Compose on a VPS.
 
 ## Configuration and secrets
 
@@ -117,11 +129,10 @@ Rules:
   that contains one without escaping rewrites the secret (silently when the
   name exists in the host environment).
 
-`API_INTERNAL_URL` and `NEXT_PUBLIC_APP_URL` are build-time inputs for the web
-image. Next.js bakes rewrite destinations and inlines `NEXT_PUBLIC_*` into the
-standalone output, so both are passed as Docker `build.args` (and
-`API_INTERNAL_URL` is also set at runtime from the same Compose variable so
-`getSession()` cannot diverge from the rewrite target).
+`NEXT_PUBLIC_APP_URL` is a build-time input for the web image (inlined into the
+client bundle). `API_INTERNAL_URL` is read at runtime by the `/api` proxy and by
+`getSession()`; Compose still passes it as a build arg for convenience and sets
+it on the running web container.
 
 ### `DATABASE_URL` has two forms
 
