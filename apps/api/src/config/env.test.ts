@@ -30,6 +30,7 @@ describe('parseEnv', () => {
     expect(env.AUTH_SESSION_TTL).toBe(604_800);
     expect(env.LOAD_SEED_DATA).toBe(false);
     expect(env.SUPERADMIN_EMAIL).toBe('omegon.info@gmail.com');
+    expect(env.DIRECTOR_EMAIL).toBe('saragarfu@gmail.com');
     expect(env.ACADEMY_TIMEZONE).toBe('America/Argentina/Buenos_Aires');
     expect(env.API_DOCS_ENABLED).toBeUndefined();
     expect(env.S3_BUCKET).toBe('academia-materials');

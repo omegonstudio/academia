@@ -9,6 +9,7 @@ const SENSITIVE_PATTERNS = [
   /AUTH_SECRET/i,
   /postgresql:\/\//i,
   /SUPERADMIN_PASSWORD/i,
+  /DIRECTOR_PASSWORD/i,
   /passwordHash/i,
   /change-me-locally/,
   /development-only-secret-change-me/,

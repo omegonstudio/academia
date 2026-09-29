@@ -95,6 +95,11 @@ export const envSchema = z.object({
   /** Absent means "do not bootstrap"; it must never fail a deployment. */
   SUPERADMIN_PASSWORD: z.string().min(12).optional(),
 
+  /** Academy director (operational). Distinct from technical SUPER_ADMIN. */
+  DIRECTOR_EMAIL: z.email().default('saragarfu@gmail.com'),
+  /** Absent means "do not bootstrap"; it must never fail a deployment. */
+  DIRECTOR_PASSWORD: z.string().min(12).optional(),
+
   LOAD_SEED_DATA: booleanFromEnv,
 
   /**

@@ -20,7 +20,7 @@ import {
 import { createUserRepository } from '../domain/identity/user-repository.js';
 import { createPrismaClient, isDatabaseReachable, type Database } from '../lib/prisma.js';
 import { hashPassword, verifyPassword } from '../lib/password.js';
-import { bootstrapSuperAdmin } from '../seed/bootstrap.js';
+import { bootstrapDirector, bootstrapSuperAdmin } from '../seed/bootstrap.js';
 
 /**
  * Exercises the identity stack against a real PostgreSQL with migrations
@@ -28,6 +28,7 @@ import { bootstrapSuperAdmin } from '../seed/bootstrap.js';
  */
 const DATABASE_URL = process.env['DATABASE_URL'];
 const SUPERADMIN_EMAIL = 'omegon.info@gmail.com';
+const DIRECTOR_BOOTSTRAP_EMAIL = 'director-bootstrap@academia.test';
 const DIRECTOR_EMAIL = 'directora@academia.test';
 const ADMINISTRATIVE_EMAIL = 'admin@academia.test';
 const TEACHER_EMAIL = 'docente@academia.test';
@@ -47,6 +48,7 @@ if (!DATABASE_URL) {
 
 const CLEANUP_EMAILS = [
   SUPERADMIN_EMAIL,
+  DIRECTOR_BOOTSTRAP_EMAIL,
   DIRECTOR_EMAIL,
   ADMINISTRATIVE_EMAIL,
   TEACHER_EMAIL,
@@ -63,12 +65,20 @@ describe('identity integration', () => {
 
   afterAll(async () => {
     await cleanupIdentityUsers();
-    // Shared DB: restore live bootstrap account so smoke/dev keep working.
-    const livePassword = process.env['SUPERADMIN_PASSWORD'];
-    if (livePassword) {
+    // Shared DB: restore live bootstrap accounts so smoke/dev keep working.
+    const liveSuperAdminPassword = process.env['SUPERADMIN_PASSWORD'];
+    if (liveSuperAdminPassword) {
       await bootstrapSuperAdmin(database, {
         email: SUPERADMIN_EMAIL,
-        password: livePassword,
+        password: liveSuperAdminPassword,
+      });
+    }
+    const liveDirectorEmail = process.env['DIRECTOR_EMAIL'];
+    const liveDirectorPassword = process.env['DIRECTOR_PASSWORD'];
+    if (liveDirectorEmail && liveDirectorPassword) {
+      await bootstrapDirector(database, {
+        email: liveDirectorEmail,
+        password: liveDirectorPassword,
       });
     }
     await database.$disconnect();
@@ -297,6 +307,105 @@ describe('identity integration', () => {
       await expect(
         database.user.findUnique({ where: { email: SUPERADMIN_EMAIL } }),
       ).resolves.not.toBeNull();
+    });
+  });
+
+  describe('Director bootstrap', () => {
+    it('creates the account when it is absent', async () => {
+      const outcome = await bootstrapDirector(database, {
+        email: DIRECTOR_BOOTSTRAP_EMAIL,
+        password: DIRECTOR_PASSWORD,
+      });
+
+      expect(outcome).toBe('created');
+
+      const user = await database.user.findUnique({
+        where: { email: DIRECTOR_BOOTSTRAP_EMAIL },
+      });
+
+      expect(user?.role).toBe('DIRECTOR');
+      expect(user?.isActive).toBe(true);
+      expect(user?.passwordHash).not.toContain(DIRECTOR_PASSWORD);
+    });
+
+    it('is idempotent and never overwrites an existing password', async () => {
+      await bootstrapDirector(database, {
+        email: DIRECTOR_BOOTSTRAP_EMAIL,
+        password: DIRECTOR_PASSWORD,
+      });
+
+      const rotated = await hashPassword('a-rotated-director-password');
+      await database.user.update({
+        where: { email: DIRECTOR_BOOTSTRAP_EMAIL },
+        data: { passwordHash: rotated },
+      });
+
+      const outcome = await bootstrapDirector(database, {
+        email: DIRECTOR_BOOTSTRAP_EMAIL,
+        password: DIRECTOR_PASSWORD,
+      });
+
+      expect(outcome).toBe('reasserted');
+
+      const user = await database.user.findUnique({
+        where: { email: DIRECTOR_BOOTSTRAP_EMAIL },
+      });
+      expect(user?.passwordHash).toBe(rotated);
+    });
+
+    it('re-asserts the role and reactivates a downgraded account', async () => {
+      await bootstrapDirector(database, {
+        email: DIRECTOR_BOOTSTRAP_EMAIL,
+        password: DIRECTOR_PASSWORD,
+      });
+
+      await database.user.update({
+        where: { email: DIRECTOR_BOOTSTRAP_EMAIL },
+        data: { role: 'STUDENT', isActive: false },
+      });
+
+      await bootstrapDirector(database, {
+        email: DIRECTOR_BOOTSTRAP_EMAIL,
+        password: DIRECTOR_PASSWORD,
+      });
+
+      const user = await database.user.findUnique({
+        where: { email: DIRECTOR_BOOTSTRAP_EMAIL },
+      });
+
+      expect(user?.role).toBe('DIRECTOR');
+      expect(user?.isActive).toBe(true);
+    });
+
+    it('never demotes a SUPER_ADMIN occupying the same email', async () => {
+      await bootstrapSuperAdmin(database, {
+        email: DIRECTOR_BOOTSTRAP_EMAIL,
+        password: BOOTSTRAP_PASSWORD,
+      });
+
+      const outcome = await bootstrapDirector(database, {
+        email: DIRECTOR_BOOTSTRAP_EMAIL,
+        password: DIRECTOR_PASSWORD,
+      });
+
+      expect(outcome).toBe('skipped');
+
+      const user = await database.user.findUnique({
+        where: { email: DIRECTOR_BOOTSTRAP_EMAIL },
+      });
+      expect(user?.role).toBe('SUPER_ADMIN');
+    });
+
+    it('skips provisioning when no password is available', async () => {
+      const outcome = await bootstrapDirector(database, {
+        email: DIRECTOR_BOOTSTRAP_EMAIL,
+        password: undefined,
+      });
+
+      expect(outcome).toBe('skipped');
+      await expect(
+        database.user.findUnique({ where: { email: DIRECTOR_BOOTSTRAP_EMAIL } }),
+      ).resolves.toBeNull();
     });
   });
 

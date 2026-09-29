@@ -51,7 +51,7 @@ if [ -d prisma/migrations ]; then
     sleep "$RETRY_DELAY_SECONDS"
   done
 
-  echo "[entrypoint] running SuperAdmin bootstrap"
+  echo "[entrypoint] running identity bootstrap (SuperAdmin + Director)"
   node --import tsx src/seed/cli.ts
 else
   echo "[entrypoint] no migrations yet; create one with 'npm run db:migrate'"

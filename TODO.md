@@ -31,6 +31,7 @@ See `docs/DECISIONS.md` (1) and `docs/LAQQ-REFERENCE.md`.
 - [x] snake_case database naming convention (`@map`/`@@map`) established before any model exists.
 - [x] Container-side `DATABASE_URL` assembled with percent-encoding, plus a preflight config check that fails fast without printing values.
 - [x] Idempotent SuperAdmin bootstrap for `omegon.info@gmail.com` (never overwrites a password).
+- [x] Idempotent Director bootstrap via `DIRECTOR_EMAIL`/`DIRECTOR_PASSWORD` (default `saragarfu@gmail.com`; never demotes SUPER_ADMIN; never overwrites a password).
 - [x] CI: lint, typecheck, unit, integration against real PostgreSQL, build, image builds, secrets hygiene.
 - [x] Production CD from `main` only, gated by CI via `workflow_call`, migrations then health check.
 - [x] GitHub Secrets documented (`docs/INFRASTRUCTURE.md`); app secrets stay on the server.
