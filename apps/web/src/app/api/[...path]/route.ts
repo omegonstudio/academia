@@ -15,8 +15,9 @@ type RouteContext = {
 /**
  * Same-origin browser proxy to the API.
  *
- * Uses `API_INTERNAL_URL` at request time so Vercel service bindings (and
- * Docker runtime env) work. Build-time Next rewrites cannot see bindings.
+ * Uses `API_INTERNAL_URL` at request time so Docker Compose and hosted DEV
+ * (Vercel web → API DEV) resolve the upstream correctly. Build-time Next
+ * rewrites cannot see runtime-only environment variables.
  */
 async function proxy(
   request: NextRequest,

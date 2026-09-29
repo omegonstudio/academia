@@ -1,7 +1,8 @@
 name: CI
 
 # Validates every pull request and every push to a long-lived branch.
-# Deployment lives in production.yml and is deliberately not triggered here.
+# Frontend DEV deploy is handled by Vercel (apps/web from `dev`), not here.
+# Production deploy lives in production.yml and is deliberately not triggered here.
 on:
   pull_request:
     branches: [main, dev]

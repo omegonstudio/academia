@@ -127,21 +127,21 @@ lookup per request.
 
 **Decision.** `/api/:path*` is handled by `apps/web/src/app/api/[...path]/route.ts`,
 which forwards to `API_INTERNAL_URL` at request time. In production Compose the
-API publishes no host port. On Vercel Services the `api` service stays internal
-and is bound into `web` as `API_INTERNAL_URL`.
+API publishes no host port. On hosted DEV, Vercel runs **only** `apps/web` and
+`API_INTERNAL_URL` is set manually to the separate API DEV base URL.
 
 **Why.** Requests become same-origin, so the session cookie needs no
 `SameSite=None`, no CORS configuration, and the API is not directly addressable
-from the internet. A Route Handler (not `next.config` rewrites) is required so
-Vercel service bindings — which exist only at runtime — can supply the upstream
-URL. This mirrors LaQQ's Nginx-proxies-`/api` topology using the server we
-already run.
+from the internet in the Compose topology. A Route Handler (not `next.config`
+rewrites) is required so runtime-only environment variables can supply the
+upstream URL. This mirrors LaQQ's Nginx-proxies-`/api` topology using the server
+we already run.
 
 **Consequence.** `CORS_ALLOWED_ORIGINS` exists and is wired into the Express
 app, but is empty by default for the same-origin proxy topology. Unit coverage
 for the CORS middleware itself is deferred until a deployment exposes the API on
-its own hostname. Do not set `API_INTERNAL_URL` manually on Vercel; the binding
-injects it.
+its own hostname. On Vercel DEV, set `API_INTERNAL_URL` (server-only) to the
+API DEV host; never put secrets or DB URLs on the web project.
 
 ---
 
@@ -969,3 +969,24 @@ existing PENDING. SUCCEEDED + RevenueAllocation only via existing webhook stubs.
 
 **Still out of scope:** live Mercado Pago / Stripe SDKs, student refunds,
 student “mark as paid” UX.
+
+---
+
+## 46. Hosted DEV is Vercel web + separate API DEV; PROD is DigitalOcean
+
+**Decision.** Branch `dev` deploys the frontend to Vercel (`apps/web` as Root
+Directory). API DEV, PostgreSQL DEV and storage DEV are separate hosts —
+**not** Vercel Services. Branch `main` remains the sole production path;
+production infrastructure is DigitalOcean (Compose today; provision later).
+Local Docker Compose (`academia-dev` / `academia-prod`) is unchanged.
+
+**Why.** Keeps cookie sessions same-origin via the existing `/api` proxy, avoids
+mixing DEV and PROD secrets/DBs, and matches the product flow
+`feature → PR → dev → validate → PR → main` without putting the Express API on
+Vercel as part of this architecture.
+
+**Consequence.** Vercel needs only `NEXT_PUBLIC_APP_URL` and `API_INTERNAL_URL`.
+API secrets stay on the API host. The former root `vercel.json` multi-service
+definition was removed so the repo does not imply an API-on-Vercel deploy.
+DigitalOcean production deploy is documented and gated in
+`.github/workflows/production.yml` but not auto-provisioned here.

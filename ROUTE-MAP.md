@@ -114,8 +114,8 @@ cableados a API real (Fase 3). Sin DEV bypass. `lib/academy-data.ts` eliminado (
 
 The browser reaches these as `/api/*`, proxied at request time by the Next.js
 route `app/api/[...path]` using `API_INTERNAL_URL`. In production Compose the
-API publishes no host port; on Vercel Services the `api` service stays internal
-and is bound into `web` as `API_INTERNAL_URL`.
+API publishes no host port. On hosted DEV, Vercel runs only `apps/web` and
+`API_INTERNAL_URL` points at the separate API DEV host.
 
 ### Infrastructure surfaces
 

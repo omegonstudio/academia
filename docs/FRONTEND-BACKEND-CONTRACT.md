@@ -6,7 +6,8 @@
 >
 > Convención de paths:
 > - Express monta rutas **sin** prefijo `/api` (ej. `POST /auth/login`).
-> - El browser Next llama **`/api/...`** (rewrite → `API_INTERNAL_URL`).
+> - El browser Next llama **`/api/...`** (Route Handler → `API_INTERNAL_URL`).
+> - En Vercel DEV solo corre `apps/web`; la API DEV es un host aparte.
 > - SSR en `apps/web` llama al API interno **sin** `/api`.
 >
 > Fuentes primarias: `apps/api/src/http/**`, `packages/shared/src/**`,
@@ -726,7 +727,7 @@ Solo nombres / propósito (sin valores):
 
 | Variable | Quién | Propósito |
 | -------- | ----- | --------- |
-| `API_INTERNAL_URL` | Next server / Docker web | Destino rewrite `/api/*` y SSR fetch |
+| `API_INTERNAL_URL` | Next server / Docker web / Vercel | Destino proxy `/api/*` y SSR fetch (runtime; never `NEXT_PUBLIC_*`) |
 | `NEXT_PUBLIC_APP_URL` | Web | Origen canónico SEO/metadata |
 | `WEB_PORT` | Compose | Puerto host (no lógica app) |
 | `AUTH_SECRET` | **API only** | Firma JWT (nunca al browser) |

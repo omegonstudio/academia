@@ -2,10 +2,11 @@ name: Production
 
 # Deployment happens only from main, and only after CI has passed.
 #
-#   feature/* -> Pull Request -> CI -> review -> main -> this workflow
+#   feature/* → PR → dev → CI + Vercel DEV → validation
+#   → PR → main → this workflow → DigitalOcean PROD (Compose over SSH)
 #
-# No other branch can reach production: the trigger is restricted to main and
-# to a manual dispatch, which GitHub only allows on branches it is offered for.
+# DigitalOcean provision is out of band; this workflow does not create
+# infrastructure. No other branch can reach production.
 on:
   push:
     branches: [main]

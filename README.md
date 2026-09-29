@@ -6,7 +6,22 @@ network, student assignment, classes, tracking and settlements.
 **Current stage: Stage 7B — Student Finance Portal DONE** (read-only
 `/dashboard/student/finance`). Stages 0–8 remain operable. See
 [`TODO.md`](TODO.md) and [`ROUTE-MAP.md`](ROUTE-MAP.md).
-Branching: [`docs/BRANCHING.md`](docs/BRANCHING.md) (`feature/*` → `dev` → `main`).
+Branching: [`docs/BRANCHING.md`](docs/BRANCHING.md)
+(`feature/*` → `dev` → `main`).
+
+## Environments
+
+| Entorno | Rama   | Frontend     | API      | DB              |
+| ------- | ------ | ------------ | -------- | --------------- |
+| DEV     | `dev`  | Vercel       | API DEV  | PostgreSQL DEV  |
+| PROD    | `main` | DigitalOcean | API PROD | PostgreSQL PROD |
+
+```text
+feature/* → PR → dev → CI + Vercel DEV → validación → PR → main → CI → DigitalOcean PROD
+```
+
+DEV never uses the PROD database; PROD never uses the DEV database. Local Docker
+Compose remains the developer loop. Details: [`docs/INFRASTRUCTURE.md`](docs/INFRASTRUCTURE.md).
 
 ## Stack
 
@@ -17,7 +32,7 @@ Branching: [`docs/BRANCHING.md`](docs/BRANCHING.md) (`feature/*` → `dev` → `
 | Database | PostgreSQL 17, Prisma 7 (versioned migrations)       |
 | Objects  | S3-compatible (MinIO development / Spaces production)|
 | Runtime  | Docker + Docker Compose, separate dev and prod       |
-| CI/CD    | GitHub Actions                                      |
+| CI/CD    | GitHub Actions; Vercel for hosted frontend DEV       |
 
 ## Quick start
 

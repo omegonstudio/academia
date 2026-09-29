@@ -2,9 +2,26 @@
 
 ## Environments
 
-Two environments, isolated by construction.
+Two **hosted** environments, plus a local Compose loop. Never mix them.
 
-|                    | Development                    | Production                        |
+| Entorno | Rama   | Frontend     | API      | DB              | Storage              |
+| ------- | ------ | ------------ | -------- | --------------- | -------------------- |
+| DEV     | `dev`  | Vercel       | API DEV  | PostgreSQL DEV  | bucket/prefix DEV    |
+| PROD    | `main` | DigitalOcean | API PROD | PostgreSQL PROD | bucket/prefix PROD   |
+
+```text
+DEV never uses DB PROD
+PROD never uses DB DEV
+```
+
+Secrets, payment credentials, JWT/session secrets, storage keys, and internal
+URLs are likewise environment-specific. Do not promote a DEV value into PROD.
+
+### Local Compose (developer machine)
+
+Still the day-to-day loop. Isolated by construction via `COMPOSE_PROJECT_NAME`.
+
+|                    | Development (local)            | Production Compose (future host)  |
 | ------------------ | ------------------------------ | --------------------------------- |
 | Compose project    | `academia-dev`                 | `academia-prod`                   |
 | Database volume    | `academia-dev_db_data_dev`     | `academia-prod_db_data`           |
@@ -109,28 +126,32 @@ WEB_PORT=13000 npm run smoke
 
 ### Object storage (Materials — Stage 5B)
 
-|                    | Development                         | Production                |
-| ------------------ | ----------------------------------- | ------------------------- |
-| Provider           | MinIO (`minio` Compose service; image from `quay.io/minio/*`) | DigitalOcean Spaces |
-| Endpoint (typical) | `http://minio:9000` (ops) + `S3_PUBLIC_ENDPOINT` for signed URLs | Spaces regional endpoint |
-| Bucket             | `academia-materials` (created by `minio-init`) | private Spaces bucket |
-| Credentials        | Compose defaults (`academia-dev-*`)    | Spaces keys (secrets)     |
-| Path style         | `S3_FORCE_PATH_STYLE=true`          | usually `false`           |
+|                    | Local Compose                       | Hosted DEV                         | Production                |
+| ------------------ | ----------------------------------- | ---------------------------------- | ------------------------- |
+| Provider           | MinIO (`minio` Compose; `quay.io/minio/*`) | Spaces/S3 **DEV** bucket/prefix | DigitalOcean Spaces **PROD** |
+| Endpoint (typical) | `http://minio:9000` + `S3_PUBLIC_ENDPOINT` | Spaces DEV regional endpoint | Spaces PROD regional endpoint |
+| Bucket             | `academia-materials` (`minio-init`) | e.g. `academia-materials-dev` | e.g. `academia-materials-prod` |
+| Credentials        | Compose defaults (`academia-dev-*`) | DEV Spaces keys (secrets) | PROD Spaces keys (secrets) |
+| Path style         | `S3_FORCE_PATH_STYLE=true`          | usually `false` | usually `false` |
 
 Host tooling against MinIO: API `http://127.0.0.1:9000`, console
 `http://127.0.0.1:9001`. Compose sets `S3_ENDPOINT=http://minio:9000` for
 server-side ops and `S3_PUBLIC_ENDPOINT=http://127.0.0.1:9000` so presigned
 URLs work from the host browser. See `.env.example`. Never promote MinIO sample
 keys to production (`evaluateConfiguration` rejects them when
-`NODE_ENV=production`).
+`NODE_ENV=production`). Never point DEV at the PROD bucket (or the reverse).
 
 ### How the browser reaches the API
 
-The browser only ever talks to the web service. The App Router handler
+```text
+Browser → Next.js (same-origin /api/*) → API_INTERNAL_URL → PostgreSQL
+```
+
+The browser only ever talks to the web origin. The App Router handler
 `apps/web/src/app/api/[...path]/route.ts` proxies `/api/*` to `API_INTERNAL_URL`
 at **request time**, so requests stay same-origin: the session cookie needs no
-`SameSite=None`, CORS is unnecessary, and in production Compose the API
-publishes no host port at all.
+`SameSite=None`, CORS stays empty, and cookies remain `HttpOnly` + `SameSite=Lax`
+(`Secure` when the API runs with `NODE_ENV=production`).
 
 `API_INTERNAL_URL` is a **runtime** variable for both the proxy and
 `getSession()`. Default in Compose is the service name `http://api:4000`.
@@ -142,22 +163,56 @@ into the client bundle, so canonicals, Open Graph URLs, `robots.txt` and
 `API_INTERNAL_URL` as a build arg for image parity; only the runtime value is
 required for the proxy).
 
-### Vercel Services (optional parallel path)
+### Vercel DEV (frontend only)
 
-`vercel.json` at the repo root defines two services: `web` (public at `/`) and
-`api` (internal). A service binding injects the API base URL into `web` as
-`API_INTERNAL_URL` — do not set that variable yourself in the Vercel dashboard.
+Architecture for branch `dev`:
 
-Set manually on the Vercel project (Production / Preview as needed):
+```text
+Vercel (apps/web)  →  API DEV (separate host)  →  PostgreSQL DEV
+                   ↘  (no API process on Vercel)
+```
 
-- `DATABASE_URL` (Postgres reachable from Vercel)
-- `AUTH_SECRET`
-- `NEXT_PUBLIC_APP_URL` (the deployment URL; rebuild after changing)
-- S3 / object-storage vars used by the API (`S3_*`)
-- any other keys required by `apps/api/src/config/env.ts`
+The **backend is not deployed on Vercel**. Only `apps/web` is a Vercel project.
+API DEV + PostgreSQL DEV + storage DEV live elsewhere (Compose on a DEV host,
+or a future small VPS). Production remains Compose on DigitalOcean from `main`
+(not implemented as a live DigitalOcean provision in this repo yet).
 
-Run migrations out of band (`npm run db:deploy`) before relying on the API.
-The primary production path documented below remains Compose on a VPS.
+#### Vercel project settings (monorepo)
+
+| Setting            | Value |
+| ------------------ | ----- |
+| Root Directory     | `apps/web` |
+| Framework Preset   | Next.js |
+| Install Command    | `cd ../.. && npm ci` |
+| Build Command      | `cd ../.. && npm run build -w @academia/shared && npm run build -w @academia/web` |
+| Output             | Next.js default (Vercel ignores `output: 'standalone'`, which exists for Docker) |
+| Node.js            | 22 (matches `engines` / `.nvmrc`) |
+
+Connect the project to the `dev` branch for the DEV deployment. Do **not** point
+this Vercel project at `main` as the production DigitalOcean path.
+
+#### Environment variables on Vercel (WEB DEV only)
+
+| Variable               | Required | Notes |
+| ---------------------- | -------- | ----- |
+| `NEXT_PUBLIC_APP_URL`  | yes      | Canonical DEV URL (`https://…vercel.app` or custom). Rebuild after change. |
+| `API_INTERNAL_URL`     | yes      | HTTPS (or private) base URL of **API DEV**. Server-only — never `NEXT_PUBLIC_*`. |
+
+Do **not** set on the Vercel web project: `DATABASE_URL`, `AUTH_SECRET`,
+`POSTGRES_*`, `S3_*`, payment secrets, or bootstrap passwords. Those belong on
+the API DEV host only.
+
+#### API DEV host (out of band)
+
+Provision separately. Minimum:
+
+- PostgreSQL **DEV** (not PROD) + `npm run db:deploy`
+- Env from `.env.example` API checklist (DEV secrets, DEV `S3_*`, optional seed)
+- Reachable from Vercel at the URL you put in `API_INTERNAL_URL`
+- Prefer `NODE_ENV=production` on a hosted DEV API so session cookies are `Secure`
+  behind the HTTPS Vercel front (still use DEV DB / DEV storage / sandbox payments)
+
+`CORS_ALLOWED_ORIGINS` stays empty while the browser uses the Next proxy.
 
 ## Configuration and secrets
 
@@ -299,9 +354,8 @@ they attach to.
 
 ## CI
 
-`.github/workflows/ci.yml` runs on every pull request and on pushes to `main`
-(and should also cover `dev` once that branch is protected — see
-`docs/BRANCHING.md`):
+`.github/workflows/ci.yml` runs on every pull request to `dev` or `main`, and on
+every push to those branches (see `docs/BRANCHING.md`):
 
 | Job                | What it proves                                                     |
 | ------------------ | ------------------------------------------------------------------ |
@@ -313,11 +367,16 @@ they attach to.
 Action versions are pinned by major tag, npm downloads are cached, and every job
 fails the run on error.
 
+Frontend DEV deploy is **not** in GitHub Actions: Vercel deploys `apps/web`
+from `dev` when the Vercel project is connected. CI still validates every push
+and PR.
+
 ## Production deployment
 
 ```
-feature/stage-N-*  →  PR →  CI  →  review  →  dev
-dev                →  PR →  CI  →  review  →  main  →  Production workflow
+feature/*  →  PR  →  dev  →  CI + Vercel DEV  →  validation
+                              ↓
+                         PR dev → main  →  CI  →  DigitalOcean PROD (future)
 ```
 
 Never commit product work directly to `main`. Stage work integrates on `dev`
@@ -327,6 +386,12 @@ Full rules: `docs/BRANCHING.md`.
 `.github/workflows/production.yml` triggers only on push to `main` or a manual
 dispatch. It calls `ci.yml` as a reusable workflow, so deployment cannot happen
 unless the identical checks pass — no duplicated pipeline definition.
+
+**DigitalOcean PROD is the intended production home** (API + Next.js +
+PostgreSQL on owned infrastructure). The workflow today is a Compose-over-SSH
+gate prepared for that host; do not treat it as a live DigitalOcean provisioner
+until the server and GitHub Environment secrets exist. Do not deploy production
+from `dev`.
 
 The deploy job:
 

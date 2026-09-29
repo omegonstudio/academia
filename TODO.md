@@ -62,8 +62,8 @@ See `docs/DECISIONS.md` (1) and `docs/LAQQ-REFERENCE.md`.
 - [x] No duplicate infrastructure introduced (there was none to duplicate).
 
 ### Known limits carried forward
-- **The production *deploy* job has not been executed.** The production Compose stack itself was built and verified locally, but the SSH deployment path in `.github/workflows/production.yml` cannot be validated without a provisioned server, GitHub Secrets and a DNS name. First real deploy must be treated as a rehearsal: confirm the server prerequisites in `docs/INFRASTRUCTURE.md`, then watch the health gate.
-- [x] Optional Vercel Services config (`vercel.json`): `web` public, `api` internal + `API_INTERNAL_URL` binding; browser `/api` proxied at runtime (not build-time rewrites). Still needs dashboard env + Postgres + first redeploy.
+- **The production *deploy* job has not been executed.** The production Compose stack itself was built and verified locally, but the SSH deployment path in `.github/workflows/production.yml` cannot be validated without a provisioned DigitalOcean (or other) server, GitHub Secrets and a DNS name. First real deploy must be treated as a rehearsal: confirm the server prerequisites in `docs/INFRASTRUCTURE.md`, then watch the health gate.
+- [x] Hosted DEV separation documented: Vercel → `apps/web` only; API DEV + PostgreSQL DEV + storage DEV separate; `API_INTERNAL_URL` + `NEXT_PUBLIC_APP_URL` on Vercel; no API-on-Vercel. Dashboard wiring and first redeploy still pending (out of band).
 - Login throttle is per-process; needs a shared store before multiple API replicas (Stage 9).
 - Design tokens are provisional pending official Omegon brand assets.
 - TLS termination is expected from a reverse proxy in front of the stack; not in the Compose file.
