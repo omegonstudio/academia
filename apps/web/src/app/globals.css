@@ -17,7 +17,7 @@
   /* Surfaces */
   --color-surface: #ffffff;
   --color-surface-muted: #f6f7f9;
-
+}
 @theme inline {
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
