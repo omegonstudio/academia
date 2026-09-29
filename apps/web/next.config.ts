@@ -1,13 +1,6 @@
 import path from 'node:path';
 import type { NextConfig } from 'next';
 
-/**
- * The browser never talks to the API directly: `/api/*` is proxied to the API
- * service from the Next.js server. That keeps requests same-origin, so the
- * session cookie needs no cross-site relaxation and CORS stays unnecessary.
- */
-const apiInternalUrl = process.env['API_INTERNAL_URL'] ?? 'http://localhost:4000';
-
 const securityHeaders = [
   { key: 'X-Content-Type-Options', value: 'nosniff' },
   { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
@@ -24,27 +17,14 @@ const nextConfig: NextConfig = {
   poweredByHeader: false,
   // Allow `/api/docs/` to keep its trailing slash (Swagger relative assets need it).
   skipTrailingSlashRedirect: true,
-
-  async rewrites() {
-    return [
-      {
-        source: '/api/docs',
-        destination: `${apiInternalUrl}/docs/`,
-      },
-      {
-        source: '/api/docs/',
-        destination: `${apiInternalUrl}/docs/`,
-      },
-      {
-        source: '/api/docs/:path*',
-        destination: `${apiInternalUrl}/docs/:path*`,
-      },
-      {
-        source: '/api/:path*',
-        destination: `${apiInternalUrl}/:path*`,
-      },
-    ];
+  // Static assets from academia-front (icons/placeholders); no remote image CDN yet.
+  images: {
+    unoptimized: true,
   },
+
+  // Browser `/api/*` is proxied at request time by `app/api/[...path]/route.ts`
+  // using `API_INTERNAL_URL`. That keeps Docker and Vercel service bindings
+  // working — build-time rewrites cannot see Vercel bindings.
 
   async headers() {
     return [{ source: '/:path*', headers: securityHeaders }];
