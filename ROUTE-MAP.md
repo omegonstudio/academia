@@ -115,8 +115,10 @@ DEV localStorage bypass from academia-front (to be removed in Phase 2).
 | `[x]`  | `GET /openapi.json` | OpenAPI 3 document (schemas from Zod). Gated by `API_DOCS_ENABLED` (off by default in production). |
 | `[x]`  | `GET /docs` | Swagger UI; consumes the in-process OpenAPI doc; cookie session via same-origin `/api`. |
 
-The browser reaches these as `/api/*`, rewritten by Next.js. In production the
-API publishes no host port.
+The browser reaches these as `/api/*`, proxied at request time by the Next.js
+route `app/api/[...path]` using `API_INTERNAL_URL`. In production Compose the
+API publishes no host port; on Vercel Services the `api` service stays internal
+and is bound into `web` as `API_INTERNAL_URL`.
 
 ### Infrastructure surfaces
 

@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev --port ${WEB_PORT:-3000}",
+    "prebuild": "npm run build --workspace=@academia/shared --prefix ../..",
     "build": "next build",
     "start": "next start --port ${WEB_PORT:-3000}",
     "typecheck": "tsc -p tsconfig.json --noEmit",

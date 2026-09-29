@@ -2,8 +2,22 @@
 @import 'tw-animate-css';
 @import 'shadcn/tailwind.css';
 
-@custom-variant dark (&:is(.dark *));
-
+/**
+ * Design tokens — the single source of colour, spacing and type for Academia.
+ *
+ * No component may hardcode a colour. Every value below was contrast-checked
+ * against its intended background for WCAG 2.2 AA (see docs/ACCESSIBILITY.md);
+ * changing one requires re-checking it.
+ *
+ * This is a provisional neutral palette. When official Omegon brand tokens are
+ * available they replace these values here, and nowhere else.
+ */
+ 
+@theme {
+  /* Surfaces */
+  --color-surface: #ffffff;
+  --color-surface-muted: #f6f7f9;
+}
 @theme inline {
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
