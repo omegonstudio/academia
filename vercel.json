@@ -4,14 +4,14 @@
     "api": {
       "root": "apps/api",
       "framework": "express",
-      "installCommand": "npm ci --prefix ../..",
-      "buildCommand": "npm run build --prefix ../.. -w @academia/api"
+      "installCommand": "cd ../.. && npm ci",
+      "buildCommand": "cd ../.. && npm run build -w @academia/shared && npm run prisma:generate -w @academia/api"
     },
     "web": {
       "root": "apps/web",
       "framework": "nextjs",
-      "installCommand": "npm ci --prefix ../..",
-      "buildCommand": "npm run build --prefix ../.. -w @academia/web",
+      "installCommand": "cd ../.. && npm ci",
+      "buildCommand": "cd ../.. && npm run build -w @academia/shared && npm run build -w @academia/web",
       "bindings": [
         {
           "type": "service",

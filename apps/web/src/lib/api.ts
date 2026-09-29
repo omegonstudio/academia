@@ -37,14 +37,17 @@ import { cookies } from 'next/headers';
 
 /**
  * Server-side address of the API. Distinct from the browser path (`/api`),
- * which the Next.js rewrite proxies here.
+ * which `app/api/[...path]` proxies here at request time.
+ *
+ * Read at call time so Vercel service bindings (runtime-only) are visible.
  */
-const apiInternalUrl =
-  process.env['API_INTERNAL_URL'] ?? 'http://localhost:4000';
+function apiInternalUrl(): string {
+  return process.env['API_INTERNAL_URL'] ?? 'http://localhost:4000';
+}
 
 async function apiFetch(path: string, init?: RequestInit): Promise<Response> {
   const cookieHeader = (await cookies()).toString();
-  return fetch(`${apiInternalUrl}${path}`, {
+  return fetch(`${apiInternalUrl()}${path}`, {
     ...init,
     headers: {
       ...(init?.headers ?? {}),
