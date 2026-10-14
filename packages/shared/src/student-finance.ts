@@ -84,6 +84,8 @@ export type StudentFinanceResponse = z.infer<typeof studentFinanceResponseSchema
 /** Response for POST /students/me/finance/charges/:chargeId/pay */
 export const studentFinanceCheckoutResponseSchema = z.object({
   payment: studentFinancePaymentSchema,
+  /** Hosted PSP checkout URL when available (Preference / Checkout Session). */
+  checkoutUrl: z.string().url().nullable().optional(),
 });
 
 export type StudentFinanceCheckoutResponse = z.infer<

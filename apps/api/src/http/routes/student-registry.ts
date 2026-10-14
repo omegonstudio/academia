@@ -19,6 +19,8 @@ import {
   updateStudent,
   type StudentStore,
 } from '../../domain/students/student-service.js';
+import { notifyUserCreated } from '../../domain/notifications/notification-hooks.js';
+import type { NotificationPublisher } from '../../domain/notifications/notification-types.js';
 import { hashPassword } from '../../lib/password.js';
 import {
   BadRequestError,
@@ -36,6 +38,7 @@ export interface StudentRegistryDependencies {
   authenticate: AuthenticateOptions;
   students: StudentStore;
   permissionGrants: PermissionGrantStore;
+  notifications?: NotificationPublisher;
 }
 
 async function mayReadStudent(
@@ -57,6 +60,7 @@ export function createStudentRegistryRouter({
   authenticate: authOptions,
   students,
   permissionGrants,
+  notifications,
 }: StudentRegistryDependencies): Router {
   const router = Router();
 
@@ -97,6 +101,12 @@ export function createStudentRegistryRouter({
             parsed.data,
             hashPassword,
           );
+          await notifyUserCreated(notifications, {
+            userId: student.userId,
+            email: student.email,
+            roleLabel: 'estudiante',
+            displayName: `${student.firstName} ${student.lastName}`.trim(),
+          });
           const body: StudentResponse = { student };
           res.status(201).json(body);
         } catch (error) {

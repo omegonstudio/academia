@@ -990,3 +990,34 @@ API secrets stay on the API host. The former root `vercel.json` multi-service
 definition was removed so the repo does not imply an API-on-Vercel deploy.
 DigitalOcean production deploy is documented and gated in
 `.github/workflows/production.yml` but not auto-provisioned here.
+
+---
+
+## 47. Notifications via Resend + in-app rows
+
+**Decision.** Persist `notifications` rows for the recipient and best-effort email
+through Resend. Triggers: user created, teacher assigned, class `meetingUrl` set.
+Email failures never fail the originating HTTP mutation.
+
+**Why.** Ops need both durable in-app history and email reach without coupling
+domain rules to a mail vendor. Resend keeps credentials out of Git.
+
+---
+
+## 48. Live Mercado Pago / Stripe behind the existing provider port
+
+**Decision.** When `MERCADOPAGO_*` / `STRIPE_*` are set, adapters call Preference /
+Checkout Session APIs and verify webhooks when secrets are present. Empty
+credentials keep stubs for local/CI. Production rejects sandbox-looking keys via
+`evaluateConfiguration`.
+
+**Why.** Preserves the Payment Domain boundary while enabling go-live without
+rewriting finance flows. MANUAL remains admin-only.
+
+---
+
+## 49. Meeting links stay manual (Meet/Zoom API deferred)
+
+**Decision.** `ClassSession.meetingUrl` remains a manual https URL. Automated
+Google Meet / Zoom provisioning is Future backlog. Notifications fire when a
+human sets the link.

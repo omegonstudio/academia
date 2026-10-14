@@ -33,6 +33,8 @@ Compose remains the developer loop. Details: [`docs/INFRASTRUCTURE.md`](docs/INF
 | Objects  | S3-compatible (MinIO development / Spaces production)|
 | Runtime  | Docker + Docker Compose, separate dev and prod       |
 | CI/CD    | GitHub Actions; Vercel for hosted frontend DEV       |
+| Email    | Resend (optional; in-app notifications always)       |
+| Payments | Mercado Pago (ARS) + Stripe (USD); MANUAL admin      |
 
 ## Quick start
 

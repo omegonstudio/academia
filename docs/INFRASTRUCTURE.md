@@ -199,8 +199,24 @@ this Vercel project at `main` as the production DigitalOcean path.
 | `API_INTERNAL_URL`     | yes      | HTTPS (or private) base URL of **API DEV**. Server-only — never `NEXT_PUBLIC_*`. |
 
 Do **not** set on the Vercel web project: `DATABASE_URL`, `AUTH_SECRET`,
-`POSTGRES_*`, `S3_*`, payment secrets, or bootstrap passwords. Those belong on
-the API DEV host only.
+`POSTGRES_*`, `S3_*`, `RESEND_*`, payment secrets, or bootstrap passwords. Those
+belong on the API DEV host only.
+
+See also [`docs/DEPLOY-CHECKLIST.md`](DEPLOY-CHECKLIST.md) for the full go-live
+gate (TLS, Spaces, Resend, MP/Stripe webhooks, GitHub Environment secrets).
+
+### Notifications + payments env (API host)
+
+| Variable | DEV | PROD |
+| --- | --- | --- |
+| `NOTIFICATIONS_ENABLED` | `true` for demos | `true` |
+| `RESEND_API_KEY` / `RESEND_FROM_EMAIL` | DEV sender | PROD sender |
+| `APP_PUBLIC_URL` | Vercel DEV URL | production HTTPS origin |
+| `MERCADOPAGO_*` / `STRIPE_*` | sandbox/test | **live** only |
+| `SENTRY_DSN` | optional | recommended |
+
+Empty payment credentials keep stub providers (local/CI). Webhook signature
+checks run only when the corresponding webhook secret is non-empty.
 
 #### API DEV host (out of band)
 

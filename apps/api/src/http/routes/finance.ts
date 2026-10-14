@@ -55,7 +55,12 @@ import {
   updateFinanceSettings,
 } from '../../domain/finance/finance-settings-service.js';
 import type { FinanceStore } from '../../domain/finance/finance-store.js';
-import { resolvePaymentProvider } from '../../domain/finance/payment-provider.js';
+import {
+  resolvePaymentProvider,
+  verifyMercadoPagoWebhookSignature,
+  verifyStripeWebhookSignature,
+  type PaymentProviderCredentials,
+} from '../../domain/finance/payment-provider.js';
 import {
   createPayment,
   succeedPayment,
@@ -87,6 +92,7 @@ export interface FinanceDependencies {
   permissionGrants: PermissionGrantStore;
   students: StudentStore;
   teachers: TeacherStore;
+  paymentCredentials?: PaymentProviderCredentials;
 }
 
 function pathId(raw: string | string[] | undefined): string | undefined {
@@ -191,6 +197,7 @@ export function createFinanceRouter({
   permissionGrants,
   students,
   teachers,
+  paymentCredentials,
 }: FinanceDependencies): Router {
   const router = Router();
 
@@ -444,7 +451,10 @@ export function createFinanceRouter({
           if (!providerPaymentId) {
             const charge = await finance.findChargeById(parsed.data.chargeId);
             if (!charge) throw new NotFoundError('Charge not found.');
-            const provider = resolvePaymentProvider(parsed.data.provider);
+            const provider = resolvePaymentProvider(
+              parsed.data.provider,
+              paymentCredentials,
+            );
             const ref = await provider.createPayment({
               amountMinor: charge.amountMinor,
               currency: charge.currency,
@@ -746,12 +756,28 @@ export function createFinanceRouter({
     },
   );
 
-  // --- Webhooks (no session; signature verification TODO) -----------------
+  // --- Webhooks (no session; signature verified when secrets are configured)
 
   router.post('/finance/webhooks/mercado-pago', (req, res, next) => {
     void (async () => {
       try {
-        // TODO: provider signature verification when SDK/provider credentials are introduced.
+        const secret = paymentCredentials?.mercadopagoWebhookSecret ?? '';
+        if (secret.length > 0) {
+          const dataId = String(
+            (req.body as { data?: { id?: string } })?.data?.id ??
+              (req.body as { providerEventId?: string })?.providerEventId ??
+              '',
+          );
+          const ok = verifyMercadoPagoWebhookSignature({
+            secret,
+            dataId,
+            requestId: req.header('x-request-id') ?? undefined,
+            signatureHeader: req.header('x-signature') ?? undefined,
+          });
+          if (!ok) {
+            throw new BadRequestError('Invalid Mercado Pago webhook signature.');
+          }
+        }
         const parsed = financeWebhookRequestSchema.safeParse(req.body);
         if (!parsed.success) {
           throw new BadRequestError(
@@ -780,7 +806,20 @@ export function createFinanceRouter({
   router.post('/finance/webhooks/stripe', (req, res, next) => {
     void (async () => {
       try {
-        // TODO: provider signature verification when SDK/provider credentials are introduced.
+        const secret = paymentCredentials?.stripeWebhookSecret ?? '';
+        if (secret.length > 0) {
+          const raw =
+            (req as { rawBody?: Buffer }).rawBody?.toString('utf8') ??
+            JSON.stringify(req.body);
+          const ok = verifyStripeWebhookSignature(
+            raw,
+            req.header('stripe-signature') ?? undefined,
+            secret,
+          );
+          if (!ok) {
+            throw new BadRequestError('Invalid Stripe webhook signature.');
+          }
+        }
         const parsed = financeWebhookRequestSchema.safeParse(req.body);
         if (!parsed.success) {
           throw new BadRequestError(

@@ -20,6 +20,7 @@ import {
   X,
 } from 'lucide-react'
 import { LogoutButton } from '@/components/logout-button'
+import { NotificationsBell } from '@/components/notifications-bell'
 import { useSessionUser } from '@/components/session-provider'
 import { ThemeToggle } from '@/components/ui/primitives'
 import {
@@ -205,6 +206,7 @@ export function DashboardShell({
               </div>
             </div>
             <div className="flex items-center gap-3">
+              <NotificationsBell />
               <ThemeToggle />
               <div className="hidden text-right sm:block">
                 <p className="text-sm font-medium">{displayName}</p>

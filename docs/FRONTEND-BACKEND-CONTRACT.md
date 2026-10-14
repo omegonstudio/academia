@@ -728,6 +728,10 @@ Solo nombres / propósito (sin valores):
 | Variable | Quién | Propósito |
 | -------- | ----- | --------- |
 | `API_INTERNAL_URL` | Next server / Docker web / Vercel | Destino proxy `/api/*` y SSR fetch (runtime; never `NEXT_PUBLIC_*`) |
+| `GET /notifications` | Web campana | Lista propia + `unreadCount` |
+| `PATCH /notifications/:id/read` | Web campana | Marca leída |
+| `POST /notifications/read-all` | Web campana | Marca todas |
+| Checkout `checkoutUrl` | Student finance | Redirect PSP cuando hay Preference/Session |
 | `NEXT_PUBLIC_APP_URL` | Web | Origen canónico SEO/metadata |
 | `WEB_PORT` | Compose | Puerto host (no lógica app) |
 | `AUTH_SECRET` | **API only** | Firma JWT (nunca al browser) |

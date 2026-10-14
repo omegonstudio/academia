@@ -72,6 +72,10 @@ export default function StudentFinancePage() {
       setActionError(result.message)
       return
     }
+    if (result.data.checkoutUrl) {
+      window.location.assign(result.data.checkoutUrl)
+      return
+    }
     await reloadFinance()
   }
 

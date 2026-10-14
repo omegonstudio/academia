@@ -75,6 +75,7 @@ export interface StudentHubDependencies {
   academy: AcademyBusinessConfig;
   /** Optional until wired — required for student finance portal + checkout. */
   finance?: FinanceStore;
+  paymentCredentials?: import('../../domain/finance/payment-provider.js').PaymentProviderCredentials;
 }
 
 /**
@@ -88,6 +89,7 @@ export function createStudentHubRouter({
   attendances,
   academy,
   finance,
+  paymentCredentials,
 }: StudentHubDependencies): Router {
   const router = Router();
 
@@ -273,13 +275,15 @@ export function createStudentHubRouter({
           if (!chargeId || !UUID_RE.test(chargeId)) {
             throw new BadRequestError('Valid chargeId is required.');
           }
-          const payment = await startStudentCheckout(finance, {
+          const checkout = await startStudentCheckout(finance, {
             studentId: record.id,
             chargeId,
             createdByUserId: user.id,
+            credentials: paymentCredentials,
           });
           const body: StudentFinanceCheckoutResponse = {
-            payment: serializeStudentFinancePayment(payment),
+            payment: serializeStudentFinancePayment(checkout.payment),
+            checkoutUrl: checkout.checkoutUrl,
           };
           res.status(201).json(body);
         } catch (error) {
