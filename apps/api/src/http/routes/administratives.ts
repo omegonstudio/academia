@@ -9,6 +9,8 @@ import {
   RoleConflictError,
   type AdministrativeProvisionStore,
 } from '../../domain/identity/provision-administrative.js';
+import { notifyUserCreated } from '../../domain/notifications/notification-hooks.js';
+import type { NotificationPublisher } from '../../domain/notifications/notification-types.js';
 import { BadRequestError, ConflictError } from '../errors.js';
 import {
   authenticate,
@@ -20,6 +22,7 @@ export interface AdministrativesDependencies {
   authenticate: AuthenticateOptions;
   administratives: AdministrativeProvisionStore;
   permissionGrants: PermissionGrantStore;
+  notifications?: NotificationPublisher;
 }
 
 /**
@@ -32,6 +35,7 @@ export function createAdministrativesRouter({
   authenticate: authOptions,
   administratives,
   permissionGrants,
+  notifications,
 }: AdministrativesDependencies): Router {
   const router = Router();
 
@@ -53,6 +57,14 @@ export function createAdministrativesRouter({
             administratives,
             parsed.data,
           );
+          if (outcome === 'created') {
+            await notifyUserCreated(notifications, {
+              userId: user.id,
+              email: user.email,
+              roleLabel: 'administrativo/a',
+              displayName: user.name?.trim() || user.email,
+            });
+          }
           const body: SessionResponse = { user };
           res.status(outcome === 'created' ? 201 : 200).json(body);
         } catch (error) {

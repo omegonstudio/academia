@@ -31,29 +31,43 @@ academia/
 
 Three npm workspaces: `@academia/api`, `@academia/web`, `@academia/shared`.
 
+## Environments
+
+| Entorno | Rama   | Frontend     | API      | DB              |
+| ------- | ------ | ------------ | -------- | --------------- |
+| DEV     | `dev`  | Vercel       | API DEV  | PostgreSQL DEV  |
+| PROD    | `main` | DigitalOcean | API PROD | PostgreSQL PROD |
+
+Local Docker Compose (`academia-dev`) remains the developer loop. DEV never uses
+the PROD database; PROD never uses the DEV database. Details:
+`docs/INFRASTRUCTURE.md`.
+
 ## Request flow
 
 ```
 Browser
   │  same-origin request to /api/*
   ▼
-Next.js server (apps/web)          ── rewrite ──▶  API (apps/api)
-  │  server components call the API directly                │
-  │  via API_INTERNAL_URL                                   ▼
-  │                                                  PostgreSQL
+Next.js server (apps/web)   ── Route Handler proxy ──▶  API (apps/api)
+  │  server components call the API directly                     │
+  │  via API_INTERNAL_URL                                        ▼
+  │                                                       PostgreSQL
   ▼
 HTML
 ```
 
-The browser never addresses the API directly. `next.config.ts` rewrites
-`/api/:path*` to the API service, so:
+The browser never addresses the API directly.
+`apps/web/src/app/api/[...path]/route.ts` proxies `/api/*` to `API_INTERNAL_URL`
+at request time, so:
 
 - requests are same-origin, and the session cookie needs no cross-site relaxation;
-- CORS is unnecessary in the default topology;
-- in production the API publishes no host port at all.
+- CORS is unnecessary in the default topology (leave `CORS_ALLOWED_ORIGINS` empty);
+- in production Compose the API publishes no host port at all;
+- on Vercel DEV, only the web app runs on Vercel; `API_INTERNAL_URL` points at
+  the separate API DEV host.
 
-`CORS_ALLOWED_ORIGINS` exists for a future deployment that gives the API its own
-hostname. It is empty by default.
+`CORS_ALLOWED_ORIGINS` exists for a deployment that gives the API its own
+hostname to browsers. It is empty by default. Never use `*`.
 
 ## Shared contracts
 

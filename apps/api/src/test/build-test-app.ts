@@ -38,6 +38,7 @@ import { createInMemoryMaterialStore } from '../domain/materials/in-memory-mater
 import type { InMemoryMaterialStore } from '../domain/materials/in-memory-material-store.js';
 import { createInMemoryFinanceStore } from '../domain/finance/in-memory-finance-store.js';
 import type { InMemoryFinanceStore } from '../domain/finance/in-memory-finance-store.js';
+import { createInMemoryNotificationStore } from '../domain/notifications/in-memory-notification-store.js';
 import { createInMemoryObjectStorage } from '../storage/in-memory-object-storage.js';
 import type { ObjectStoragePort } from '../storage/object-storage.js';
 import { createAuthService } from '../domain/identity/auth-service.js';
@@ -509,6 +510,7 @@ export async function buildTestApp({
   });
   const materials = createInMemoryMaterialStore();
   const finance = createInMemoryFinanceStore();
+  const notificationStore = createInMemoryNotificationStore();
   const storage = createInMemoryObjectStorage();
   const authService = createAuthService(users);
   const sessionCodec = createSessionCodec(TEST_SECRET, 3600);
@@ -644,6 +646,10 @@ export async function buildTestApp({
       administrativePermissions,
       permissionGrants,
       permissionChangeAudits,
+    },
+    notifications: {
+      authenticate: authOptions,
+      notifications: notificationStore,
     },
     docsEnabled,
   });

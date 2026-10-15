@@ -45,7 +45,7 @@ import {
  * Server-side address of the API. Distinct from the browser path (`/api`),
  * which `app/api/[...path]` proxies here at request time.
  *
- * Read at call time so Vercel service bindings (runtime-only) are visible.
+ * Read at call time so runtime-only env (Compose / Vercel) is visible.
  */
 function apiInternalUrl(): string {
   return process.env['API_INTERNAL_URL'] ?? 'http://localhost:4000';

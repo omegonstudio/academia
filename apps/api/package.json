@@ -23,6 +23,7 @@
     "@aws-sdk/s3-request-presigner": "^3.1134.0",
     "@prisma/adapter-pg": "^7.10.0",
     "@prisma/client": "7.10.0",
+    "@sentry/node": "^11.7.0",
     "dotenv": "^17.0.0",
     "express": "^5.2.1",
     "jose": "^6.2.12",

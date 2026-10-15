@@ -396,3 +396,16 @@ export {
   type IanaTimeZone,
   type CivilDate,
 } from './timezones.js';
+export {
+  NOTIFICATION_TYPES,
+  notificationTypeSchema,
+  notificationSchema,
+  notificationListResponseSchema,
+  notificationResponseSchema,
+  markNotificationsReadResponseSchema,
+  type NotificationType,
+  type Notification,
+  type NotificationListResponse,
+  type NotificationResponse,
+  type MarkNotificationsReadResponse,
+} from './notifications.js';

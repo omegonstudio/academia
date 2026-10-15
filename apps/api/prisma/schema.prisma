@@ -134,9 +134,31 @@ model User {
   financeSettingsUpdates AcademyFinanceSettings[]
   chargesCreated         Charge[]                 @relation("ChargeCreatedBy")
   paymentsCreated        Payment[]                @relation("PaymentCreatedBy")
+  notifications          Notification[]
 
   @@index([role])
   @@map("users")
+}
+
+/// In-app notification row. Email delivery is best-effort via Resend.
+model Notification {
+  id String @id @default(uuid()) @db.Uuid
+
+  userId String @map("user_id") @db.Uuid
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  /// Stable event kind: USER_CREATED | TEACHER_ASSIGNED | CLASS_MEETING_LINK
+  type    String  @db.VarChar(64)
+  title   String  @db.VarChar(200)
+  body    String  @db.VarChar(2000)
+  payload Json?
+
+  readAt    DateTime? @map("read_at") @db.Timestamptz(3)
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([userId, readAt])
+  @@map("notifications")
 }
 
 /// A grantable (module, action) pair. Catalog rows are seeded by migration.

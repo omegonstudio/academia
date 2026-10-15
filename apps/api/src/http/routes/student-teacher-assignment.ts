@@ -14,6 +14,9 @@ import {
   unassignTeacherFromStudent,
   type TeacherAssignmentStore,
 } from '../../domain/assignments/assignment-service.js';
+import type { NotificationAudienceResolver } from '../../domain/notifications/notification-audience.js';
+import { notifyTeacherAssigned } from '../../domain/notifications/notification-hooks.js';
+import type { NotificationPublisher } from '../../domain/notifications/notification-types.js';
 import {
   BadRequestError,
   ForbiddenError,
@@ -29,6 +32,8 @@ export interface StudentTeacherAssignmentDependencies {
   authenticate: AuthenticateOptions;
   assignments: TeacherAssignmentStore;
   permissionGrants: PermissionGrantStore;
+  notifications?: NotificationPublisher;
+  audience?: NotificationAudienceResolver;
 }
 
 async function mayReadAssignment(
@@ -53,6 +58,8 @@ export function createStudentTeacherAssignmentRouter({
   authenticate: authOptions,
   assignments,
   permissionGrants,
+  notifications,
+  audience,
 }: StudentTeacherAssignmentDependencies): Router {
   const router = Router();
 
@@ -125,6 +132,26 @@ export function createStudentTeacherAssignmentRouter({
             parsed.data,
             { id: req.user!.id, role: req.user!.role },
           );
+          if (notifications && audience) {
+            const [student, teacher] = await Promise.all([
+              audience.studentById(assignment.studentId),
+              audience.teacherById(assignment.teacherId),
+            ]);
+            if (student && teacher) {
+              await notifyTeacherAssigned(notifications, {
+                student: {
+                  userId: student.userId,
+                  email: student.email,
+                  name: student.displayName,
+                },
+                teacher: {
+                  userId: teacher.userId,
+                  email: teacher.email,
+                  name: teacher.displayName,
+                },
+              });
+            }
+          }
           const body: TeacherAssignmentResponse = { assignment };
           res.status(200).json(body);
         } catch (error) {

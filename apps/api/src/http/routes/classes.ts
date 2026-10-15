@@ -62,6 +62,9 @@ import type { StudentStore } from '../../domain/students/student-service.js';
 import type { TeacherStore } from '../../domain/teachers/teacher-service.js';
 import { runAutoChargeForClassSession } from '../../domain/finance/auto-charge-runner.js';
 import type { FinanceStore } from '../../domain/finance/finance-store.js';
+import type { NotificationAudienceResolver } from '../../domain/notifications/notification-audience.js';
+import { notifyClassMeetingLink } from '../../domain/notifications/notification-hooks.js';
+import type { NotificationPublisher } from '../../domain/notifications/notification-types.js';
 import {
   BadRequestError,
   ConflictError,
@@ -84,6 +87,8 @@ export interface ClassSessionsDependencies {
   permissionGrants: PermissionGrantStore;
   /** Optional: auto-charge after ClassSession create (ONE_TO_ONE). */
   finance?: FinanceStore;
+  notifications?: NotificationPublisher;
+  audience?: NotificationAudienceResolver;
 }
 
 function pathId(raw: string | string[] | undefined): string | undefined {
@@ -149,6 +154,25 @@ async function resolveClassSessionWriteActor(
   return resolveClassOwnedWriteActor(grants, user, teachers, 'update');
 }
 
+async function maybeNotifyMeetingLink(
+  notifications: NotificationPublisher | undefined,
+  audience: NotificationAudienceResolver | undefined,
+  classSession: { id: string; startAt: string; meetingUrl: string | null },
+  previousMeetingUrl?: string | null,
+): Promise<void> {
+  if (!notifications || !audience) return;
+  const url = classSession.meetingUrl;
+  if (!url) return;
+  if (previousMeetingUrl === url) return;
+  const recipients = await audience.classSessionRecipients(classSession.id);
+  await notifyClassMeetingLink(notifications, {
+    recipients,
+    startAtIso: classSession.startAt,
+    meetingUrl: url,
+    classSessionId: classSession.id,
+  });
+}
+
 export function createClassSessionsRouter({
   authenticate: authOptions,
   classSessions,
@@ -159,6 +183,8 @@ export function createClassSessionsRouter({
   academy,
   permissionGrants,
   finance,
+  notifications,
+  audience,
 }: ClassSessionsDependencies): Router {
   const router = Router();
 
@@ -276,6 +302,7 @@ export function createClassSessionsRouter({
             createdByUserId: req.user!.id,
           });
         }
+        await maybeNotifyMeetingLink(notifications, audience, classSession);
         const body: ClassSessionResponse = { classSession };
         res.status(201).json(body);
       } catch (error) {
@@ -359,11 +386,21 @@ export function createClassSessionsRouter({
             'Provide at least one of startAt, isActive, or meetingUrl.',
           );
         }
+        const previousMeetingUrl =
+          parsed.data.meetingUrl !== undefined
+            ? ((await classSessions.findById(id))?.meetingUrl ?? null)
+            : undefined;
         const classSession = await updateClassSession(
           classSessions,
           id,
           parsed.data,
           actor,
+        );
+        await maybeNotifyMeetingLink(
+          notifications,
+          audience,
+          classSession,
+          previousMeetingUrl,
         );
         const body: ClassSessionResponse = { classSession };
         res.status(200).json(body);

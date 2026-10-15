@@ -6,8 +6,16 @@ import {
 } from './finance-errors.js';
 import type { FinanceStore } from './finance-store.js';
 import type { PaymentRecord } from './finance-types.js';
-import { resolvePaymentProvider } from './payment-provider.js';
+import {
+  resolvePaymentProvider,
+  type PaymentProviderCredentials,
+} from './payment-provider.js';
 import { createPayment } from './payment-service.js';
+
+export interface StudentCheckoutResult {
+  payment: PaymentRecord;
+  checkoutUrl: string | null;
+}
 
 /**
  * Student-initiated checkout for an owned OPEN Charge.
@@ -24,8 +32,9 @@ export async function startStudentCheckout(
     studentId: string;
     chargeId: string;
     createdByUserId: string;
+    credentials?: PaymentProviderCredentials;
   },
-): Promise<PaymentRecord> {
+): Promise<StudentCheckoutResult> {
   const charge = await store.findChargeById(input.chargeId);
   if (!charge || charge.studentId !== input.studentId) {
     throw new FinanceNotFoundError('Charge not found.');
@@ -39,7 +48,7 @@ export async function startStudentCheckout(
   const existing = await store.findPaymentByChargeId(charge.id);
   if (existing) {
     if (existing.status === 'PENDING') {
-      return existing;
+      return { payment: existing, checkoutUrl: null };
     }
     throw new FinanceConflictError(
       'Charge already has a Payment that cannot be restarted.',
@@ -48,7 +57,10 @@ export async function startStudentCheckout(
 
   const provider = providerForCurrency(charge.currency);
   const idempotencyKey = `student-checkout:${input.studentId}:${charge.id}`;
-  const providerRef = await resolvePaymentProvider(provider).createPayment({
+  const providerRef = await resolvePaymentProvider(
+    provider,
+    input.credentials,
+  ).createPayment({
     amountMinor: charge.amountMinor,
     currency: charge.currency,
     chargeId: charge.id,
@@ -56,11 +68,16 @@ export async function startStudentCheckout(
     idempotencyKey,
   });
 
-  return createPayment(store, {
+  const payment = await createPayment(store, {
     chargeId: charge.id,
     provider,
     idempotencyKey,
     providerPaymentId: providerRef.providerPaymentId,
     createdByUserId: input.createdByUserId,
   });
+
+  return {
+    payment,
+    checkoutUrl: providerRef.checkoutUrl ?? null,
+  };
 }

@@ -62,8 +62,8 @@ See `docs/DECISIONS.md` (1) and `docs/LAQQ-REFERENCE.md`.
 - [x] No duplicate infrastructure introduced (there was none to duplicate).
 
 ### Known limits carried forward
-- **The production *deploy* job has not been executed.** The production Compose stack itself was built and verified locally, but the SSH deployment path in `.github/workflows/production.yml` cannot be validated without a provisioned server, GitHub Secrets and a DNS name. First real deploy must be treated as a rehearsal: confirm the server prerequisites in `docs/INFRASTRUCTURE.md`, then watch the health gate.
-- [x] Optional Vercel Services config (`vercel.json`): `web` public, `api` internal + `API_INTERNAL_URL` binding; browser `/api` proxied at runtime (not build-time rewrites). Still needs dashboard env + Postgres + first redeploy.
+- **The production *deploy* job has not been executed.** The production Compose stack itself was built and verified locally, but the SSH deployment path in `.github/workflows/production.yml` cannot be validated without a provisioned DigitalOcean (or other) server, GitHub Secrets and a DNS name. First real deploy must be treated as a rehearsal: confirm the server prerequisites in `docs/INFRASTRUCTURE.md`, then watch the health gate.
+- [x] Hosted DEV separation documented: Vercel → `apps/web` only; API DEV + PostgreSQL DEV + storage DEV separate; `API_INTERNAL_URL` + `NEXT_PUBLIC_APP_URL` on Vercel; no API-on-Vercel. Dashboard wiring and first redeploy still pending (out of band).
 - Login throttle is per-process; needs a shared store before multiple API replicas (Stage 9).
 - Design tokens are provisional pending official Omegon brand assets.
 - TLS termination is expected from a reverse proxy in front of the stack; not in the Compose file.
@@ -551,20 +551,25 @@ estados loading/vacío/error.
 Backups, recovery procedure, healthchecks, structured logging, CI/CD and the
 SEO/accessibility baselines already exist. This stage deepens them.
 
-### TODO
+### Done (go-live slice)
+- [x] Hosted DEV/PROD env separation documented (Vercel web-only + API/DB/storage separated).
+- [x] Notifications: in-app + Resend email on user create, teacher assignment, class meeting link.
+- [x] Live payment providers (Mercado Pago Preference + Stripe Checkout Session) when credentials set; stubs otherwise; webhook signature verification when secrets set.
+- [x] Sentry optional via `SENTRY_DSN` (`@sentry/node`).
+- [x] Production deployment checklist (`docs/DEPLOY-CHECKLIST.md`).
+
+### TODO (post go-live)
 - [ ] Full SEO audit once real content and public pages are final.
 - [ ] Full WCAG 2.2 AA audit, including screen-reader passes (NVDA/VoiceOver).
 - [ ] Automated accessibility checks (axe) in CI.
 - [ ] Core Web Vitals measurement and budget.
 - [ ] Security review of the complete authorization surface.
 - [ ] Authorization matrix test across all roles and modules.
-- [ ] Error tracking (Sentry or equivalent) wired to the existing logger.
-- [ ] Metrics, tracing and alerting.
+- [ ] Metrics, tracing and alerting beyond Sentry.
 - [ ] Replace the in-process login throttle with a shared store, enabling >1 API replica.
 - [ ] Schedule backups on the production host and verify the offsite copy.
 - [ ] Run and record the restore drill in production conditions.
-- [ ] TLS termination and the reverse proxy in front of the stack.
-- [ ] Production deployment checklist.
+- [ ] TLS termination and the reverse proxy in front of the stack (ops on DigitalOcean).
 - [ ] Privacy/security documentation (personal data inventory, retention).
 
 ## Future backlog
@@ -579,5 +584,5 @@ These must remain visible in the roadmap but are not MVP:
 - [ ] Automated payouts.
 - [ ] Advanced CRM.
 - [ ] Advanced certification.
-- [ ] Automated meeting provisioning.
+- [ ] Automated meeting provisioning (Google Meet API / Zoom API) — `meetingUrl` remains manual; notifications use the link loaded by hand.
 - [ ] Advanced analytics.

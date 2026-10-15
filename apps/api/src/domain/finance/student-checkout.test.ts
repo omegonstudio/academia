@@ -54,7 +54,7 @@ describe('startStudentCheckout', () => {
   });
 
   it('creates PENDING Payment with currency-routed provider (ARS→MP)', async () => {
-    const payment = await startStudentCheckout(store, {
+    const { payment } = await startStudentCheckout(store, {
       studentId,
       chargeId,
       createdByUserId: actorUserId,
@@ -71,12 +71,12 @@ describe('startStudentCheckout', () => {
   });
 
   it('is idempotent on double checkout (same PENDING Payment)', async () => {
-    const first = await startStudentCheckout(store, {
+    const { payment: first } = await startStudentCheckout(store, {
       studentId,
       chargeId,
       createdByUserId: actorUserId,
     });
-    const second = await startStudentCheckout(store, {
+    const { payment: second } = await startStudentCheckout(store, {
       studentId,
       chargeId,
       createdByUserId: actorUserId,
@@ -144,7 +144,7 @@ describe('startStudentCheckout', () => {
   });
 
   it('webhook succeed after checkout creates allocation', async () => {
-    const payment = await startStudentCheckout(store, {
+    const { payment } = await startStudentCheckout(store, {
       studentId,
       chargeId,
       createdByUserId: actorUserId,
@@ -193,7 +193,7 @@ describe('startStudentCheckout', () => {
       description: null,
       createdByUserId: actorUserId,
     });
-    const payment = await startStudentCheckout(store, {
+    const { payment } = await startStudentCheckout(store, {
       studentId,
       chargeId: usdCharge.id,
       createdByUserId: actorUserId,

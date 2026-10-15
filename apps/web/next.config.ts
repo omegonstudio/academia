@@ -24,8 +24,8 @@ const nextConfig: NextConfig = {
   },
 
   // Browser `/api/*` is proxied at request time by `app/api/[...path]/route.ts`
-  // using `API_INTERNAL_URL`. That keeps Docker and Vercel service bindings
-  // working — build-time rewrites cannot see Vercel bindings.
+  // using runtime `API_INTERNAL_URL` (Compose service name, or hosted API DEV).
+  // Build-time rewrites cannot see runtime-only env on Vercel.
 
   async headers() {
     return [{ source: '/:path*', headers: securityHeaders }];

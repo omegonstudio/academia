@@ -163,6 +163,26 @@ export const envSchema = z.object({
     .int()
     .positive()
     .default(120),
+
+  // -------------------------------------------------------------------------
+  // Notifications (Resend + in-app)
+  // -------------------------------------------------------------------------
+  NOTIFICATIONS_ENABLED: booleanFromEnv,
+  RESEND_API_KEY: z.string().default(''),
+  RESEND_FROM_EMAIL: z.string().default(''),
+  /** Public web origin for email links. */
+  APP_PUBLIC_URL: z.string().default(''),
+
+  // -------------------------------------------------------------------------
+  // Payments (empty → stub providers; set for live/sandbox)
+  // -------------------------------------------------------------------------
+  MERCADOPAGO_ACCESS_TOKEN: z.string().default(''),
+  MERCADOPAGO_WEBHOOK_SECRET: z.string().default(''),
+  STRIPE_SECRET_KEY: z.string().default(''),
+  STRIPE_WEBHOOK_SECRET: z.string().default(''),
+
+  /** Optional Sentry DSN; empty disables. */
+  SENTRY_DSN: z.string().default(''),
 });
 
 export type Env = z.infer<typeof envSchema>;
@@ -205,6 +225,31 @@ export function evaluateConfiguration(env: Env): string[] {
     ) {
       issues.push('S3 credentials still hold development sample values');
     }
+    if (
+      env.STRIPE_SECRET_KEY.length > 0 &&
+      (env.STRIPE_SECRET_KEY.startsWith('sk_test_') ||
+        env.STRIPE_SECRET_KEY.includes('stub'))
+    ) {
+      issues.push('STRIPE_SECRET_KEY must be a live key in production');
+    }
+    if (
+      env.MERCADOPAGO_ACCESS_TOKEN.length > 0 &&
+      /TEST|sandbox|stub/i.test(env.MERCADOPAGO_ACCESS_TOKEN)
+    ) {
+      issues.push(
+        'MERCADOPAGO_ACCESS_TOKEN looks like a sandbox/test token in production',
+      );
+    }
+  }
+
+  if (
+    env.NOTIFICATIONS_ENABLED &&
+    env.NODE_ENV === 'production' &&
+    (env.RESEND_API_KEY.length === 0 || env.RESEND_FROM_EMAIL.length === 0)
+  ) {
+    issues.push(
+      'NOTIFICATIONS_ENABLED requires RESEND_API_KEY and RESEND_FROM_EMAIL',
+    );
   }
 
   return issues;

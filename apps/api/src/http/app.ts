@@ -70,6 +70,10 @@ import {
   createFinanceRouter,
   type FinanceDependencies,
 } from './routes/finance.js';
+import {
+  createNotificationsRouter,
+  type NotificationsDependencies,
+} from './routes/notifications.js';
 
 export interface AppDependencies {
   logger: Logger;
@@ -92,6 +96,7 @@ export interface AppDependencies {
   materials: MaterialsDependencies;
   finance: FinanceDependencies;
   administrativePermissions: AdministrativePermissionsDependencies;
+  notifications: NotificationsDependencies;
   /** When true, mounts GET /openapi.json and Swagger UI at /docs. */
   docsEnabled?: boolean;
 }
@@ -123,6 +128,7 @@ export function createApp({
   materials,
   finance,
   administrativePermissions,
+  notifications,
   docsEnabled = true,
 }: AppDependencies): Express {
   const app = express();
@@ -143,7 +149,15 @@ export function createApp({
   );
 
   app.use(cors(allowedOrigins));
-  app.use(express.json({ limit: '64kb' }));
+  app.use(
+    express.json({
+      limit: '64kb',
+      verify: (req, _res, buf) => {
+        // Stripe webhook HMAC needs the exact raw bytes.
+        (req as express.Request & { rawBody?: Buffer }).rawBody = buf;
+      },
+    }),
+  );
 
   app.use(createHealthRouter(health));
   app.use(createAuthRouter(auth));
@@ -164,6 +178,7 @@ export function createApp({
   app.use(createMaterialsRouter(materials));
   app.use(createFinanceRouter(finance));
   app.use(createAdministrativePermissionsRouter(administrativePermissions));
+  app.use(createNotificationsRouter(notifications));
 
   if (docsEnabled) {
     app.use(createDocsRouter());

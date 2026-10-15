@@ -29,11 +29,21 @@ import { parseAllowedOrigins } from './http/middleware/cors.js';
 import { createPrismaClient, isDatabaseReachable } from './lib/prisma.js';
 import { logger } from './lib/logger.js';
 import { createS3CompatibleStorage } from './storage/s3-compatible-storage.js';
+import { createNotificationAudience } from './domain/notifications/notification-audience.js';
+import { createNotificationPublisher } from './domain/notifications/notification-publisher.js';
+import { createNotificationStore } from './domain/notifications/notification-store.js';
+import { createResendEmailSender } from './domain/notifications/resend-email-sender.js';
+import { initSentryIfConfigured } from './lib/sentry.js';
 
 const SHUTDOWN_GRACE_MS = 10_000;
 
 async function main(): Promise<void> {
   const env = parseEnv();
+  await initSentryIfConfigured({
+    dsn: env.SENTRY_DSN,
+    environment: env.NODE_ENV,
+    logger,
+  });
 
   // A production process must not start misconfigured; in development the same
   // issues are surfaced as warnings so the loop stays fast.
@@ -79,6 +89,22 @@ async function main(): Promise<void> {
     secretAccessKey: env.S3_SECRET_KEY,
     forcePathStyle: env.S3_FORCE_PATH_STYLE,
   });
+  const notificationStore = createNotificationStore(database);
+  const notificationAudience = createNotificationAudience(database);
+  const notificationPublisher = createNotificationPublisher({
+    store: notificationStore,
+    email: createResendEmailSender({
+      apiKey: env.RESEND_API_KEY || undefined,
+      fromEmail: env.RESEND_FROM_EMAIL || undefined,
+      enabled: env.NOTIFICATIONS_ENABLED,
+      logger,
+    }),
+    logger,
+    appPublicUrl:
+      env.APP_PUBLIC_URL ||
+      process.env['NEXT_PUBLIC_APP_URL'] ||
+      'http://localhost:3000',
+  });
   const startedAt = Date.now();
 
   const authOptions = {
@@ -114,6 +140,7 @@ async function main(): Promise<void> {
       authenticate: authOptions,
       administratives,
       permissionGrants,
+      notifications: notificationPublisher,
     },
     teachers: {
       authenticate: authOptions,
@@ -129,6 +156,7 @@ async function main(): Promise<void> {
       authenticate: authOptions,
       students: studentProfiles,
       permissionGrants,
+      notifications: notificationPublisher,
     },
     studentHub: {
       authenticate: authOptions,
@@ -137,6 +165,17 @@ async function main(): Promise<void> {
       attendances,
       academy: getAcademyBusinessConfig(env),
       finance,
+      paymentCredentials: {
+        mercadopagoAccessToken: env.MERCADOPAGO_ACCESS_TOKEN,
+        mercadopagoWebhookSecret: env.MERCADOPAGO_WEBHOOK_SECRET,
+        stripeSecretKey: env.STRIPE_SECRET_KEY,
+        stripeWebhookSecret: env.STRIPE_WEBHOOK_SECRET,
+        appPublicUrl:
+          env.APP_PUBLIC_URL ||
+          process.env['NEXT_PUBLIC_APP_URL'] ||
+          'http://localhost:3000',
+        forceStubs: env.NODE_ENV === 'test',
+      },
     },
     teacherHub: {
       authenticate: authOptions,
@@ -150,11 +189,14 @@ async function main(): Promise<void> {
       authenticate: authOptions,
       teachers: teacherProfiles,
       permissionGrants,
+      notifications: notificationPublisher,
     },
     studentTeacherAssignment: {
       authenticate: authOptions,
       assignments: teacherAssignments,
       permissionGrants,
+      notifications: notificationPublisher,
+      audience: notificationAudience,
     },
     courses: {
       authenticate: authOptions,
@@ -186,6 +228,8 @@ async function main(): Promise<void> {
       academy: getAcademyBusinessConfig(env),
       permissionGrants,
       finance,
+      notifications: notificationPublisher,
+      audience: notificationAudience,
     },
     materials: {
       authenticate: authOptions,
@@ -213,12 +257,27 @@ async function main(): Promise<void> {
       permissionGrants,
       students: studentProfiles,
       teachers: teacherProfiles,
+      paymentCredentials: {
+        mercadopagoAccessToken: env.MERCADOPAGO_ACCESS_TOKEN,
+        mercadopagoWebhookSecret: env.MERCADOPAGO_WEBHOOK_SECRET,
+        stripeSecretKey: env.STRIPE_SECRET_KEY,
+        stripeWebhookSecret: env.STRIPE_WEBHOOK_SECRET,
+        appPublicUrl:
+          env.APP_PUBLIC_URL ||
+          process.env['NEXT_PUBLIC_APP_URL'] ||
+          'http://localhost:3000',
+        forceStubs: env.NODE_ENV === 'test',
+      },
     },
     administrativePermissions: {
       authenticate: authOptions,
       administrativePermissions,
       permissionGrants,
       permissionChangeAudits,
+    },
+    notifications: {
+      authenticate: authOptions,
+      notifications: notificationStore,
     },
     docsEnabled: isApiDocsEnabled(env),
   });

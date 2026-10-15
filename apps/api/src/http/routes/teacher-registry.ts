@@ -19,6 +19,8 @@ import {
   updateTeacher,
   type TeacherStore,
 } from '../../domain/teachers/teacher-service.js';
+import { notifyUserCreated } from '../../domain/notifications/notification-hooks.js';
+import type { NotificationPublisher } from '../../domain/notifications/notification-types.js';
 import { hashPassword } from '../../lib/password.js';
 import {
   BadRequestError,
@@ -36,6 +38,7 @@ export interface TeacherRegistryDependencies {
   authenticate: AuthenticateOptions;
   teachers: TeacherStore;
   permissionGrants: PermissionGrantStore;
+  notifications?: NotificationPublisher;
 }
 
 async function mayReadTeacher(
@@ -57,6 +60,7 @@ export function createTeacherRegistryRouter({
   authenticate: authOptions,
   teachers,
   permissionGrants,
+  notifications,
 }: TeacherRegistryDependencies): Router {
   const router = Router();
 
@@ -97,6 +101,12 @@ export function createTeacherRegistryRouter({
             parsed.data,
             hashPassword,
           );
+          await notifyUserCreated(notifications, {
+            userId: teacher.userId,
+            email: teacher.email,
+            roleLabel: 'docente',
+            displayName: `${teacher.firstName} ${teacher.lastName}`.trim(),
+          });
           const body: TeacherResponse = { teacher };
           res.status(201).json(body);
         } catch (error) {
