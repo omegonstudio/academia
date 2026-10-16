@@ -4,8 +4,17 @@ import Link from 'next/link'
 import { use, useCallback, useEffect, useState } from 'react'
 import { notFound } from 'next/navigation'
 import { ArrowLeft, Edit3 } from 'lucide-react'
-import type { Course, CourseServiceType, CourseType } from '@academia/shared'
-import { COURSE_SERVICE_TYPES, COURSE_TYPES } from '@academia/shared'
+import type {
+  Course,
+  CourseServiceType,
+  CourseType,
+  FinanceCurrency,
+} from '@academia/shared'
+import {
+  COURSE_SERVICE_TYPES,
+  COURSE_TYPES,
+  FINANCE_CURRENCIES,
+} from '@academia/shared'
 import { DashboardShell, PageHeader } from '@/components/dashboard-shell'
 import { MaterialsSection } from '@/components/materials-section'
 import { useSessionUser } from '@/components/session-provider'
@@ -51,7 +60,7 @@ export default function CourseDetailPage({
     courseType: 'REGULAR' as CourseType,
     serviceType: 'ONE_TO_ONE_60' as CourseServiceType,
     price: '',
-    currency: 'ARS' as 'ARS' | 'USD',
+    currency: 'ARS' as FinanceCurrency,
   })
 
   const load = useCallback(async () => {
@@ -94,7 +103,7 @@ export default function CourseDetailPage({
     const priceTrimmed = editForm.price.trim()
     let amountPatch: {
       amountMinor: string | null
-      currency: 'ARS' | 'USD' | null
+      currency: FinanceCurrency | null
     }
 
     if (!priceTrimmed) {
@@ -323,12 +332,15 @@ export default function CourseDetailPage({
                     onChange={(event) =>
                       setEditForm((current) => ({
                         ...current,
-                        currency: event.target.value as 'ARS' | 'USD',
+                        currency: event.target.value as FinanceCurrency,
                       }))
                     }
                   >
-                    <option value="ARS">ARS</option>
-                    <option value="USD">USD</option>
+                    {FINANCE_CURRENCIES.map((code) => (
+                      <option key={code} value={code}>
+                        {code}
+                      </option>
+                    ))}
                   </Select>
                 </Field>
               </div>

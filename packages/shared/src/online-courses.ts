@@ -4,7 +4,7 @@ import {
   materialExternalUrlSchema,
   MATERIAL_EXTERNAL_URL_MAX_LENGTH,
 } from './materials.js';
-import { moneyMinorStringSchema } from './finance.js';
+import { financeCurrencySchema, moneyMinorStringSchema } from './finance.js';
 
 export const ONLINE_COURSE_STATUSES = ['DRAFT', 'PUBLISHED', 'ARCHIVED'] as const;
 export type OnlineCourseStatus = (typeof ONLINE_COURSE_STATUSES)[number];
@@ -90,7 +90,7 @@ export const onlineCourseSchema = z.object({
   accessMode: onlineCourseAccessModeSchema,
   certificateEnabled: z.boolean(),
   amountMinor: z.string().regex(/^\d+$/).nullable(),
-  currency: z.enum(['ARS', 'USD']).nullable(),
+  currency: financeCurrencySchema.nullable(),
   moduleCount: z.number().int().nonnegative().optional(),
   lessonCount: z.number().int().nonnegative().optional(),
   isActive: z.boolean(),
@@ -125,7 +125,7 @@ export const createOnlineCourseRequestSchema = z
     accessMode: onlineCourseAccessModeSchema.optional(),
     certificateEnabled: z.boolean().optional(),
     amountMinor: moneyMinorStringSchema.optional(),
-    currency: z.enum(['ARS', 'USD']).optional(),
+    currency: financeCurrencySchema.optional(),
   })
   .refine(
     (value) =>
@@ -151,7 +151,7 @@ export const updateOnlineCourseRequestSchema = z
     certificateEnabled: z.boolean().optional(),
     status: onlineCourseStatusSchema.optional(),
     amountMinor: moneyMinorStringSchema.nullable().optional(),
-    currency: z.enum(['ARS', 'USD']).nullable().optional(),
+    currency: financeCurrencySchema.nullable().optional(),
     isActive: z.boolean().optional(),
   })
   .refine(
@@ -436,7 +436,7 @@ export const publicOnlineCourseSchema = z.object({
   accessMode: onlineCourseAccessModeSchema,
   certificateEnabled: z.boolean(),
   amountMinor: z.string().regex(/^\d+$/).nullable(),
-  currency: z.enum(['ARS', 'USD']).nullable(),
+  currency: financeCurrencySchema.nullable(),
   isFree: z.boolean(),
   modules: z.array(
     z.object({

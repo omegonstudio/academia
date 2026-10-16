@@ -1768,9 +1768,18 @@ export async function getClassSessionBrowser(
   }
 }
 
+export type CreateClassSessionBrowserResult =
+  | {
+      ok: true;
+      data: ClassSession;
+      /** Class saved but Google Meet was not provisioned — retry via PATCH. */
+      meetCreationFailed?: boolean;
+    }
+  | { ok: false; status: number; message: string };
+
 export async function createClassSessionBrowser(
   body: CreateClassSessionRequest,
-): Promise<BrowserApiResult<ClassSession>> {
+): Promise<CreateClassSessionBrowserResult> {
   const validated = createClassSessionRequestSchema.safeParse(body);
   if (!validated.success) {
     return {
@@ -1803,13 +1812,20 @@ export async function createClassSessionBrowser(
           } else if (apiMessage.includes('Google Meet is not configured')) {
             message =
               'Google Meet no está configurado en el servidor. Pedile a la dirección que complete GOOGLE_MEET_*.';
+          } else if (apiMessage.includes('starts in the past')) {
+            message =
+              'No se puede crear un Meet para una clase en el pasado.';
           } else if (apiMessage.includes('Could not create a Google Meet')) {
             message =
-              'No pudimos crear el enlace de Google Meet. Probá de nuevo o pegá la URL a mano.';
+              'No pudimos crear el enlace de Google Meet. Abrí la clase y reintentá el Meet desde el detalle (no crees otra clase).';
           }
         } catch {
           /* keep mapped message */
         }
+      }
+      if (response.status === 409) {
+        message =
+          'Ya existe una clase en ese horario. Abrila desde el listado para reintentar el Meet o editarla.';
       }
       return { ok: false, status: response.status, message };
     }
@@ -1821,7 +1837,13 @@ export async function createClassSessionBrowser(
         message: 'Respuesta inválida del servidor.',
       };
     }
-    return { ok: true, data: parsed.data.classSession };
+    return {
+      ok: true,
+      data: parsed.data.classSession,
+      ...(parsed.data.meetCreationFailed
+        ? { meetCreationFailed: true }
+        : {}),
+    };
   } catch {
     return {
       ok: false,
@@ -1849,14 +1871,31 @@ export async function updateClassSessionBrowser(
       body: JSON.stringify(validated.data),
     });
     if (!response.ok) {
-      return {
-        ok: false,
-        status: response.status,
-        message: classSessionWriteError(
-          response.status,
-          'No pudimos actualizar la clase.',
-        ),
-      };
+      let message = classSessionWriteError(
+        response.status,
+        'No pudimos actualizar la clase.',
+      );
+      if (response.status === 400) {
+        try {
+          const bodyJson = (await response.json()) as {
+            error?: { message?: string };
+          };
+          const apiMessage = bodyJson.error?.message ?? '';
+          if (apiMessage.includes('starts in the past')) {
+            message =
+              'No se puede crear un Meet para una clase en el pasado.';
+          } else if (apiMessage.includes('Google Meet is not configured')) {
+            message =
+              'Google Meet no está configurado en el servidor.';
+          } else if (apiMessage.includes('Could not create a Google Meet')) {
+            message =
+              'No pudimos crear el enlace de Google Meet. Probá de nuevo más tarde.';
+          }
+        } catch {
+          /* keep mapped message */
+        }
+      }
+      return { ok: false, status: response.status, message };
     }
     const parsed = classSessionResponseSchema.safeParse(await response.json());
     if (!parsed.success) {

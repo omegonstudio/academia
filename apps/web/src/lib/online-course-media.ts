@@ -1,4 +1,4 @@
-import type { OnlineLessonAssetKind } from '@academia/shared';
+import type { FinanceCurrency, OnlineLessonAssetKind } from '@academia/shared';
 
 export const onlineLessonAssetKindLabels: Record<OnlineLessonAssetKind, string> =
   {
@@ -67,7 +67,7 @@ export function videoEmbedUrl(raw: string): string | null {
 
 export function formatOnlineCoursePrice(
   amountMinor: string | null,
-  currency: 'ARS' | 'USD' | null,
+  currency: FinanceCurrency | null,
 ): string {
   if (!amountMinor || amountMinor === '0' || !currency) return 'Gratis'
   const padded = amountMinor.padStart(3, '0')

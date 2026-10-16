@@ -65,6 +65,7 @@ enum MaterialUploadStatus {
 enum FinanceCurrency {
   ARS
   USD
+  EUR
 
   @@map("finance_currency")
 }
@@ -358,8 +359,17 @@ model ClassSession {
   startAt DateTime @map("start_at") @db.Timestamptz(3)
   endAt   DateTime @map("end_at") @db.Timestamptz(3)
 
-  /// Optional external meeting room URL (https). Manual; no provider integration.
+  /// Optional external meeting room URL (https). Manual or Google Meet provisioned.
   meetingUrl String? @map("meeting_url") @db.VarChar(2048)
+
+  /// Google Calendar event id when Meet was created via API (needed for update/delete).
+  googleCalendarEventId String? @map("google_calendar_event_id") @db.VarChar(1024)
+
+  /// Zoom meeting id when the meeting was created via API (needed for update/delete).
+  zoomMeetingId String? @map("zoom_meeting_id") @db.VarChar(255)
+
+  /// Plain-text description sent to the Google Calendar / Meet event (may include URLs).
+  meetingDescription String? @map("meeting_description") @db.VarChar(4000)
 
   isActive Boolean @default(true) @map("is_active")
 

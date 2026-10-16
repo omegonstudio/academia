@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { ChevronRight, Plus, WandSparkles } from 'lucide-react'
 import type {
@@ -83,6 +84,7 @@ function ClassListRow({ item }: { item: ClassRow }) {
 
 export default function ClassesPage() {
   const user = useSessionUser()
+  const router = useRouter()
   const [sessions, setSessions] = useState<ClassSession[]>([])
   const [groups, setGroups] = useState<Group[]>([])
   const [courses, setCourses] = useState<Course[]>([])
@@ -114,6 +116,12 @@ export default function ClassesPage() {
         listScheduleOptionsBrowser(),
       ])
 
+    // Apply catalog data even if sessions fail — otherwise create dialogs stay empty.
+    if (groupsResult.ok) setGroups(groupsResult.data)
+    if (coursesResult.ok) setCourses(coursesResult.data)
+    if (teachersResult.ok) setTeachers(teachersResult.data)
+    if (schedulesResult.ok) setScheduleOptions(schedulesResult.data)
+
     if (!sessionsResult.ok) {
       setLoading(false)
       setError(sessionsResult.message)
@@ -121,10 +129,6 @@ export default function ClassesPage() {
     }
 
     setSessions(sessionsResult.data)
-    if (groupsResult.ok) setGroups(groupsResult.data)
-    if (coursesResult.ok) setCourses(coursesResult.data)
-    if (teachersResult.ok) setTeachers(teachersResult.data)
-    if (schedulesResult.ok) setScheduleOptions(schedulesResult.data)
     setLoading(false)
   }, [])
 
@@ -191,9 +195,20 @@ export default function ClassesPage() {
     return [...map.entries()].sort((a, b) => a[1].localeCompare(b[1], 'es'))
   }, [rows])
 
-  function handleCreated(session: ClassSession) {
+  function handleCreated(
+    session: ClassSession,
+    meta?: { meetCreationFailed?: boolean },
+  ) {
     setIsClassDialogOpen(false)
     setSessions((current) => [...current, session])
+    if (meta?.meetCreationFailed) {
+      setSuccess(
+        'Clase creada, pero no se pudo generar el Google Meet. Reintentá el Meet desde el detalle (no crees otra clase).',
+      )
+      window.setTimeout(() => setSuccess(''), 8000)
+      router.push(`/dashboard/classes/${session.id}`)
+      return
+    }
     setSuccess('Clase creada correctamente.')
     window.setTimeout(() => setSuccess(''), 4000)
   }

@@ -19,6 +19,7 @@ import {
   Field,
   Input,
   Select,
+  Textarea,
 } from '@/components/ui/primitives'
 import {
   courseServiceTypeLabels,
@@ -33,6 +34,7 @@ type ClassForm = {
   date: string
   startTime: string
   meetingUrl: string
+  meetingDescription: string
   createGoogleMeet: boolean
 }
 
@@ -41,6 +43,7 @@ const initialForm: ClassForm = {
   date: '',
   startTime: '',
   meetingUrl: '',
+  meetingDescription: '',
   createGoogleMeet: false,
 }
 
@@ -64,7 +67,7 @@ export function ClassFormDialog({
   courses: Course[]
   teachers: Teacher[]
   onClose: () => void
-  onCreated: (item: ClassSession) => void
+  onCreated: (item: ClassSession, meta?: { meetCreationFailed?: boolean }) => void
   initialDate?: string
 }) {
   const [form, setForm] = useState<ClassForm>(() => ({
@@ -82,6 +85,7 @@ export function ClassFormDialog({
     () => groups.filter((group) => group.isActive),
     [groups],
   )
+
   const courseById = useMemo(
     () => new Map(courses.map((course) => [course.id, course])),
     [courses],
@@ -139,6 +143,26 @@ export function ClassFormDialog({
         'Google Meet no está configurado en el servidor.'
     }
     if (
+      form.createGoogleMeet &&
+      form.date &&
+      form.startTime &&
+      isCivilDateInput(form.date)
+    ) {
+      try {
+        const startAtMs = zonedLocalDateTimeToUtc(
+          form.date as CivilDate,
+          form.startTime,
+          CALENDAR_DISPLAY_TIMEZONE,
+        ).getTime()
+        if (startAtMs < Date.now()) {
+          next.createGoogleMeet =
+            'No se puede crear un Meet para una clase en el pasado.'
+        }
+      } catch {
+        /* date/time errors are handled in submit */
+      }
+    }
+    if (
       !form.createGoogleMeet &&
       form.meetingUrl &&
       !/^https:\/\//i.test(form.meetingUrl)
@@ -175,9 +199,11 @@ export function ClassFormDialog({
 
     setIsSubmitting(true)
     setSubmitError('')
+    const description = form.meetingDescription.trim()
     const result = await createClassSessionBrowser({
       groupId: group.id,
       startAt,
+      ...(description ? { meetingDescription: description } : {}),
       ...(form.createGoogleMeet
         ? { createGoogleMeet: true }
         : form.meetingUrl.trim()
@@ -189,7 +215,10 @@ export function ClassFormDialog({
       setSubmitError(result.message)
       return
     }
-    onCreated(result.data)
+    onCreated(
+      result.data,
+      result.meetCreationFailed ? { meetCreationFailed: true } : undefined,
+    )
   }
 
   return (
@@ -346,6 +375,22 @@ export function ClassFormDialog({
               />
             </Field>
           )}
+          <Field
+            label="Descripción del Meet"
+            htmlFor="class-meet-description"
+            hint="Este texto aparece en la descripción del evento de Google Calendar (podés pegar URLs)."
+          >
+            <Textarea
+              id="class-meet-description"
+              rows={4}
+              maxLength={4000}
+              placeholder={'Ej.\nMaterial: https://...\nNotas para el alumno…'}
+              value={form.meetingDescription}
+              onChange={(event) =>
+                update('meetingDescription', event.target.value)
+              }
+            />
+          </Field>
           <Card className="border-primary/20 bg-primary/5 p-5">
             <p className="text-sm font-semibold">Resumen</p>
             <div className="mt-3 grid gap-2 text-sm text-muted-foreground sm:grid-cols-2">

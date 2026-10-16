@@ -183,6 +183,15 @@ export const envSchema = z.object({
   GOOGLE_MEET_CALENDAR_ID: z.string().default(''),
 
   // -------------------------------------------------------------------------
+  // Zoom Meetings (Server-to-Server OAuth) — optional; empty disables Zoom
+  // -------------------------------------------------------------------------
+  ZOOM_ACCOUNT_ID: z.string().default(''),
+  ZOOM_CLIENT_ID: z.string().default(''),
+  ZOOM_CLIENT_SECRET: z.string().default(''),
+  /** Zoom user id or email of the academy host that owns meetings. */
+  ZOOM_HOST_USER_ID: z.string().default(''),
+
+  // -------------------------------------------------------------------------
   // Payments (empty → stub providers; set for live/sandbox)
   // -------------------------------------------------------------------------
   MERCADOPAGO_ACCESS_TOKEN: z.string().default(''),

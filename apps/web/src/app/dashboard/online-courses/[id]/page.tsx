@@ -15,6 +15,7 @@ import {
 import {
   isMaterialAllowedMimeType,
   sanitizeOriginalFilename,
+  type FinanceCurrency,
   type OnlineCourse,
   type OnlineCourseAccessMode,
   type OnlineLesson,
@@ -22,7 +23,11 @@ import {
   type OnlineLessonStatus,
   type OnlineCourseModule,
 } from '@academia/shared'
-import { ONLINE_COURSE_ACCESS_MODES, ONLINE_LESSON_STATUSES } from '@academia/shared'
+import {
+  FINANCE_CURRENCIES,
+  ONLINE_COURSE_ACCESS_MODES,
+  ONLINE_LESSON_STATUSES,
+} from '@academia/shared'
 import { DashboardShell, PageHeader } from '@/components/dashboard-shell'
 import {
   Alert,
@@ -442,7 +447,7 @@ export default function OnlineCourseDetailPage({
     benefits: '',
     bonus: '',
     price: '',
-    currency: 'ARS' as 'ARS' | 'USD',
+    currency: 'ARS' as FinanceCurrency,
     accessMode: 'OPEN' as OnlineCourseAccessMode,
   })
 
@@ -514,7 +519,7 @@ export default function OnlineCourseDetailPage({
     const priceTrimmed = editForm.price.trim()
     let amountPatch: {
       amountMinor: string | null
-      currency: 'ARS' | 'USD' | null
+      currency: FinanceCurrency | null
     }
     if (!priceTrimmed) {
       amountPatch = { amountMinor: null, currency: null }
@@ -928,12 +933,15 @@ export default function OnlineCourseDetailPage({
                     onChange={(e) =>
                       setEditForm((c) => ({
                         ...c,
-                        currency: e.target.value as 'ARS' | 'USD',
+                        currency: e.target.value as FinanceCurrency,
                       }))
                     }
                   >
-                    <option value="ARS">ARS</option>
-                    <option value="USD">USD</option>
+                    {FINANCE_CURRENCIES.map((code) => (
+                      <option key={code} value={code}>
+                        {code}
+                      </option>
+                    ))}
                   </Select>
                 </Field>
               </div>

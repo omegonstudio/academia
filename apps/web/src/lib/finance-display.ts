@@ -1,8 +1,12 @@
-import { ACADEMY_PERCENTAGES, type AcademyPercentage } from '@academia/shared'
+import {
+  ACADEMY_PERCENTAGES,
+  type AcademyPercentage,
+  type FinanceCurrency,
+} from '@academia/shared'
 
 export function formatMoneyMinor(
   amountMinor: string,
-  currency: 'ARS' | 'USD',
+  currency: FinanceCurrency,
 ): string {
   const sign = amountMinor.startsWith('-') ? '-' : ''
   const digits = amountMinor.replace(/^-/, '')
@@ -102,7 +106,7 @@ export function chargeContextLabel(charge: {
 /** Maps an API Charge into the Finance table display fields. */
 export function formatChargeRow(charge: {
   amountMinor: string
-  currency: 'ARS' | 'USD'
+  currency: FinanceCurrency
   status: string
   classSessionId: string | null
   enrollmentId: string | null

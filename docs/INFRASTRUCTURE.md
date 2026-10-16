@@ -104,6 +104,25 @@ DOCKER_HOST=unix:///var/run/docker.sock docker run --rm \
 npm run prisma:generate -w @academia/api
 ```
 
+### Regenerating Prisma Client in Docker (dev) after a schema/migration change
+
+Host `prisma generate` does **not** update the client inside the API container
+(the anonymous volume shadows `apps/api/src/generated`). Safe procedure — does
+**not** delete the PostgreSQL volume and does **not** re-author migrations:
+
+1. Confirm migration status (read-only / deploy is idempotent):
+   `docker compose -f docker-compose.yml -f docker-compose.dev.yml exec api \
+     npx prisma migrate status`
+2. Apply pending migrations if any (never invent a new migration here):
+   `docker compose … exec api npx prisma migrate deploy`
+3. Regenerate the client **inside** the API container:
+   `docker compose … exec api npx prisma generate`
+   Or simply **restart** the API service so `docker/api-dev-entrypoint.sh` runs
+   `prisma generate` + `migrate deploy` on startup.
+4. Confirm the API is healthy (`GET /health`).
+
+Do **not** remove the named Postgres volume (`db_data_dev`) to “fix” Prisma.
+
 Startup is ordered by health, not by luck: `db` healthy → `api` healthy → `web`.
 MinIO is **development-only** and lives under Compose profile `materials`
 (`docker compose --profile materials up`). Auth, membership UI, and most routes
@@ -214,6 +233,8 @@ gate (TLS, Spaces, Resend, MP/Stripe webhooks, GitHub Environment secrets).
 | `APP_PUBLIC_URL` | Vercel DEV URL | production HTTPS origin |
 | `GOOGLE_MEET_CLIENT_ID` / `_SECRET` / `_REFRESH_TOKEN` | optional (DEV calendar) | optional (PROD calendar) |
 | `GOOGLE_MEET_CALENDAR_ID` | optional (`primary`) | optional (`primary`) |
+| `ZOOM_ACCOUNT_ID` / `ZOOM_CLIENT_ID` / `ZOOM_CLIENT_SECRET` | optional (S2S OAuth) | optional (S2S OAuth) |
+| `ZOOM_HOST_USER_ID` | optional (host user id/email) | optional (host user id/email) |
 | `MERCADOPAGO_*` / `STRIPE_*` | sandbox/test | **live** only |
 | `SENTRY_DSN` | optional | recommended |
 
@@ -222,10 +243,20 @@ Director/SuperAdmin can edit student-facing email copy under **Configuración**
 `{{studentName}}`, `{{teacherName}}`, `{{roleLabel}}`, `{{when}}`,
 `{{meetingUrl}}`, `{{loginUrl}}`.
 
-Google Meet: when credentials are set, creating a class with
+Google Meet: when credentials are set, creating/updating a class with
 `createGoogleMeet: true` creates a Calendar event + Meet link for the class
-interval and notifies enrolled students (and the teacher) with the
-`CLASS_MEETING_LINK` template.
+interval, stores `googleCalendarEventId`, and can send a free-text
+`meetingDescription` (with URLs) as the Calendar description. Reschedule /
+description edits sync the event; `removeGoogleMeet` or soft-delete removes it
+(best-effort). Notifies enrolled students (and the teacher) with the
+`CLASS_MEETING_LINK` template when the meeting URL is newly set.
+
+Zoom (Server-to-Server OAuth): `ZOOM_ACCOUNT_ID`, `ZOOM_CLIENT_ID`,
+`ZOOM_CLIENT_SECRET`, and `ZOOM_HOST_USER_ID` are **API-host only** (Compose
+`api` service / GitHub Secrets — never `NEXT_PUBLIC_*`, never the web image).
+All four must be non-empty or the Zoom meeting service stays disabled; partial
+values do not enable calls. Product wiring into class routes remains a later
+stage; empty Zoom env must not block API boot or Google Meet.
 
 Empty payment credentials keep stub providers (local/CI). Webhook signature
 checks run only when the corresponding webhook secret is non-empty.

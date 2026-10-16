@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { ChevronLeft, ChevronRight, Plus } from 'lucide-react'
 import type {
@@ -42,6 +43,7 @@ import {
 } from '@/lib/calendar'
 
 export default function CalendarPage() {
+  const router = useRouter()
   const [month, setMonth] = useState<CivilMonth>(() => {
     const today = todayCivilDate()
     const [year, monthNumber] = today.split('-').map(Number)
@@ -98,11 +100,22 @@ export default function CalendarPage() {
     setIsClassDialogOpen(true)
   }
 
-  function handleCreated(session: ClassSession) {
+  function handleCreated(
+    session: ClassSession,
+    meta?: { meetCreationFailed?: boolean },
+  ) {
     setIsClassDialogOpen(false)
     const day = civilDateInTimeZone(session.startAt)
     if (day >= range.from && day <= range.to) {
       void load()
+    }
+    if (meta?.meetCreationFailed) {
+      setSuccess(
+        'Clase creada, pero no se pudo generar el Google Meet. Reintentá el Meet desde el detalle.',
+      )
+      window.setTimeout(() => setSuccess(''), 8000)
+      router.push(`/dashboard/classes/${session.id}`)
+      return
     }
     setSuccess('Clase creada correctamente.')
     window.setTimeout(() => setSuccess(''), 4000)

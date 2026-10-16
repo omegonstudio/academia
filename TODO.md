@@ -165,7 +165,7 @@ Operate real live classes.
 - [x] Class session CRUD (API `/classes`; instancia concreta; soft delete; UI `/dashboard/classes` + `[id]`).
 - [x] 60/90-minute 1:1 + 120-minute group validation (`Course.serviceType` → duración derivada).
 - [x] Weekly ClassSession generation (`POST /groups/:id/classes/generate`; ScheduleOption + `getAcademyBusinessConfig`; máx. 90 días; UI en `/dashboard/classes`; `classes.create` only).
-- [x] Meeting URL (`ClassSession.meetingUrl` https opcional; manual; sin provisioning Zoom/Meet).
+- [x] Meeting URL (`ClassSession.meetingUrl` https opcional; manual o Google Meet provisionado).
 - [x] Calendar API (`GET /classes/calendar?from&to`; rango civil en timezone de academia; lectura enriched).
 - [x] Calendar UI (`/dashboard/calendar`; mes civil; lista real vía API; ownership del backend; links a detalle).
 - [x] Class Sessions UI (`/dashboard/classes` + `[id]`; create/edit/soft-delete; datos reales; authz en API).
@@ -183,7 +183,7 @@ Operate real live classes.
 - [ ] Timezones avanzados (por usuario/group; UI de configuración).
 - [ ] Broader recurrence / RRULE (beyond weekly generate).
 - [ ] GiST/EXCLUDE constraint on teacher ranges (requires denormalized `teacherId` on ClassSession — deferred; see #33).
-- [ ] Automated meeting provisioning (Zoom/Meet/Teams APIs) — also listed under Future backlog; manual `meetingUrl` only for MVP.
+- [x] Google Meet create/update/delete + `meetingDescription` (Calendar event id persisted; Zoom/Teams auto still Future).
 - [x] UI for weekly generate (`ClassGenerationDialog` → `POST /groups/:id/classes/generate`).
 - [ ] Browser E2E (Playwright/Cypress) — out of unit/API smoke scope.
 ### Acceptance criteria — core met; stage not complete
@@ -264,8 +264,8 @@ Track payments and settlements using the academy's **configurable** revenue spli
 - Charge / Payment / RevenueAllocation / TeacherSettlement.
 - ONE_TO_ONE_60|90 → Charge per ClassSession; GROUP_120 → Charge per Enrollment
   + monthly period (**auto-charge on ClassSession create/generate and on enroll**).
-- Course list price: `amountMinor` + `currency` ∈ {ARS, USD}; snapshot on Charge.
-- ARS → Mercado Pago; USD → Stripe; MANUAL for authorized admin ops.
+- Course list price: `amountMinor` + `currency` ∈ {ARS, USD, EUR}; snapshot on Charge.
+- ARS → Mercado Pago; USD/EUR → Stripe; MANUAL for authorized admin ops.
 - 1 Payment → 1 Charge; integer `floor` rounding; total refund + reversal only.
 - No automated payout; no FX; no partial refunds; no chargebacks; no ledger /
   invoices / taxes; no FinanceAuditLog in MVP.
@@ -291,7 +291,7 @@ Track payments and settlements using the academy's **configurable** revenue spli
 ### TODO — Stage 6C (Finance UI)
 - [x] `/dashboard/finance` wired to API (settings, lists, MANUAL succeed, refund, mark-paid).
 - [x] `/dashboard/finance/students/[id]` + `/dashboard/finance/teachers/[id]`.
-- [ ] Student/Teacher hubs finance surfaces (Stages 7–8).
+- [x] Student/Teacher hubs finance surfaces — `/dashboard/student/finance` + `/dashboard/teacher/earnings` (Stages 7–8).
 
 ### TODO — Stage 6D (Auto-charge) — DONE
 - [x] Unique indexes: one Charge per ClassSession; one per Enrollment+period.
@@ -520,7 +520,7 @@ estados loading/vacío/error.
 | Teacher Hub         | Operable (8)                                               |
 | Teacher Earnings    | Operable (scoped allocations/settlements)                  |
 | Membership          | Operable (UI planes)                                       |
-| MP/Stripe           | Stub checkout + webhook (no live SDK)                      |
+| MP/Stripe           | Live when credentials set; stub checkout + webhook otherwise |
 
 ### Pendiente (post-MVP hub)
 - [ ] Progress / analytics.
@@ -572,11 +572,11 @@ SEO/accessibility baselines already exist. This stage deepens them.
 - [ ] TLS termination and the reverse proxy in front of the stack (ops on DigitalOcean).
 - [ ] Privacy/security documentation (personal data inventory, retention).
 
-## Online courses (async LMS) — Fases 1–3 base
+## Online courses (async LMS) — Fases 1–3 base — MVP DONE
 
 Distinct from live `Course` → `Group` → `ClassSession`. Uses `OnlineCourse*` models + `online_courses` permissions.
 
-### Done
+### Done (MVP base — free enroll + admin + viewer)
 - [x] Audit: do not reuse Enrollment/Group; new OnlineCourseAccess; Charge FKs optional for future paid flow.
 - [x] Prisma migration `20261016010000_online_courses` + shared Zod contracts + `online_courses` permission catalog.
 - [x] Domain: CRUD, modules/lessons reorder, assets (TEXT/LINK/VIDEO/DOCUMENT upload), access, progress LINEAR/OPEN, quiz, submissions.
@@ -584,18 +584,21 @@ Distinct from live `Course` → `Group` → `ClassSession`. Uses `OnlineCourse*`
 - [x] Web: `/dashboard/online-courses*`, `/cursos` (catálogo), `/cursos/[slug]`, `/dashboard/student/courses*`.
 - [x] Browser client: `listPublicOnlineCoursesBrowser` + detalle/aula/admin existentes.
 - [x] Tests: `online-courses.test.ts` (create/publish, access, enroll-free, progress, LINEAR, quiz strip, public filter, permissions); `online-course-media.test.ts` (precio, embeds, contenido pendiente).
+- [x] OpenAPI paths for online courses (admin / public / student).
+- [x] Sitemap enumeration of published `/cursos/[slug]` (catálogo `/cursos` + slugs PUBLISHED).
+- [x] Integration test against real PostgreSQL (publish → enroll-free → progress).
+- [x] Seed Spanish2Go estructura: `npm run db:seed:spanish2go` importa taller (5/5) + Mis 4 amigos (11/40) en DRAFT desde `_research_out/spanish2go_migration/*.json`. Sin URLs de assets (0% contenido interno). Precio EUR se persiste en `FinanceCurrency` (ARS|USD|EUR). Gap residual: autora requiere Teacher FK (no bloquea cierre MVP).
 
-### Pending / known limits
-- [ ] OpenAPI paths for online courses.
+### Post-MVP / known limits
 - [ ] Paid self-serve checkout: Charge/Payment for online courses + grant access on `succeedPayment` (today: admin grant or free enroll; paid CTA is contact-only).
 - [ ] `succeedPayment` still requires Group.teacherId — needs OnlineCourse.authorTeacherId resolution before paid charges.
 - [ ] Quiz admin UI is a single SINGLE_CHOICE question editor (API supports full upsert).
 - [ ] Certificates, ratings, analytics, advanced course duplication (Fase 4).
 - [ ] Video file upload/transcoding (VIDEO is external HTTPS URL; DOCUMENT reuses Material MIME allowlist — no video MIME).
-- [ ] Sitemap enumeration of published `/cursos/[slug]` (catálogo `/cursos` ya está en sitemap).
-- [ ] Integration tests against real PostgreSQL for online courses.
-- [x] Seed Spanish2Go estructura: `npm run db:seed:spanish2go` importa taller (5/5) + Mis 4 amigos (11/40) en DRAFT desde `_research_out/spanish2go_migration/*.json`. Sin URLs de assets (0% contenido interno). Gaps: precio EUR no cabe en FinanceCurrency (ARS|USD); autora requiere Teacher FK.
 - [ ] Carga real de materiales Spanish2Go (vídeos/PDF/quizzes) cuando haya acceso legítimo a uTeach o exportación oficial.
+
+### MVP closure acceptance (Stages 0–8 + LMS free enroll)
+- [x] Smoke de aceptación ejecutado (2026-10-16): `npm run smoke` OK — SuperAdmin login, finance settings/lists, auto-charge ONE_TO_ONE → student checkout PENDING, Student Hub, Teacher Hub + earnings, logout. Integration PG online courses (publish → enroll-free → progress) OK (`./scripts/test-integration.sh`, 58 tests). OpenAPI online-courses paths + sitemap `/cursos/[slug]` verificados. Checkout pago LMS y Stage 9 ops quedan post-MVP.
 
 ## Future backlog
 
@@ -609,5 +612,5 @@ These must remain visible in the roadmap but are not MVP:
 - [ ] Automated payouts.
 - [ ] Advanced CRM.
 - [ ] Advanced certification.
-- [ ] Automated meeting provisioning (Google Meet API / Zoom API) — `meetingUrl` remains manual; notifications use the link loaded by hand.
+- [ ] Automated Zoom meeting provisioning (Google Meet create/update/delete + description already shipped).
 - [ ] Advanced analytics.

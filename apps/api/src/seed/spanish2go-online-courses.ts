@@ -11,6 +11,10 @@
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import {
+  isFinanceCurrency,
+  type FinanceCurrency,
+} from '@academia/shared';
 import { logger } from '../lib/logger.js';
 import type { Database } from '../lib/prisma.js';
 
@@ -108,6 +112,42 @@ function countPendingAssets(modules: JsonModule[]): number {
   return count;
 }
 
+/** Major-unit number → integer minor units (2 decimal places). */
+function priceMajorToAmountMinor(price: number): bigint | null {
+  if (!Number.isFinite(price) || price < 0) return null;
+  return BigInt(Math.round(price * 100));
+}
+
+function resolveJsonListPrice(course: JsonCourseFile['course']): {
+  amountMinor: bigint | null;
+  currency: FinanceCurrency | null;
+  note: string | null;
+} {
+  if (
+    course.price === null ||
+    course.price === undefined ||
+    !course.currency
+  ) {
+    return { amountMinor: null, currency: null, note: null };
+  }
+  if (!isFinanceCurrency(course.currency)) {
+    return {
+      amountMinor: null,
+      currency: null,
+      note: `JSON price ${course.price} ${course.currency} not stored: unsupported FinanceCurrency.`,
+    };
+  }
+  const amountMinor = priceMajorToAmountMinor(course.price);
+  if (amountMinor === null) {
+    return {
+      amountMinor: null,
+      currency: null,
+      note: `JSON price ${course.price} ${course.currency} not stored: invalid amount.`,
+    };
+  }
+  return { amountMinor, currency: course.currency, note: null };
+}
+
 async function upsertCourseStructure(
   database: Database,
   data: JsonCourseFile,
@@ -124,12 +164,8 @@ async function upsertCourseStructure(
   const benefits = course.benefits ?? [];
   const bonus = course.bonus ?? [];
 
-  const commercialPriceNote =
-    course.price !== null &&
-    course.price !== undefined &&
-    course.currency
-      ? `JSON price ${course.price} ${course.currency} not stored: FinanceCurrency only allows ARS|USD (no EUR).`
-      : null;
+  const listPrice = resolveJsonListPrice(course);
+  const commercialPriceNote = listPrice.note;
   const authorNote = course.author
     ? `Author "${course.author}" not linked: OnlineCourse.authorTeacherId requires a Teacher row (no free-text author field).`
     : null;
@@ -169,8 +205,8 @@ async function upsertCourseStructure(
         status: 'DRAFT',
         accessMode: 'OPEN',
         certificateEnabled: false,
-        amountMinor: null,
-        currency: null,
+        amountMinor: listPrice.amountMinor,
+        currency: listPrice.currency,
         authorTeacherId: null,
         coverImageUrl: null,
         isActive: true,

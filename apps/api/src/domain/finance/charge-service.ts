@@ -1,4 +1,4 @@
-import type { CourseServiceType } from '@academia/shared';
+import type { CourseServiceType, FinanceCurrency } from '@academia/shared';
 import { FinanceConflictError, FinanceValidationError } from './finance-errors.js';
 import type { FinanceStore } from './finance-store.js';
 import type { ChargeRecord } from './finance-types.js';
@@ -8,7 +8,7 @@ function assertPricedCourse(context: {
   courseCurrency: string | null;
 }): asserts context is {
   courseAmountMinor: bigint;
-  courseCurrency: 'ARS' | 'USD';
+  courseCurrency: FinanceCurrency;
 } {
   if (context.courseAmountMinor === null || context.courseCurrency === null) {
     throw new FinanceValidationError(

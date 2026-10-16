@@ -82,8 +82,79 @@ import {
   updateScheduleOptionRequestSchema,
   updateStudentRequestSchema,
   updateTeacherRequestSchema,
+  onlineCourseListResponseSchema,
+  onlineCourseResponseSchema,
+  createOnlineCourseRequestSchema,
+  updateOnlineCourseRequestSchema,
+  onlineCourseModuleSchema,
+  createOnlineCourseModuleRequestSchema,
+  updateOnlineCourseModuleRequestSchema,
+  reorderOnlineCourseModulesRequestSchema,
+  onlineLessonSchema,
+  createOnlineLessonRequestSchema,
+  updateOnlineLessonRequestSchema,
+  reorderOnlineLessonsRequestSchema,
+  onlineLessonAssetSchema,
+  createOnlineLessonAssetRequestSchema,
+  createOnlineLessonAssetUploadRequestSchema,
+  onlineLessonAssetUploadResponseSchema,
+  updateOnlineLessonAssetRequestSchema,
+  onlineLessonAssetDownloadResponseSchema,
+  onlineCourseAccessSchema,
+  grantOnlineCourseAccessRequestSchema,
+  onlineLessonProgressSchema,
+  updateOnlineLessonProgressRequestSchema,
+  publicOnlineCourseListResponseSchema,
+  publicOnlineCourseResponseSchema,
+  studentOnlineCourseOutlineSchema,
+  studentOnlineLessonDetailSchema,
+  onlineQuizPublicSchema,
+  onlineQuizAdminSchema,
+  upsertOnlineQuizRequestSchema,
+  submitOnlineQuizRequestSchema,
+  onlineQuizAttemptResultSchema,
+  createOnlineLessonSubmissionRequestSchema,
+  onlineLessonSubmissionSchema,
 } from '@academia/shared';
+import { z } from 'zod';
 import { zodToOpenApiSchema } from './zod-json-schema.js';
+
+const onlineCourseModuleListResponseSchema = z.object({
+  modules: z.array(onlineCourseModuleSchema),
+});
+const onlineCourseModuleResponseSchema = z.object({
+  module: onlineCourseModuleSchema,
+});
+const onlineLessonListResponseSchema = z.object({
+  lessons: z.array(onlineLessonSchema),
+});
+const onlineLessonResponseSchema = z.object({
+  lesson: onlineLessonSchema,
+});
+const onlineLessonAssetListResponseSchema = z.object({
+  assets: z.array(onlineLessonAssetSchema),
+});
+const onlineLessonAssetResponseSchema = z.object({
+  asset: onlineLessonAssetSchema,
+});
+const onlineCourseAccessResponseSchema = z.object({
+  access: onlineCourseAccessSchema,
+});
+const onlineLessonProgressResponseSchema = z.object({
+  progress: onlineLessonProgressSchema,
+});
+const onlineQuizAdminResponseSchema = z.object({
+  quiz: onlineQuizAdminSchema,
+});
+const onlineQuizPublicResponseSchema = z.object({
+  quiz: onlineQuizPublicSchema,
+});
+const onlineLessonSubmissionListResponseSchema = z.object({
+  submissions: z.array(onlineLessonSubmissionSchema),
+});
+const onlineLessonSubmissionResponseSchema = z.object({
+  submission: onlineLessonSubmissionSchema,
+});
 
 const errorEnvelope = {
   type: 'object',
@@ -238,6 +309,91 @@ export const openApiComponents = {
     ),
     FinanceWebhookRequest: zodToOpenApiSchema(financeWebhookRequestSchema),
     FinanceWebhookResponse: zodToOpenApiSchema(financeWebhookResponseSchema),
+    OnlineCourseListResponse: zodToOpenApiSchema(onlineCourseListResponseSchema),
+    OnlineCourseResponse: zodToOpenApiSchema(onlineCourseResponseSchema),
+    CreateOnlineCourseRequest: zodToOpenApiSchema(createOnlineCourseRequestSchema),
+    UpdateOnlineCourseRequest: zodToOpenApiSchema(updateOnlineCourseRequestSchema),
+    OnlineCourseModuleListResponse: zodToOpenApiSchema(
+      onlineCourseModuleListResponseSchema,
+    ),
+    OnlineCourseModuleResponse: zodToOpenApiSchema(
+      onlineCourseModuleResponseSchema,
+    ),
+    CreateOnlineCourseModuleRequest: zodToOpenApiSchema(
+      createOnlineCourseModuleRequestSchema,
+    ),
+    UpdateOnlineCourseModuleRequest: zodToOpenApiSchema(
+      updateOnlineCourseModuleRequestSchema,
+    ),
+    ReorderOnlineCourseModulesRequest: zodToOpenApiSchema(
+      reorderOnlineCourseModulesRequestSchema,
+    ),
+    OnlineLessonListResponse: zodToOpenApiSchema(onlineLessonListResponseSchema),
+    OnlineLessonResponse: zodToOpenApiSchema(onlineLessonResponseSchema),
+    CreateOnlineLessonRequest: zodToOpenApiSchema(createOnlineLessonRequestSchema),
+    UpdateOnlineLessonRequest: zodToOpenApiSchema(updateOnlineLessonRequestSchema),
+    ReorderOnlineLessonsRequest: zodToOpenApiSchema(
+      reorderOnlineLessonsRequestSchema,
+    ),
+    OnlineLessonAssetListResponse: zodToOpenApiSchema(
+      onlineLessonAssetListResponseSchema,
+    ),
+    OnlineLessonAssetResponse: zodToOpenApiSchema(
+      onlineLessonAssetResponseSchema,
+    ),
+    CreateOnlineLessonAssetRequest: zodToOpenApiSchema(
+      createOnlineLessonAssetRequestSchema,
+    ),
+    CreateOnlineLessonAssetUploadRequest: zodToOpenApiSchema(
+      createOnlineLessonAssetUploadRequestSchema,
+    ),
+    OnlineLessonAssetUploadResponse: zodToOpenApiSchema(
+      onlineLessonAssetUploadResponseSchema,
+    ),
+    UpdateOnlineLessonAssetRequest: zodToOpenApiSchema(
+      updateOnlineLessonAssetRequestSchema,
+    ),
+    OnlineLessonAssetDownloadResponse: zodToOpenApiSchema(
+      onlineLessonAssetDownloadResponseSchema,
+    ),
+    OnlineCourseAccessResponse: zodToOpenApiSchema(
+      onlineCourseAccessResponseSchema,
+    ),
+    GrantOnlineCourseAccessRequest: zodToOpenApiSchema(
+      grantOnlineCourseAccessRequestSchema,
+    ),
+    OnlineLessonProgressResponse: zodToOpenApiSchema(
+      onlineLessonProgressResponseSchema,
+    ),
+    UpdateOnlineLessonProgressRequest: zodToOpenApiSchema(
+      updateOnlineLessonProgressRequestSchema,
+    ),
+    PublicOnlineCourseListResponse: zodToOpenApiSchema(
+      publicOnlineCourseListResponseSchema,
+    ),
+    PublicOnlineCourseResponse: zodToOpenApiSchema(
+      publicOnlineCourseResponseSchema,
+    ),
+    StudentOnlineCourseOutline: zodToOpenApiSchema(
+      studentOnlineCourseOutlineSchema,
+    ),
+    StudentOnlineLessonDetail: zodToOpenApiSchema(
+      studentOnlineLessonDetailSchema,
+    ),
+    OnlineQuizAdminResponse: zodToOpenApiSchema(onlineQuizAdminResponseSchema),
+    OnlineQuizPublicResponse: zodToOpenApiSchema(onlineQuizPublicResponseSchema),
+    UpsertOnlineQuizRequest: zodToOpenApiSchema(upsertOnlineQuizRequestSchema),
+    SubmitOnlineQuizRequest: zodToOpenApiSchema(submitOnlineQuizRequestSchema),
+    OnlineQuizAttemptResult: zodToOpenApiSchema(onlineQuizAttemptResultSchema),
+    CreateOnlineLessonSubmissionRequest: zodToOpenApiSchema(
+      createOnlineLessonSubmissionRequestSchema,
+    ),
+    OnlineLessonSubmissionListResponse: zodToOpenApiSchema(
+      onlineLessonSubmissionListResponseSchema,
+    ),
+    OnlineLessonSubmissionResponse: zodToOpenApiSchema(
+      onlineLessonSubmissionResponseSchema,
+    ),
     ErrorEnvelope: errorEnvelope,
   },
 } as const;

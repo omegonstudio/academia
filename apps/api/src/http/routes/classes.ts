@@ -61,8 +61,11 @@ import {
 import type { StudentStore } from '../../domain/students/student-service.js';
 import type { TeacherStore } from '../../domain/teachers/teacher-service.js';
 import {
+  assertMeetingStartNotInPast,
+  GoogleMeetApiError,
   GoogleMeetCreateError,
   GoogleMeetNotConfiguredError,
+  GoogleMeetPastStartError,
   type GoogleMeetService,
 } from '../../domain/classes/google-meet-service.js';
 import { runAutoChargeForClassSession } from '../../domain/finance/auto-charge-runner.js';
@@ -70,6 +73,7 @@ import type { FinanceStore } from '../../domain/finance/finance-store.js';
 import type { NotificationAudienceResolver } from '../../domain/notifications/notification-audience.js';
 import { notifyClassMeetingLink } from '../../domain/notifications/notification-hooks.js';
 import type { NotificationPublisher } from '../../domain/notifications/notification-types.js';
+import { logger } from '../../lib/logger.js';
 import {
   BadRequestError,
   ConflictError,
@@ -179,42 +183,65 @@ async function maybeNotifyMeetingLink(
   });
 }
 
-async function resolveMeetingUrlWithGoogleMeet(
+async function createGoogleMeetForSession(
   googleMeet: GoogleMeetService | undefined,
   academy: AcademyBusinessConfig,
-  classSession: { startAt: string; endAt: string },
-  createGoogleMeet: boolean | undefined,
-  meetingUrl: string | null | undefined,
-): Promise<string | null | undefined> {
-  if (!createGoogleMeet) {
-    return meetingUrl;
-  }
+  classSession: {
+    startAt: string;
+    endAt: string;
+    meetingDescription: string | null;
+  },
+): Promise<{ meetingUrl: string; eventId: string }> {
   if (!googleMeet?.isConfigured()) {
     throw new BadRequestError(
       'Google Meet is not configured on this server.',
     );
   }
   try {
-    const meet = await googleMeet.createMeeting({
+    return await googleMeet.createMeeting({
       summary: 'Clase Academia',
-      description: 'Enlace generado automáticamente desde Academia.',
+      description: classSession.meetingDescription ?? '',
       startAtIso: classSession.startAt,
       endAtIso: classSession.endAt,
       timeZone: academy.businessTimezone,
     });
-    return meet.meetingUrl;
   } catch (error) {
     if (error instanceof GoogleMeetNotConfiguredError) {
       throw new BadRequestError(
         'Google Meet is not configured on this server.',
       );
     }
-    if (error instanceof GoogleMeetCreateError) {
+    if (error instanceof GoogleMeetPastStartError) {
+      throw new BadRequestError(
+        'Cannot create a Google Meet for a class that starts in the past.',
+      );
+    }
+    if (
+      error instanceof GoogleMeetCreateError ||
+      error instanceof GoogleMeetApiError
+    ) {
       throw new BadRequestError(
         'Could not create a Google Meet link for this class.',
       );
     }
     throw error;
+  }
+}
+
+/** Best-effort Calendar sync — never fails the local class mutation. */
+async function syncGoogleMeetBestEffort(
+  googleMeet: GoogleMeetService | undefined,
+  action: () => Promise<void>,
+  context: Record<string, unknown>,
+): Promise<void> {
+  if (!googleMeet?.isConfigured()) return;
+  try {
+    await action();
+  } catch (error) {
+    logger.warn(
+      { err: error, ...context },
+      'Google Meet Calendar sync failed (best-effort)',
+    );
   }
 }
 
@@ -339,6 +366,26 @@ export function createClassSessionsRouter({
         }
         const { createGoogleMeet, meetingUrl: requestedMeetingUrl, ...rest } =
           parsed.data;
+
+        // Fail closed before insert for predictable client errors (no orphan).
+        if (createGoogleMeet) {
+          if (!googleMeet?.isConfigured()) {
+            throw new BadRequestError(
+              'Google Meet is not configured on this server.',
+            );
+          }
+          try {
+            assertMeetingStartNotInPast(rest.startAt);
+          } catch (error) {
+            if (error instanceof GoogleMeetPastStartError) {
+              throw new BadRequestError(
+                'Cannot create a Google Meet for a class that starts in the past.',
+              );
+            }
+            throw error;
+          }
+        }
+
         let classSession = await createClassSession(
           classSessions,
           {
@@ -349,20 +396,34 @@ export function createClassSessionsRouter({
           },
           actor,
         );
+        let meetCreationFailed = false;
         if (createGoogleMeet) {
-          const meetingUrl = await resolveMeetingUrlWithGoogleMeet(
-            googleMeet,
-            academy,
-            classSession,
-            true,
-            undefined,
-          );
-          classSession = await updateClassSession(
-            classSessions,
-            classSession.id,
-            { meetingUrl: meetingUrl ?? null },
-            actor,
-          );
+          try {
+            const meet = await createGoogleMeetForSession(
+              googleMeet,
+              academy,
+              classSession,
+            );
+            classSession = await updateClassSession(
+              classSessions,
+              classSession.id,
+              {
+                meetingUrl: meet.meetingUrl,
+                googleCalendarEventId: meet.eventId,
+              },
+              actor,
+            );
+          } catch (error) {
+            meetCreationFailed = true;
+            logger.warn(
+              {
+                err: error,
+                classSessionId: classSession.id,
+                action: 'create',
+              },
+              'Google Meet create failed after class insert; class kept for retry',
+            );
+          }
         }
         if (finance) {
           await runAutoChargeForClassSession(finance, {
@@ -371,7 +432,10 @@ export function createClassSessionsRouter({
           });
         }
         await maybeNotifyMeetingLink(notifications, audience, classSession);
-        const body: ClassSessionResponse = { classSession };
+        const body: ClassSessionResponse = {
+          classSession,
+          ...(meetCreationFailed ? { meetCreationFailed: true } : {}),
+        };
         res.status(201).json(body);
       } catch (error) {
         if (error instanceof ClassSessionForbiddenError) {
@@ -451,35 +515,121 @@ export function createClassSessionsRouter({
         const parsed = updateClassSessionRequestSchema.safeParse(req.body);
         if (!parsed.success) {
           throw new BadRequestError(
-            'Provide at least one of startAt, isActive, meetingUrl, or createGoogleMeet.',
+            'Provide at least one of startAt, isActive, meetingUrl, meetingDescription, createGoogleMeet, or removeGoogleMeet.',
           );
         }
-        const { createGoogleMeet, ...patchInput } = parsed.data;
+        const {
+          createGoogleMeet,
+          removeGoogleMeet,
+          ...patchInput
+        } = parsed.data;
         const existing = await classSessions.findById(id);
+        if (!existing) {
+          throw new ClassSessionNotFoundError();
+        }
         const previousMeetingUrl =
-          parsed.data.meetingUrl !== undefined || createGoogleMeet
-            ? (existing?.meetingUrl ?? null)
+          parsed.data.meetingUrl !== undefined ||
+          createGoogleMeet ||
+          removeGoogleMeet
+            ? existing.meetingUrl
             : undefined;
+
+        const clearMeetFields =
+          removeGoogleMeet === true ||
+          (parsed.data.meetingUrl === null &&
+            existing.googleCalendarEventId !== null);
+
+        if (clearMeetFields) {
+          if (existing.googleCalendarEventId) {
+            await syncGoogleMeetBestEffort(
+              googleMeet,
+              () =>
+                googleMeet!.deleteMeeting({
+                  eventId: existing.googleCalendarEventId!,
+                }),
+              { classSessionId: id, action: 'delete' },
+            );
+          }
+          // Clear local link fields (manual URL and/or Calendar-backed Meet).
+          // meetingDescription is intentionally left untouched.
+          patchInput.meetingUrl = null;
+          patchInput.googleCalendarEventId = null;
+        }
 
         let classSession =
           Object.keys(patchInput).length > 0
             ? await updateClassSession(classSessions, id, patchInput, actor)
             : await getClassSession(classSessions, id, { mode: 'all' });
 
-        if (createGoogleMeet) {
-          const meetingUrl = await resolveMeetingUrlWithGoogleMeet(
+        if (
+          createGoogleMeet &&
+          !classSession.googleCalendarEventId
+        ) {
+          const meet = await createGoogleMeetForSession(
             googleMeet,
             academy,
             classSession,
-            true,
-            undefined,
           );
           classSession = await updateClassSession(
             classSessions,
             id,
-            { meetingUrl: meetingUrl ?? null },
+            {
+              meetingUrl: meet.meetingUrl,
+              googleCalendarEventId: meet.eventId,
+            },
             actor,
           );
+        } else if (
+          classSession.googleCalendarEventId &&
+          (parsed.data.startAt !== undefined ||
+            parsed.data.meetingDescription !== undefined)
+        ) {
+          const eventId = classSession.googleCalendarEventId;
+          await syncGoogleMeetBestEffort(
+            googleMeet,
+            () =>
+              googleMeet!.updateMeeting({
+                eventId,
+                ...(parsed.data.meetingDescription !== undefined
+                  ? {
+                      description: classSession.meetingDescription ?? '',
+                    }
+                  : {}),
+                ...(parsed.data.startAt !== undefined
+                  ? {
+                      startAtIso: classSession.startAt,
+                      endAtIso: classSession.endAt,
+                      timeZone: academy.businessTimezone,
+                    }
+                  : {}),
+              }),
+            { classSessionId: id, action: 'update' },
+          );
+        }
+
+        if (
+          parsed.data.isActive === false &&
+          existing.googleCalendarEventId
+        ) {
+          await syncGoogleMeetBestEffort(
+            googleMeet,
+            () =>
+              googleMeet!.deleteMeeting({
+                eventId: existing.googleCalendarEventId!,
+              }),
+            { classSessionId: id, action: 'delete-inactive' },
+          );
+          if (classSession.googleCalendarEventId) {
+            classSession = await updateClassSession(
+              classSessions,
+              id,
+              {
+                meetingUrl: null,
+                googleCalendarEventId: null,
+              },
+              actor,
+            );
+          }
         }
 
         await maybeNotifyMeetingLink(
@@ -528,11 +678,34 @@ export function createClassSessionsRouter({
           throw new ForbiddenError();
         }
 
-        const classSession = await deleteClassSession(
+        const existing = await classSessions.findById(id);
+        if (existing?.googleCalendarEventId) {
+          await syncGoogleMeetBestEffort(
+            googleMeet,
+            () =>
+              googleMeet!.deleteMeeting({
+                eventId: existing.googleCalendarEventId!,
+              }),
+            { classSessionId: id, action: 'delete-soft' },
+          );
+        }
+
+        let classSession = await deleteClassSession(
           classSessions,
           id,
           actor,
         );
+        if (existing?.googleCalendarEventId || existing?.meetingUrl) {
+          classSession = await updateClassSession(
+            classSessions,
+            id,
+            {
+              meetingUrl: null,
+              googleCalendarEventId: null,
+            },
+            actor,
+          );
+        }
         const body: ClassSessionResponse = { classSession };
         res.status(200).json(body);
       } catch (error) {

@@ -902,14 +902,14 @@ decision closes that timing and the commercial model without changing #41.
   snapshot. Later Course price changes do not rewrite existing Charges.
 
 ### Course price
-- One current price per Course: `amountMinor` + `currency` ∈ {`ARS`, `USD`}.
+- One current price per Course: `amountMinor` + `currency` ∈ {`ARS`, `USD`, `EUR`}.
 - No simultaneous multi-currency list prices; no FX; no separate price-history
   entity (the Charge snapshot is enough).
 
 ### Provider routing
-- `ARS` → Mercado Pago; `USD` → Stripe; `MANUAL` for authorized administrative
-  operations.
-- `ARS`→Stripe and `USD`→Mercado Pago are **invalid** in MVP (no conversion).
+- `ARS` → Mercado Pago; `USD` / `EUR` → Stripe; `MANUAL` for authorized
+  administrative operations.
+- `ARS`→Stripe and `USD`/`EUR`→Mercado Pago are **invalid** in MVP (no conversion).
 
 ### Cardinality
 - MVP: **1 Payment → 1 Charge**. A Charge is `PAID` only when its Payment is
@@ -963,7 +963,7 @@ without split, settlements, or admin metadata (`createdByUserId`,
 
 **Checkout (same decision family):** `POST /students/me/finance/charges/:chargeId/pay`
 starts a Payment PENDING for an owned OPEN Charge. Provider is
-`providerForCurrency` (ARS→MP, USD→Stripe stubs). MANUAL remains admin-only.
+`providerForCurrency` (ARS→MP, USD/EUR→Stripe stubs). MANUAL remains admin-only.
 Idempotency uses `student-checkout:{studentId}:{chargeId}` plus re-entry on
 existing PENDING. SUCCEEDED + RevenueAllocation only via existing webhook stubs.
 
@@ -1016,8 +1016,31 @@ rewriting finance flows. MANUAL remains admin-only.
 
 ---
 
-## 49. Meeting links stay manual (Meet/Zoom API deferred)
+## 49. Meeting links: Google Meet CRUD + manual URL; Zoom deferred
 
-**Decision.** `ClassSession.meetingUrl` remains a manual https URL. Automated
-Google Meet / Zoom provisioning is Future backlog. Notifications fire when a
-human sets the link.
+**Decision.** `ClassSession.meetingUrl` may be a manual https URL **or**
+provisioned via Google Calendar Meet when `GOOGLE_MEET_*` credentials are set.
+
+Google Meet lifecycle (when configured):
+- **Create** — `createGoogleMeet: true` on POST/PATCH `/classes` creates a
+  Calendar event with Meet, stores `meetingUrl` + `googleCalendarEventId`, and
+  uses optional `meetingDescription` (plain text + URLs) as the event
+  description. Preflight rejects unconfigured Meet / past `startAt` **before**
+  insert. If Calendar create fails **after** insert, POST still returns **201**
+  with `meetCreationFailed: true` and the saved `classSession` (no Meet fields);
+  the client must open that class and retry via PATCH `createGoogleMeet` (do not
+  POST another class for the same slot).
+- **Update** — PATCH `startAt` and/or `meetingDescription` with an existing
+  `googleCalendarEventId` syncs the Calendar event (best-effort; local class
+  mutation still succeeds if Google fails).
+- **Delete** — `removeGoogleMeet: true` **always** clears `meetingUrl` +
+  `googleCalendarEventId` locally (including manual URLs without an event id).
+  Calendar DELETE runs only when `googleCalendarEventId` is present (best-effort).
+  Soft-delete / `isActive: false` likewise delete Calendar when an event id
+  exists and clear Meet link fields; `meetingDescription` may be kept for
+  re-create.
+
+Notifications still fire when `meetingUrl` is newly set.
+
+**Zoom** automated provisioning remains Future backlog (manual Zoom https URLs
+are already valid via `meetingUrl`).

@@ -39,7 +39,7 @@ export function splitAmountMinor(
   return { academyAmountMinor, teacherAmountMinor };
 }
 
-export const FINANCE_CURRENCIES = ['ARS', 'USD'] as const;
+export const FINANCE_CURRENCIES = ['ARS', 'USD', 'EUR'] as const;
 export type FinanceCurrency = (typeof FINANCE_CURRENCIES)[number];
 export const financeCurrencySchema = z.enum(FINANCE_CURRENCIES);
 
@@ -47,7 +47,7 @@ export function isFinanceCurrency(value: string): value is FinanceCurrency {
   return (FINANCE_CURRENCIES as readonly string[]).includes(value);
 }
 
-/** Provider routing (#44): ARS→MP, USD→Stripe. MANUAL is admin-only. */
+/** Provider routing (#44): ARS→MP; USD/EUR→Stripe. MANUAL is admin-only. */
 export const PAYMENT_PROVIDERS = ['MERCADOPAGO', 'STRIPE', 'MANUAL'] as const;
 export type PaymentProvider = (typeof PAYMENT_PROVIDERS)[number];
 export const paymentProviderSchema = z.enum(PAYMENT_PROVIDERS);
@@ -58,7 +58,7 @@ export function providerForCurrency(
   return currency === 'ARS' ? 'MERCADOPAGO' : 'STRIPE';
 }
 
-/** Invalid MVP routings: ARS→Stripe, USD→Mercado Pago. */
+/** Invalid MVP routings: ARS→Stripe; USD/EUR→Mercado Pago. */
 export function isValidProviderCurrencyPair(
   provider: PaymentProvider,
   currency: FinanceCurrency,

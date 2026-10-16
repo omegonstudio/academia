@@ -30,6 +30,7 @@ import { createInMemoryScheduleOptionStore } from '../domain/schedules/in-memory
 import type { InMemoryScheduleOptionStore } from '../domain/schedules/in-memory-schedule-option-store.js';
 import { createInMemoryClassSessionStore } from '../domain/classes/in-memory-class-session-store.js';
 import type { InMemoryClassSessionStore } from '../domain/classes/in-memory-class-session-store.js';
+import type { GoogleMeetService } from '../domain/classes/google-meet-service.js';
 import { createInMemoryAttendanceStore } from '../domain/attendance/in-memory-attendance-store.js';
 import type { InMemoryAttendanceStore } from '../domain/attendance/in-memory-attendance-store.js';
 import { createInMemoryClassNoteStore } from '../domain/class-notes/in-memory-class-note-store.js';
@@ -66,6 +67,8 @@ export interface TestAppOptions {
   databaseReachable?: boolean;
   configurationIssues?: string[];
   docsEnabled?: boolean;
+  /** Optional mock for Google Meet / Calendar route tests. */
+  googleMeet?: GoogleMeetService;
 }
 
 export interface InMemoryRoleProvisionStore extends RoleProvisionStore {
@@ -279,6 +282,7 @@ export async function buildTestApp({
   databaseReachable = true,
   configurationIssues = [],
   docsEnabled = true,
+  googleMeet,
 }: TestAppOptions = {}): Promise<TestApp> {
   const users = createInMemoryUserRepository();
   const directors = createInMemoryRoleProvisionStore(users, 'DIRECTOR');
@@ -639,6 +643,7 @@ export async function buildTestApp({
       academy: { businessTimezone: DEFAULT_ACADEMY_TIMEZONE },
       permissionGrants,
       finance,
+      googleMeet,
     },
     materials: {
       authenticate: authOptions,
@@ -681,6 +686,7 @@ export async function buildTestApp({
     emailTemplates: {
       authenticate: authOptions,
       emailTemplates: emailTemplateStore,
+      googleMeet,
     },
     docsEnabled,
   });

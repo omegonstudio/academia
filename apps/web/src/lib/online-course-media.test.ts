@@ -40,6 +40,7 @@ describe('formatOnlineCoursePrice', () => {
   it('formats major units with currency', () => {
     expect(formatOnlineCoursePrice('150000', 'ARS')).toBe('ARS 1500');
     expect(formatOnlineCoursePrice('150050', 'USD')).toBe('USD 1500,50');
+    expect(formatOnlineCoursePrice('9950', 'EUR')).toBe('EUR 99,50');
   });
 });
 

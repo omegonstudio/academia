@@ -189,6 +189,9 @@ export function createInMemoryClassSessionStore(deps?: {
         startAt: new Date(input.startAt),
         endAt: new Date(input.endAt),
         meetingUrl: input.meetingUrl,
+        googleCalendarEventId: input.googleCalendarEventId,
+        zoomMeetingId: input.zoomMeetingId,
+        meetingDescription: input.meetingDescription,
         isActive: input.isActive,
         createdAt: now,
         updatedAt: now,
@@ -235,6 +238,18 @@ export function createInMemoryClassSessionStore(deps?: {
           patch.meetingUrl !== undefined
             ? patch.meetingUrl
             : current.meetingUrl,
+        googleCalendarEventId:
+          patch.googleCalendarEventId !== undefined
+            ? patch.googleCalendarEventId
+            : current.googleCalendarEventId,
+        zoomMeetingId:
+          patch.zoomMeetingId !== undefined
+            ? patch.zoomMeetingId
+            : current.zoomMeetingId,
+        meetingDescription:
+          patch.meetingDescription !== undefined
+            ? patch.meetingDescription
+            : current.meetingDescription,
         isActive: patch.isActive ?? current.isActive,
         updatedAt: new Date(),
       };

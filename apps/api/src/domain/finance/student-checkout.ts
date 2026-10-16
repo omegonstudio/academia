@@ -20,7 +20,7 @@ export interface StudentCheckoutResult {
 /**
  * Student-initiated checkout for an owned OPEN Charge.
  *
- * Provider is derived from currency (ARS→MP, USD→Stripe). MANUAL is never
+ * Provider is derived from currency (ARS→MP, USD/EUR→Stripe). MANUAL is never
  * used here — that path remains admin-only.
  *
  * Idempotency: deterministic key `student-checkout:{studentId}:{chargeId}` plus

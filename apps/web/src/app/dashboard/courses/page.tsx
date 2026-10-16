@@ -3,8 +3,17 @@
 import Link from 'next/link'
 import { useCallback, useEffect, useState } from 'react'
 import { BookOpen, Plus, Search } from 'lucide-react'
-import type { Course, CourseServiceType, CourseType } from '@academia/shared'
-import { COURSE_SERVICE_TYPES, COURSE_TYPES } from '@academia/shared'
+import type {
+  Course,
+  CourseServiceType,
+  CourseType,
+  FinanceCurrency,
+} from '@academia/shared'
+import {
+  COURSE_SERVICE_TYPES,
+  COURSE_TYPES,
+  FINANCE_CURRENCIES,
+} from '@academia/shared'
 import { DashboardShell, PageHeader } from '@/components/dashboard-shell'
 import {
   Alert,
@@ -39,7 +48,7 @@ function CourseForm({
     courseType: '' as '' | CourseType,
     serviceType: '' as '' | CourseServiceType,
     price: '',
-    currency: 'ARS' as 'ARS' | 'USD',
+    currency: 'ARS' as FinanceCurrency,
   })
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
@@ -218,11 +227,14 @@ function CourseForm({
                 id="course-currency"
                 value={form.currency}
                 onChange={(event) =>
-                  update('currency', event.target.value as 'ARS' | 'USD')
+                  update('currency', event.target.value as FinanceCurrency)
                 }
               >
-                <option value="ARS">ARS</option>
-                <option value="USD">USD</option>
+                {FINANCE_CURRENCIES.map((code) => (
+                  <option key={code} value={code}>
+                    {code}
+                  </option>
+                ))}
               </Select>
             </Field>
           </div>

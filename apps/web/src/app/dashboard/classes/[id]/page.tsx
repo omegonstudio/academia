@@ -47,6 +47,7 @@ import {
   deleteClassSessionNoteBrowser,
   getClassSessionBrowser,
   getCourseBrowser,
+  getGoogleMeetStatusBrowser,
   getGroupBrowser,
   getTeacherBrowser,
   listClassSessionAttendanceBrowser,
@@ -106,7 +107,11 @@ export default function ClassDetailPage({
   const [editForm, setEditForm] = useState({
     datetimeLocal: '',
     meetingUrl: '',
+    meetingDescription: '',
+    createGoogleMeet: false,
+    removeGoogleMeet: false,
   })
+  const [meetConfigured, setMeetConfigured] = useState(false)
   const [attendanceBusyId, setAttendanceBusyId] = useState<string | null>(null)
   const [noteDraft, setNoteDraft] = useState('')
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null)
@@ -135,13 +140,22 @@ export default function ClassDetailPage({
     setEditForm({
       datetimeLocal: isoToAcademyDatetimeLocalValue(classSession.startAt),
       meetingUrl: classSession.meetingUrl ?? '',
+      meetingDescription: classSession.meetingDescription ?? '',
+      createGoogleMeet: false,
+      removeGoogleMeet: false,
     })
 
-    const [groupResult, attendanceResult, notesResult] = await Promise.all([
+    const [groupResult, attendanceResult, notesResult, meetStatus] =
+      await Promise.all([
       getGroupBrowser(classSession.groupId),
       listClassSessionAttendanceBrowser(classSession.id),
       listClassSessionNotesBrowser(classSession.id),
+      getGoogleMeetStatusBrowser(),
     ])
+
+    if (meetStatus.ok) {
+      setMeetConfigured(meetStatus.data.configured)
+    }
 
     if (groupResult.ok) {
       setGroup(groupResult.data)
@@ -228,15 +242,38 @@ export default function ClassDetailPage({
     }
 
     const meetingUrl = editForm.meetingUrl.trim()
-    if (meetingUrl && !/^https:\/\//i.test(meetingUrl)) {
+    if (
+      !editForm.createGoogleMeet &&
+      !editForm.removeGoogleMeet &&
+      meetingUrl &&
+      !/^https:\/\//i.test(meetingUrl)
+    ) {
       setSaving(false)
       setError('El enlace de videollamada debe comenzar con https://')
       return
     }
+    if (editForm.createGoogleMeet && !meetConfigured) {
+      setSaving(false)
+      setError('Google Meet no está configurado en el servidor.')
+      return
+    }
+    if (editForm.createGoogleMeet && new Date(startAt).getTime() < Date.now()) {
+      setSaving(false)
+      setError('No se puede crear un Meet para una clase en el pasado.')
+      return
+    }
 
+    const description = editForm.meetingDescription.trim()
     const result = await updateClassSessionBrowser(session.id, {
       startAt,
-      meetingUrl: meetingUrl ? meetingUrl : null,
+      meetingDescription: description ? description : null,
+      ...(editForm.removeGoogleMeet
+        ? { removeGoogleMeet: true }
+        : editForm.createGoogleMeet
+          ? { createGoogleMeet: true }
+          : {
+              meetingUrl: meetingUrl ? meetingUrl : null,
+            }),
     })
     setSaving(false)
     if (!result.ok) {
@@ -247,6 +284,9 @@ export default function ClassDetailPage({
     setEditForm({
       datetimeLocal: isoToAcademyDatetimeLocalValue(result.data.startAt),
       meetingUrl: result.data.meetingUrl ?? '',
+      meetingDescription: result.data.meetingDescription ?? '',
+      createGoogleMeet: false,
+      removeGoogleMeet: false,
     })
     setEditing(false)
     setSuccess('Clase actualizada correctamente.')
@@ -457,23 +497,112 @@ export default function ClassDetailPage({
                 />
               </Field>
               <Field
-                label="Enlace de videollamada"
-                htmlFor="class-edit-meeting"
-                hint="Dejá vacío para quitar el enlace"
+                label="Descripción del Meet"
+                htmlFor="class-edit-meet-description"
+                hint="Este texto aparece en la descripción del evento de Google Calendar (podés pegar URLs)."
               >
-                <Input
-                  id="class-edit-meeting"
-                  type="url"
-                  placeholder="https://..."
-                  value={editForm.meetingUrl}
+                <Textarea
+                  id="class-edit-meet-description"
+                  rows={4}
+                  maxLength={4000}
+                  value={editForm.meetingDescription}
                   onChange={(event) =>
                     setEditForm((current) => ({
                       ...current,
-                      meetingUrl: event.target.value,
+                      meetingDescription: event.target.value,
                     }))
                   }
                 />
               </Field>
+              {session.googleCalendarEventId || session.meetingUrl ? (
+                <Field
+                  label="Google Meet"
+                  htmlFor="class-edit-remove-meet"
+                  hint={
+                    session.googleCalendarEventId
+                      ? 'Quita el evento de Google Calendar y limpia el enlace (conserva la descripción).'
+                      : 'Limpia el enlace de videollamada.'
+                  }
+                >
+                  <label
+                    htmlFor="class-edit-remove-meet"
+                    className="flex cursor-pointer items-start gap-3 rounded-xl border border-border bg-surface-muted/30 px-3 py-3 text-sm"
+                  >
+                    <input
+                      id="class-edit-remove-meet"
+                      type="checkbox"
+                      className="mt-0.5 size-4 accent-primary"
+                      checked={editForm.removeGoogleMeet}
+                      onChange={(event) =>
+                        setEditForm((current) => ({
+                          ...current,
+                          removeGoogleMeet: event.target.checked,
+                          createGoogleMeet: false,
+                          meetingUrl: event.target.checked
+                            ? ''
+                            : current.meetingUrl,
+                        }))
+                      }
+                    />
+                    <span className="font-medium text-foreground">
+                      Quitar Meet / enlace de Google
+                    </span>
+                  </label>
+                </Field>
+              ) : null}
+              {!editForm.removeGoogleMeet &&
+                !session.googleCalendarEventId &&
+                meetConfigured && (
+                  <Field
+                    label="Crear Google Meet"
+                    htmlFor="class-edit-create-meet"
+                    hint="Crea un evento en Google Calendar con enlace Meet para esta clase."
+                  >
+                    <label
+                      htmlFor="class-edit-create-meet"
+                      className="flex cursor-pointer items-start gap-3 rounded-xl border border-border bg-surface-muted/30 px-3 py-3 text-sm"
+                    >
+                      <input
+                        id="class-edit-create-meet"
+                        type="checkbox"
+                        className="mt-0.5 size-4 accent-primary"
+                        checked={editForm.createGoogleMeet}
+                        onChange={(event) =>
+                          setEditForm((current) => ({
+                            ...current,
+                            createGoogleMeet: event.target.checked,
+                            meetingUrl: event.target.checked
+                              ? ''
+                              : current.meetingUrl,
+                          }))
+                        }
+                      />
+                      <span className="font-medium text-foreground">
+                        Generar enlace de Google Meet
+                      </span>
+                    </label>
+                  </Field>
+                )}
+              {!editForm.createGoogleMeet && !editForm.removeGoogleMeet && (
+                <Field
+                  label="Enlace de videollamada"
+                  htmlFor="class-edit-meeting"
+                  hint="Dejá vacío para quitar el enlace"
+                >
+                  <Input
+                    id="class-edit-meeting"
+                    type="url"
+                    placeholder="https://..."
+                    value={editForm.meetingUrl}
+                    onChange={(event) =>
+                      setEditForm((current) => ({
+                        ...current,
+                        meetingUrl: event.target.value,
+                      }))
+                    }
+                  />
+                </Field>
+              )}
               <div className="flex flex-wrap gap-2">
                 <Button onClick={() => void saveEdits()} disabled={saving}>
                   {saving ? 'Guardando…' : 'Guardar cambios'}
@@ -497,27 +626,39 @@ export default function ClassDetailPage({
               </div>
             </div>
           ) : (
-            <div className="mt-8 grid gap-5 sm:grid-cols-2">
-              <Info
-                icon={CalendarDays}
-                label="Horario"
-                value={formatClassScheduleLabel(
-                  session.startAt,
-                  session.endAt,
-                )}
-              />
-              <Info
-                icon={Users}
-                label="Modalidad"
-                value={`${courseServiceTypeLabels[session.serviceType]} · ${session.durationMinutes} min`}
-              />
-              <Info icon={UserRound} label="Profesor" value={teacherLabel} />
-              <Info
-                icon={MapPin}
-                label="Grupo"
-                value={group?.name ?? session.groupId}
-              />
-            </div>
+            <>
+              <div className="mt-8 grid gap-5 sm:grid-cols-2">
+                <Info
+                  icon={CalendarDays}
+                  label="Horario"
+                  value={formatClassScheduleLabel(
+                    session.startAt,
+                    session.endAt,
+                  )}
+                />
+                <Info
+                  icon={Users}
+                  label="Modalidad"
+                  value={`${courseServiceTypeLabels[session.serviceType]} · ${session.durationMinutes} min`}
+                />
+                <Info icon={UserRound} label="Profesor" value={teacherLabel} />
+                <Info
+                  icon={MapPin}
+                  label="Grupo"
+                  value={group?.name ?? session.groupId}
+                />
+              </div>
+              {session.meetingDescription ? (
+                <div className="mt-6 rounded-xl border border-border bg-surface-muted/30 p-4">
+                  <p className="text-xs font-medium text-muted-foreground">
+                    Descripción del Meet
+                  </p>
+                  <p className="mt-2 whitespace-pre-wrap text-sm text-foreground">
+                    {session.meetingDescription}
+                  </p>
+                </div>
+              ) : null}
+            </>
           )}
         </Card>
 

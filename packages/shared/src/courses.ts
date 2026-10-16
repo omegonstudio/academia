@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { courseTypeSchema } from './course-types.js';
+import { financeCurrencySchema } from './finance.js';
 import {
   courseServiceTypeSchema,
   durationMinutesForServiceType,
@@ -19,7 +20,7 @@ export const courseSchema = z.object({
   durationMinutes: z.union([z.literal(60), z.literal(90), z.literal(120)]),
   /** List price minor units (#44). Null until priced. */
   amountMinor: z.string().regex(/^\d+$/).nullable(),
-  currency: z.enum(['ARS', 'USD']).nullable(),
+  currency: financeCurrencySchema.nullable(),
   isActive: z.boolean(),
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),
@@ -46,7 +47,7 @@ export const createCourseRequestSchema = z
     courseType: courseTypeSchema,
     serviceType: courseServiceTypeSchema,
     amountMinor: z.string().regex(/^\d+$/).optional(),
-    currency: z.enum(['ARS', 'USD']).optional(),
+    currency: financeCurrencySchema.optional(),
     isActive: z.boolean().optional(),
   })
   .refine(
@@ -64,7 +65,7 @@ export const updateCourseRequestSchema = z
     courseType: courseTypeSchema.optional(),
     serviceType: courseServiceTypeSchema.optional(),
     amountMinor: z.string().regex(/^\d+$/).nullable().optional(),
-    currency: z.enum(['ARS', 'USD']).nullable().optional(),
+    currency: financeCurrencySchema.nullable().optional(),
     isActive: z.boolean().optional(),
   })
   .refine(

@@ -17,7 +17,7 @@ Legend:
 | ------ | ----------- | ------------------------------------------------------------------ |
 | `[x]`  | `/`         | Landing one-page. Anchors `#cursos`, `#metodo`, `#academia`, `#contacto`. Enlace a `/cursos` (catálogo LMS). |
 | `[x]`  | `/cursos` | Catálogo público de cursos online (`GET /public/online-courses`). Solo PUBLISHED + isActive. En sitemap. |
-| `[x]`  | `/cursos/[slug]` | Landing pública de curso online (`GET /public/online-courses/:slug`). No está en `privateRoutePrefixes`. Sitemap de slugs individuales pendiente. |
+| `[x]`  | `/cursos/[slug]` | Landing pública de curso online (`GET /public/online-courses/:slug`). No está en `privateRoutePrefixes`. Slugs PUBLISHED+isActive enumerados en `sitemap.xml`. |
 | `[x]`  | —           | **Decisión producto (Fase 4):** no se restauran `/about`, `/courses`, `/teachers`, `/contact` como páginas; contenido en anchors de `/`. Catálogo LMS vive en `/cursos` (no en `/courses`). |
 
 Auth & shell: HttpOnly session (`GET /auth/me`). Módulos operativos del dashboard
@@ -102,9 +102,9 @@ cableados a API real (Fase 3). Sin DEV bypass. `lib/academy-data.ts` eliminado (
 | `[x]`  | `POST /groups/:id/students` | `requirePermission(groups, update)`. Enroll Student activo; máx. 15; sin auto-assignment Teacher. |
 | `[x]`  | `DELETE /groups/:id/students/:studentId` | `requirePermission(groups, update)`. Baja lógica del enrollment. |
 | `[x]`  | `GET /classes` | Auth. `classes.read` → todas; TEACHER → Groups propios; STUDENT → Groups con Enrollment activo. `?groupId=` opcional. |
-| `[x]`  | `POST /classes` | Auth. `classes.create` (admin) o TEACHER del Group. `groupId` + `startAt` + `meetingUrl?`; duración de Course.serviceType. Overlap → 409. |
-| `[x]`  | `GET /classes/:id` | Auth. Misma regla ownership que list; IDOR → 403. Incluye meetingUrl. |
-| `[x]`  | `PATCH /classes/:id` | Auth. `classes.update` (admin) o TEACHER del Group. `startAt` / `isActive` / `meetingUrl`. Overlap → 409 al reschedule. |
+| `[x]`  | `POST /classes` | Auth. `classes.create` (admin) o TEACHER del Group. `groupId` + `startAt` + `meetingUrl?` + `meetingDescription?` + `createGoogleMeet?`; duración de Course.serviceType. Overlap → 409. |
+| `[x]`  | `GET /classes/:id` | Auth. Misma regla ownership que list; IDOR → 403. Incluye meetingUrl, googleCalendarEventId, meetingDescription. |
+| `[x]`  | `PATCH /classes/:id` | Auth. `classes.update` (admin) o TEACHER del Group. `startAt` / `isActive` / `meetingUrl` / `meetingDescription` / `createGoogleMeet` / `removeGoogleMeet`. Overlap → 409 al reschedule. Soft-delete / remove Meet sync Calendar best-effort. |
 | `[x]`  | `DELETE /classes/:id` | Auth. `classes.delete` (admin) o TEACHER del Group. Baja lógica (`isActive=false`). |
 | `[x]`  | `POST /groups/:id/classes/generate` | `requirePermission(classes, create)` solamente (sin bypass por ownership de Teacher). `{ from, to }`; ScheduleOption + academy timezone; `generatedCount` / `skippedCount` / `conflictCount`; `meetingUrl=null`; `UNIQUE(groupId, startAt)`. |
 | `[x]`  | `GET /classes/calendar` | Auth. Mismo ownership que list; `?from&to` civil (academy timezone); active by `startAt`; nested group/course/teacher + meetingUrl; máx. 93 días. |
@@ -206,19 +206,19 @@ TODO:
 - [x] `/dashboard/calendar`
 
 Done:
-- ClassSession CRUD API (`/classes`; duration from serviceType; optional https `meetingUrl`; ScheduleOption required on Group).
-- Weekly generation `POST /groups/:id/classes/generate` (idempotent; conflictCount; `classes.create` only; UI deferred).
+- ClassSession CRUD API (`/classes`; duration from serviceType; optional https `meetingUrl`; Google Meet create/update/delete + `meetingDescription` when configured; ScheduleOption required on Group).
+- Weekly generation `POST /groups/:id/classes/generate` (idempotent; conflictCount; `classes.create` only; UI `ClassGenerationDialog` on `/dashboard/classes`).
 - Calendar API `GET /classes/calendar` + Calendar UI `/dashboard/calendar`.
 - Class Sessions UI: list + detail create/edit/soft-delete; Attendance + Notes panels on detail (API ownership).
 - Read + write ownership (Teacher of Group / active Enrollment; generate stays permission-gated).
 - Attendance + Class notes APIs + UI on `/dashboard/classes/[id]`.
 - Conflict detection; academy business timezone; `UNIQUE(groupId, startAt)`.
 
-TODO / deferred:
+TODO / deferred (post-MVP):
 - Broader RRULE / advanced recurrence.
 - Advanced timezones (per user/group).
 - GiST/EXCLUDE (see #33).
-- Automated meeting provisioning (Future backlog; manual URL only for MVP).
+- Automated Zoom provisioning (Future backlog; Google Meet CRUD shipped).
 
 ## Stage 5 — Materials
 
@@ -251,7 +251,7 @@ Storage: private S3-compatible bucket (MinIO dev / Spaces prod); short-lived sig
 
 ## Online courses (async)
 
-**API routes: DONE** (domain + HTTP). **Web UI: DONE** (admin + public + student viewer).
+**API routes: DONE** (domain + HTTP + OpenAPI). **Web UI: DONE** (admin + public + student viewer). **Sitemap:** `/cursos` + published `/cursos/[slug]`. **Paid checkout:** post-MVP.
 
 ### Public
 
@@ -312,7 +312,7 @@ Payment MANUAL still explicit).
 - [x] `/dashboard/finance/teachers/[id]` — teacher allocations/settlements
 - [x] Academy revenue-split settings on `/dashboard/finance` (SUPER_ADMIN/DIRECTOR PATCH)
 - [x] Auto-generated Charges appear on refresh (no frontend create button)
-- [ ] Student-facing finance hub (Stage 7)
+- [x] Student-facing finance hub (Stage 7) — `/dashboard/student/finance`
 - [x] Teacher-facing earnings hub (Stage 8) — `/dashboard/teacher/earnings`
 
 ### API (mounted)
@@ -324,7 +324,7 @@ Payment MANUAL still explicit).
 | `[x]` | `GET/POST /finance/payments`, succeed MANUAL, refunds | Freeze on SUCCEEDED |
 | `[x]` | `GET /finance/allocations` (+ `:id`) | read-only immutable |
 | `[x]` | `GET/POST /finance/settlements`, mark-paid | OPEN → MARKED_PAID |
-| `[x]` | `POST /finance/webhooks/mercado-pago\|stripe` | idempotent WebhookEvent; signature TODO |
+| `[x]` | `POST /finance/webhooks/mercado-pago\|stripe` | idempotent WebhookEvent; signature verified when provider webhook secrets are set |
 | `[x]` | `POST /classes` + generate | side-effect: auto Charge ONE_TO_ONE when priced + enrolled |
 | `[x]` | `POST /groups/:id/students` | side-effect: auto monthly Charge GROUP_120 |
 
@@ -332,7 +332,7 @@ Payment MANUAL still explicit).
 
 - Freeze on Payment SUCCEEDED → RevenueAllocation (#44).
 - ONE_TO_ONE → Charge per ClassSession; GROUP_120 → Charge per Enrollment + month.
-- ARS → MP; USD → Stripe; MANUAL admin; 1 Payment → 1 Charge.
+- ARS → MP; USD/EUR → Stripe; MANUAL admin; 1 Payment → 1 Charge.
 - Automated payouts, FX, partial refunds, chargebacks, ledger/invoices/taxes = future.
 
 ## Stage 7 — Student Experience
@@ -400,24 +400,22 @@ Payment MANUAL still explicit).
 
 ## Stage 9 — Production Hardening
 
-- [ ] Public SEO pages finalized
-- [ ] Sitemap
-- [ ] Robots
-- [ ] Structured data where justified
-- [ ] Accessibility audit
-- [ ] Security audit
-- [ ] Error monitoring
-- [ ] Backup/recovery
-- [ ] Observability
-- [ ] Production deployment
+**Baseline (Stage 0 + go-live slice): DONE** — `robots.txt`, `sitemap.xml` (incl. `/cursos` + published slugs), healthchecks, structured logging, CI/CD, Sentry optional, notifications, live MP/Stripe when credentials set, `docs/DEPLOY-CHECKLIST.md`.
+
+### Still open (post go-live / ops host)
+
+- [ ] Public SEO pages finalized (real content + structured data where justified)
+- [ ] Full accessibility audit (WCAG 2.2 AA / screen readers)
+- [ ] Full security / authorization-matrix review across all modules
+- [ ] Observability beyond Sentry (metrics, tracing, alerting)
+- [ ] Shared login-throttle store (multi-replica API)
+- [ ] Production host: scheduled backups, restore drill, TLS reverse proxy
+- [ ] First real SSH production deploy rehearsal (known Stage 0 limit)
 
 TODO:
-- Core Web Vitals.
-- WCAG 2.2 AA review.
-- Auth/session security review.
-- Authorization matrix review.
-- Privacy review.
-- Production environment checklist.
+- Core Web Vitals budgets.
+- Privacy/security documentation (data inventory, retention).
+- Automated axe checks in CI.
 
 ## Future — Explicitly Not MVP
 
@@ -430,5 +428,5 @@ TODO:
 - [ ] Automated teacher payouts
 - [ ] Advanced CRM
 - [ ] Advanced certification
-- [ ] Automated Zoom/Google Meet provisioning
+- [ ] Automated Zoom provisioning (Google Meet create/update/delete + description shipped)
 - [ ] Advanced analytics

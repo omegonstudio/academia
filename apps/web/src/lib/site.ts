@@ -20,8 +20,8 @@ export const site = {
  * separate crawlable pages.
  *
  * `/cursos` (catalog) and `/cursos/[slug]` are public LMS surfaces (not in
- * privateRoutePrefixes). Sitemap stays with `/` until we enumerate published
- * slugs server-side.
+ * privateRoutePrefixes). Published slugs are appended dynamically in
+ * `app/sitemap.ts` via `GET /public/online-courses`.
  */
 export const publicRoutes = [
   { path: '/', changeFrequency: 'monthly' as const, priority: 1 },
@@ -35,3 +35,43 @@ export const privateRoutePrefixes = [
   '/design-system',
   '/api',
 ] as const;
+
+/**
+ * Fetch published online-course slugs for the sitemap.
+ * Returns [] when the API is unreachable (build without API, offline, etc.).
+ */
+export async function listPublishedOnlineCourseSlugs(): Promise<string[]> {
+  const base =
+    process.env['API_INTERNAL_URL']?.replace(/\/$/, '') ??
+    'http://localhost:4000';
+  try {
+    const response = await fetch(`${base}/public/online-courses`, {
+      next: { revalidate: 3600 },
+    });
+    if (!response.ok) return [];
+    const body: unknown = await response.json();
+    if (
+      !body ||
+      typeof body !== 'object' ||
+      !('courses' in body) ||
+      !Array.isArray((body as { courses: unknown }).courses)
+    ) {
+      return [];
+    }
+    const slugs: string[] = [];
+    for (const course of (body as { courses: unknown[] }).courses) {
+      if (
+        course &&
+        typeof course === 'object' &&
+        'slug' in course &&
+        typeof (course as { slug: unknown }).slug === 'string' &&
+        (course as { slug: string }).slug.trim().length > 0
+      ) {
+        slugs.push((course as { slug: string }).slug.trim());
+      }
+    }
+    return slugs;
+  } catch {
+    return [];
+  }
+}

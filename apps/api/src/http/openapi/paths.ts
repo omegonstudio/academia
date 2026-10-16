@@ -392,7 +392,7 @@ export function buildOpenApiPaths(): Record<string, Record<string, Operation>> {
         tags: ['StudentHub'],
         summary: 'Start checkout for an owned OPEN charge',
         description:
-          'Session STUDENT only. Resolves Student from session, verifies Charge ownership and OPEN status, creates a PENDING Payment via the currency→provider stub (ARS→Mercado Pago, USD→Stripe). Never uses MANUAL. Idempotent: retries return the same PENDING Payment. Does not mark SUCCEEDED or create RevenueAllocation — that happens via provider webhook.',
+          'Session STUDENT only. Resolves Student from session, verifies Charge ownership and OPEN status, creates a PENDING Payment via the currency→provider stub (ARS→Mercado Pago, USD/EUR→Stripe). Never uses MANUAL. Idempotent: retries return the same PENDING Payment. Does not mark SUCCEEDED or create RevenueAllocation — that happens via provider webhook.',
         operationId: 'payStudentMeFinanceCharge',
         security: session,
         parameters: [
@@ -1595,7 +1595,7 @@ export function buildOpenApiPaths(): Record<string, Record<string, Operation>> {
             name: 'currency',
             in: 'query',
             required: false,
-            schema: { type: 'string', enum: ['ARS', 'USD'] },
+            schema: { type: 'string', enum: ['ARS', 'USD', 'EUR'] },
             description: 'Currency',
           },
         ],
@@ -1688,7 +1688,7 @@ export function buildOpenApiPaths(): Record<string, Record<string, Operation>> {
             name: 'currency',
             in: 'query',
             required: false,
-            schema: { type: 'string', enum: ['ARS', 'USD'] },
+            schema: { type: 'string', enum: ['ARS', 'USD', 'EUR'] },
             description: 'Currency',
           },
           {
@@ -1840,7 +1840,7 @@ export function buildOpenApiPaths(): Record<string, Record<string, Operation>> {
             name: 'currency',
             in: 'query',
             required: false,
-            schema: { type: 'string', enum: ['ARS', 'USD'] },
+            schema: { type: 'string', enum: ['ARS', 'USD', 'EUR'] },
             description: 'Currency',
           },
         ],
@@ -1905,7 +1905,7 @@ export function buildOpenApiPaths(): Record<string, Record<string, Operation>> {
             name: 'currency',
             in: 'query',
             required: false,
-            schema: { type: 'string', enum: ['ARS', 'USD'] },
+            schema: { type: 'string', enum: ['ARS', 'USD', 'EUR'] },
             description: 'Currency',
           },
         ],
@@ -1998,7 +1998,7 @@ export function buildOpenApiPaths(): Record<string, Record<string, Operation>> {
         summary: 'Mercado Pago webhook',
         description:
           'No session auth. Idempotent inbox via providerEventId. ' +
-          'TODO: provider signature verification when SDK/credentials are introduced.',
+          'Signature verified when Mercado Pago webhook secret is set; otherwise accepted for stub/dev.',
         operationId: 'mercadoPagoWebhook',
         requestBody: {
           required: true,
@@ -2021,7 +2021,7 @@ export function buildOpenApiPaths(): Record<string, Record<string, Operation>> {
         summary: 'Stripe webhook',
         description:
           'No session auth. Idempotent inbox via providerEventId. ' +
-          'TODO: provider signature verification when SDK/credentials are introduced.',
+          'Signature verified when Stripe webhook secret is set; otherwise accepted for stub/dev.',
         operationId: 'stripeWebhook',
         requestBody: {
           required: true,
@@ -2034,6 +2034,889 @@ export function buildOpenApiPaths(): Record<string, Record<string, Operation>> {
           },
           '400': error('Invalid body'),
           '409': error('Conflict'),
+        },
+      },
+    },
+
+    '/public/online-courses': {
+      get: {
+        tags: ['OnlineCourses'],
+        summary: 'Public online course catalogue',
+        description:
+          'No auth. Returns PUBLISHED + isActive courses only (card shape; no private asset URLs).',
+        operationId: 'listPublicOnlineCourses',
+        responses: {
+          '200': {
+            description: 'Catalogue',
+            ...jsonSchema('PublicOnlineCourseListResponse'),
+          },
+        },
+      },
+    },
+
+    '/public/online-courses/{slug}': {
+      get: {
+        tags: ['OnlineCourses'],
+        summary: 'Public online course landing',
+        description:
+          'No auth. Outline with titles + asset kinds only. Optional hasAccess when session present.',
+        operationId: 'getPublicOnlineCourse',
+        parameters: [idParam('slug', 'Course slug', 'string')],
+        responses: {
+          '200': {
+            description: 'Course landing',
+            ...jsonSchema('PublicOnlineCourseResponse'),
+          },
+          '404': error('Not found or not published'),
+        },
+      },
+    },
+
+    '/online-courses': {
+      get: {
+        tags: ['OnlineCourses'],
+        summary: 'List online courses (admin)',
+        description: '`requirePermission(online_courses, read)`.',
+        operationId: 'listOnlineCourses',
+        security: session,
+        responses: {
+          '200': {
+            description: 'List',
+            ...jsonSchema('OnlineCourseListResponse'),
+          },
+          '401': error('Unauthenticated'),
+          '403': error('Forbidden'),
+        },
+      },
+      post: {
+        tags: ['OnlineCourses'],
+        summary: 'Create online course',
+        description: '`requirePermission(online_courses, create)`. Starts as DRAFT.',
+        operationId: 'createOnlineCourse',
+        security: session,
+        requestBody: {
+          required: true,
+          ...jsonSchema('CreateOnlineCourseRequest'),
+        },
+        responses: {
+          '201': {
+            description: 'Created',
+            ...jsonSchema('OnlineCourseResponse'),
+          },
+          '400': error('Invalid body'),
+          '401': error('Unauthenticated'),
+          '403': error('Forbidden'),
+          '409': error('Slug conflict'),
+        },
+      },
+    },
+
+    '/online-courses/{id}': {
+      get: {
+        tags: ['OnlineCourses'],
+        summary: 'Get online course',
+        description: '`requirePermission(online_courses, read)`.',
+        operationId: 'getOnlineCourse',
+        security: session,
+        parameters: [idParam('id', 'OnlineCourse id')],
+        responses: {
+          '200': {
+            description: 'Course',
+            ...jsonSchema('OnlineCourseResponse'),
+          },
+          '401': error('Unauthenticated'),
+          '403': error('Forbidden'),
+          '404': error('Not found'),
+        },
+      },
+      patch: {
+        tags: ['OnlineCourses'],
+        summary: 'Update online course',
+        description: '`requirePermission(online_courses, update)`.',
+        operationId: 'updateOnlineCourse',
+        security: session,
+        parameters: [idParam('id', 'OnlineCourse id')],
+        requestBody: {
+          required: true,
+          ...jsonSchema('UpdateOnlineCourseRequest'),
+        },
+        responses: {
+          '200': {
+            description: 'Updated',
+            ...jsonSchema('OnlineCourseResponse'),
+          },
+          '400': error('Invalid body'),
+          '401': error('Unauthenticated'),
+          '403': error('Forbidden'),
+          '404': error('Not found'),
+          '409': error('Slug conflict'),
+        },
+      },
+      delete: {
+        tags: ['OnlineCourses'],
+        summary: 'Soft-delete online course',
+        description:
+          '`requirePermission(online_courses, delete)`. Sets isActive=false.',
+        operationId: 'deleteOnlineCourse',
+        security: session,
+        parameters: [idParam('id', 'OnlineCourse id')],
+        responses: {
+          '200': {
+            description: 'Soft-deleted',
+            ...jsonSchema('OnlineCourseResponse'),
+          },
+          '401': error('Unauthenticated'),
+          '403': error('Forbidden'),
+          '404': error('Not found'),
+        },
+      },
+    },
+
+    '/online-courses/{id}/publish': {
+      post: {
+        tags: ['OnlineCourses'],
+        summary: 'Publish online course',
+        description: '`requirePermission(online_courses, update)`. status → PUBLISHED.',
+        operationId: 'publishOnlineCourse',
+        security: session,
+        parameters: [idParam('id', 'OnlineCourse id')],
+        responses: {
+          '200': {
+            description: 'Published',
+            ...jsonSchema('OnlineCourseResponse'),
+          },
+          '401': error('Unauthenticated'),
+          '403': error('Forbidden'),
+          '404': error('Not found'),
+        },
+      },
+    },
+
+    '/online-courses/{id}/unpublish': {
+      post: {
+        tags: ['OnlineCourses'],
+        summary: 'Unpublish online course',
+        description: '`requirePermission(online_courses, update)`. status → DRAFT.',
+        operationId: 'unpublishOnlineCourse',
+        security: session,
+        parameters: [idParam('id', 'OnlineCourse id')],
+        responses: {
+          '200': {
+            description: 'Unpublished',
+            ...jsonSchema('OnlineCourseResponse'),
+          },
+          '401': error('Unauthenticated'),
+          '403': error('Forbidden'),
+          '404': error('Not found'),
+        },
+      },
+    },
+
+    '/online-courses/{id}/archive': {
+      post: {
+        tags: ['OnlineCourses'],
+        summary: 'Archive online course',
+        description: '`requirePermission(online_courses, update)`. status → ARCHIVED.',
+        operationId: 'archiveOnlineCourse',
+        security: session,
+        parameters: [idParam('id', 'OnlineCourse id')],
+        responses: {
+          '200': {
+            description: 'Archived',
+            ...jsonSchema('OnlineCourseResponse'),
+          },
+          '401': error('Unauthenticated'),
+          '403': error('Forbidden'),
+          '404': error('Not found'),
+        },
+      },
+    },
+
+    '/online-courses/{id}/preview': {
+      get: {
+        tags: ['OnlineCourses'],
+        summary: 'Preview student outline',
+        description:
+          '`requirePermission(online_courses, read)`. Student-like outline without granting access.',
+        operationId: 'previewOnlineCourse',
+        security: session,
+        parameters: [idParam('id', 'OnlineCourse id')],
+        responses: {
+          '200': {
+            description: 'Outline',
+            ...jsonSchema('StudentOnlineCourseOutline'),
+          },
+          '401': error('Unauthenticated'),
+          '403': error('Forbidden'),
+          '404': error('Not found'),
+        },
+      },
+    },
+
+    '/online-courses/{id}/modules': {
+      get: {
+        tags: ['OnlineCourses'],
+        summary: 'List modules',
+        description: '`requirePermission(online_courses, read)`.',
+        operationId: 'listOnlineCourseModules',
+        security: session,
+        parameters: [idParam('id', 'OnlineCourse id')],
+        responses: {
+          '200': {
+            description: 'Modules',
+            ...jsonSchema('OnlineCourseModuleListResponse'),
+          },
+          '401': error('Unauthenticated'),
+          '403': error('Forbidden'),
+          '404': error('Not found'),
+        },
+      },
+      post: {
+        tags: ['OnlineCourses'],
+        summary: 'Create module',
+        description: '`requirePermission(online_courses, update)`.',
+        operationId: 'createOnlineCourseModule',
+        security: session,
+        parameters: [idParam('id', 'OnlineCourse id')],
+        requestBody: {
+          required: true,
+          ...jsonSchema('CreateOnlineCourseModuleRequest'),
+        },
+        responses: {
+          '201': {
+            description: 'Created',
+            ...jsonSchema('OnlineCourseModuleResponse'),
+          },
+          '400': error('Invalid body'),
+          '401': error('Unauthenticated'),
+          '403': error('Forbidden'),
+          '404': error('Not found'),
+        },
+      },
+    },
+
+    '/online-courses/{id}/modules/reorder': {
+      post: {
+        tags: ['OnlineCourses'],
+        summary: 'Reorder modules',
+        description: '`requirePermission(online_courses, update)`.',
+        operationId: 'reorderOnlineCourseModules',
+        security: session,
+        parameters: [idParam('id', 'OnlineCourse id')],
+        requestBody: {
+          required: true,
+          ...jsonSchema('ReorderOnlineCourseModulesRequest'),
+        },
+        responses: {
+          '200': {
+            description: 'Reordered',
+            ...jsonSchema('OnlineCourseModuleListResponse'),
+          },
+          '400': error('Invalid body'),
+          '401': error('Unauthenticated'),
+          '403': error('Forbidden'),
+          '404': error('Not found'),
+        },
+      },
+    },
+
+    '/online-courses/{courseId}/modules/{moduleId}': {
+      patch: {
+        tags: ['OnlineCourses'],
+        summary: 'Update module',
+        description: '`requirePermission(online_courses, update)`.',
+        operationId: 'updateOnlineCourseModule',
+        security: session,
+        parameters: [
+          idParam('courseId', 'OnlineCourse id'),
+          idParam('moduleId', 'Module id'),
+        ],
+        requestBody: {
+          required: true,
+          ...jsonSchema('UpdateOnlineCourseModuleRequest'),
+        },
+        responses: {
+          '200': {
+            description: 'Updated',
+            ...jsonSchema('OnlineCourseModuleResponse'),
+          },
+          '400': error('Invalid body'),
+          '401': error('Unauthenticated'),
+          '403': error('Forbidden'),
+          '404': error('Not found'),
+        },
+      },
+    },
+
+    '/online-courses/{courseId}/modules/{moduleId}/lessons': {
+      get: {
+        tags: ['OnlineCourses'],
+        summary: 'List lessons',
+        description: '`requirePermission(online_courses, read)`.',
+        operationId: 'listOnlineLessons',
+        security: session,
+        parameters: [
+          idParam('courseId', 'OnlineCourse id'),
+          idParam('moduleId', 'Module id'),
+        ],
+        responses: {
+          '200': {
+            description: 'Lessons',
+            ...jsonSchema('OnlineLessonListResponse'),
+          },
+          '401': error('Unauthenticated'),
+          '403': error('Forbidden'),
+          '404': error('Not found'),
+        },
+      },
+      post: {
+        tags: ['OnlineCourses'],
+        summary: 'Create lesson',
+        description: '`requirePermission(online_courses, update)`.',
+        operationId: 'createOnlineLesson',
+        security: session,
+        parameters: [
+          idParam('courseId', 'OnlineCourse id'),
+          idParam('moduleId', 'Module id'),
+        ],
+        requestBody: {
+          required: true,
+          ...jsonSchema('CreateOnlineLessonRequest'),
+        },
+        responses: {
+          '201': {
+            description: 'Created',
+            ...jsonSchema('OnlineLessonResponse'),
+          },
+          '400': error('Invalid body'),
+          '401': error('Unauthenticated'),
+          '403': error('Forbidden'),
+          '404': error('Not found'),
+        },
+      },
+    },
+
+    '/online-courses/{courseId}/modules/{moduleId}/lessons/reorder': {
+      post: {
+        tags: ['OnlineCourses'],
+        summary: 'Reorder lessons',
+        description: '`requirePermission(online_courses, update)`.',
+        operationId: 'reorderOnlineLessons',
+        security: session,
+        parameters: [
+          idParam('courseId', 'OnlineCourse id'),
+          idParam('moduleId', 'Module id'),
+        ],
+        requestBody: {
+          required: true,
+          ...jsonSchema('ReorderOnlineLessonsRequest'),
+        },
+        responses: {
+          '200': {
+            description: 'Reordered',
+            ...jsonSchema('OnlineLessonListResponse'),
+          },
+          '400': error('Invalid body'),
+          '401': error('Unauthenticated'),
+          '403': error('Forbidden'),
+          '404': error('Not found'),
+        },
+      },
+    },
+
+    '/online-courses/{courseId}/modules/{moduleId}/lessons/{lessonId}': {
+      patch: {
+        tags: ['OnlineCourses'],
+        summary: 'Update lesson',
+        description: '`requirePermission(online_courses, update)`.',
+        operationId: 'updateOnlineLesson',
+        security: session,
+        parameters: [
+          idParam('courseId', 'OnlineCourse id'),
+          idParam('moduleId', 'Module id'),
+          idParam('lessonId', 'Lesson id'),
+        ],
+        requestBody: {
+          required: true,
+          ...jsonSchema('UpdateOnlineLessonRequest'),
+        },
+        responses: {
+          '200': {
+            description: 'Updated',
+            ...jsonSchema('OnlineLessonResponse'),
+          },
+          '400': error('Invalid body'),
+          '401': error('Unauthenticated'),
+          '403': error('Forbidden'),
+          '404': error('Not found'),
+        },
+      },
+    },
+
+    '/online-courses/lessons/{lessonId}/assets': {
+      get: {
+        tags: ['OnlineCourses'],
+        summary: 'List lesson assets',
+        description: '`requirePermission(online_courses, read)`.',
+        operationId: 'listOnlineLessonAssets',
+        security: session,
+        parameters: [idParam('lessonId', 'Lesson id')],
+        responses: {
+          '200': {
+            description: 'Assets',
+            ...jsonSchema('OnlineLessonAssetListResponse'),
+          },
+          '401': error('Unauthenticated'),
+          '403': error('Forbidden'),
+          '404': error('Not found'),
+        },
+      },
+      post: {
+        tags: ['OnlineCourses'],
+        summary: 'Create TEXT/LINK/VIDEO asset',
+        description: '`requirePermission(online_courses, update)`.',
+        operationId: 'createOnlineLessonAsset',
+        security: session,
+        parameters: [idParam('lessonId', 'Lesson id')],
+        requestBody: {
+          required: true,
+          ...jsonSchema('CreateOnlineLessonAssetRequest'),
+        },
+        responses: {
+          '201': {
+            description: 'Created',
+            ...jsonSchema('OnlineLessonAssetResponse'),
+          },
+          '400': error('Invalid body'),
+          '401': error('Unauthenticated'),
+          '403': error('Forbidden'),
+          '404': error('Not found'),
+        },
+      },
+    },
+
+    '/online-courses/lessons/{lessonId}/assets/uploads': {
+      post: {
+        tags: ['OnlineCourses'],
+        summary: 'DOCUMENT upload intent',
+        description:
+          '`requirePermission(online_courses, update)`. Returns PENDING asset + presigned PUT.',
+        operationId: 'createOnlineLessonAssetUpload',
+        security: session,
+        parameters: [idParam('lessonId', 'Lesson id')],
+        requestBody: {
+          required: true,
+          ...jsonSchema('CreateOnlineLessonAssetUploadRequest'),
+        },
+        responses: {
+          '201': {
+            description: 'Upload intent',
+            ...jsonSchema('OnlineLessonAssetUploadResponse'),
+          },
+          '400': error('Invalid body'),
+          '401': error('Unauthenticated'),
+          '403': error('Forbidden'),
+          '404': error('Not found'),
+        },
+      },
+    },
+
+    '/online-courses/assets/{assetId}/complete': {
+      post: {
+        tags: ['OnlineCourses'],
+        summary: 'Complete DOCUMENT upload',
+        description: '`requirePermission(online_courses, update)`. Verify object → READY.',
+        operationId: 'completeOnlineLessonAssetUpload',
+        security: session,
+        parameters: [idParam('assetId', 'Asset id')],
+        responses: {
+          '200': {
+            description: 'Ready',
+            ...jsonSchema('OnlineLessonAssetResponse'),
+          },
+          '401': error('Unauthenticated'),
+          '403': error('Forbidden'),
+          '404': error('Not found'),
+          '409': error('Invalid state'),
+        },
+      },
+    },
+
+    '/online-courses/assets/{assetId}': {
+      patch: {
+        tags: ['OnlineCourses'],
+        summary: 'Update asset metadata',
+        description: '`requirePermission(online_courses, update)`.',
+        operationId: 'updateOnlineLessonAsset',
+        security: session,
+        parameters: [idParam('assetId', 'Asset id')],
+        requestBody: {
+          required: true,
+          ...jsonSchema('UpdateOnlineLessonAssetRequest'),
+        },
+        responses: {
+          '200': {
+            description: 'Updated',
+            ...jsonSchema('OnlineLessonAssetResponse'),
+          },
+          '400': error('Invalid body'),
+          '401': error('Unauthenticated'),
+          '403': error('Forbidden'),
+          '404': error('Not found'),
+        },
+      },
+      delete: {
+        tags: ['OnlineCourses'],
+        summary: 'Soft-delete asset',
+        description: '`requirePermission(online_courses, update)`.',
+        operationId: 'deleteOnlineLessonAsset',
+        security: session,
+        parameters: [idParam('assetId', 'Asset id')],
+        responses: {
+          '204': { description: 'Soft-deleted' },
+          '401': error('Unauthenticated'),
+          '403': error('Forbidden'),
+          '404': error('Not found'),
+        },
+      },
+    },
+
+    '/online-courses/assets/{assetId}/download': {
+      get: {
+        tags: ['OnlineCourses'],
+        summary: 'Admin asset download',
+        description: '`requirePermission(online_courses, read)`. Signed GET or externalUrl.',
+        operationId: 'downloadOnlineLessonAssetAdmin',
+        security: session,
+        parameters: [idParam('assetId', 'Asset id')],
+        responses: {
+          '200': {
+            description: 'Download ref',
+            ...jsonSchema('OnlineLessonAssetDownloadResponse'),
+          },
+          '401': error('Unauthenticated'),
+          '403': error('Forbidden'),
+          '404': error('Not found'),
+        },
+      },
+    },
+
+    '/online-courses/lessons/{lessonId}/quiz': {
+      get: {
+        tags: ['OnlineCourses'],
+        summary: 'Get quiz (admin)',
+        description: '`requirePermission(online_courses, read)`. Includes correct answers.',
+        operationId: 'getOnlineLessonQuizAdmin',
+        security: session,
+        parameters: [idParam('lessonId', 'Lesson id')],
+        responses: {
+          '200': {
+            description: 'Quiz',
+            ...jsonSchema('OnlineQuizAdminResponse'),
+          },
+          '401': error('Unauthenticated'),
+          '403': error('Forbidden'),
+          '404': error('Not found'),
+        },
+      },
+      put: {
+        tags: ['OnlineCourses'],
+        summary: 'Upsert quiz (admin)',
+        description: '`requirePermission(online_courses, update)`.',
+        operationId: 'upsertOnlineLessonQuiz',
+        security: session,
+        parameters: [idParam('lessonId', 'Lesson id')],
+        requestBody: {
+          required: true,
+          ...jsonSchema('UpsertOnlineQuizRequest'),
+        },
+        responses: {
+          '200': {
+            description: 'Upserted',
+            ...jsonSchema('OnlineQuizAdminResponse'),
+          },
+          '400': error('Invalid body'),
+          '401': error('Unauthenticated'),
+          '403': error('Forbidden'),
+          '404': error('Not found'),
+        },
+      },
+    },
+
+    '/online-courses/{id}/access': {
+      post: {
+        tags: ['OnlineCourses'],
+        summary: 'Grant student access',
+        description: '`requirePermission(online_courses, update)`.',
+        operationId: 'grantOnlineCourseAccess',
+        security: session,
+        parameters: [idParam('id', 'OnlineCourse id')],
+        requestBody: {
+          required: true,
+          ...jsonSchema('GrantOnlineCourseAccessRequest'),
+        },
+        responses: {
+          '201': {
+            description: 'Granted',
+            ...jsonSchema('OnlineCourseAccessResponse'),
+          },
+          '400': error('Invalid body'),
+          '401': error('Unauthenticated'),
+          '403': error('Forbidden'),
+          '404': error('Not found'),
+        },
+      },
+    },
+
+    '/online-courses/{id}/access/{studentId}': {
+      delete: {
+        tags: ['OnlineCourses'],
+        summary: 'Revoke student access',
+        description: '`requirePermission(online_courses, update)`. Soft-revokes access.',
+        operationId: 'revokeOnlineCourseAccess',
+        security: session,
+        parameters: [
+          idParam('id', 'OnlineCourse id'),
+          idParam('studentId', 'Student id'),
+        ],
+        responses: {
+          '200': {
+            description: 'Revoked',
+            ...jsonSchema('OnlineCourseAccessResponse'),
+          },
+          '401': error('Unauthenticated'),
+          '403': error('Forbidden'),
+          '404': error('Not found'),
+        },
+      },
+    },
+
+    '/students/me/online-courses': {
+      get: {
+        tags: ['OnlineCourses', 'StudentHub'],
+        summary: 'My enrolled online courses',
+        description: 'Session STUDENT. Published courses with active access.',
+        operationId: 'listMyOnlineCourses',
+        security: session,
+        responses: {
+          '200': {
+            description: 'List',
+            ...jsonSchema('OnlineCourseListResponse'),
+          },
+          '401': error('Unauthenticated'),
+          '403': error('Forbidden'),
+        },
+      },
+    },
+
+    '/students/me/online-courses/{slug}': {
+      get: {
+        tags: ['OnlineCourses', 'StudentHub'],
+        summary: 'My course outline + progress',
+        description: 'Session STUDENT with active access. Includes LINEAR locks.',
+        operationId: 'getMyOnlineCourseOutline',
+        security: session,
+        parameters: [idParam('slug', 'Course slug', 'string')],
+        responses: {
+          '200': {
+            description: 'Outline',
+            ...jsonSchema('StudentOnlineCourseOutline'),
+          },
+          '401': error('Unauthenticated'),
+          '403': error('Forbidden / no access'),
+          '404': error('Not found'),
+        },
+      },
+    },
+
+    '/students/me/online-courses/{slug}/enroll-free': {
+      post: {
+        tags: ['OnlineCourses', 'StudentHub'],
+        summary: 'Free enroll',
+        description:
+          'Session STUDENT. Only free published courses (no Charge/Payment).',
+        operationId: 'enrollFreeOnlineCourse',
+        security: session,
+        parameters: [idParam('slug', 'Course slug', 'string')],
+        responses: {
+          '201': {
+            description: 'Enrolled',
+            ...jsonSchema('OnlineCourseAccessResponse'),
+          },
+          '400': error('Not free / not published'),
+          '401': error('Unauthenticated'),
+          '403': error('Forbidden'),
+          '404': error('Not found'),
+        },
+      },
+    },
+
+    '/students/me/online-courses/{slug}/lessons/{lessonId}': {
+      get: {
+        tags: ['OnlineCourses', 'StudentHub'],
+        summary: 'Lesson content',
+        description: 'Session STUDENT with access. 403 if LINEAR-locked.',
+        operationId: 'getMyOnlineLesson',
+        security: session,
+        parameters: [
+          idParam('slug', 'Course slug', 'string'),
+          idParam('lessonId', 'Lesson id'),
+        ],
+        responses: {
+          '200': {
+            description: 'Lesson detail',
+            ...jsonSchema('StudentOnlineLessonDetail'),
+          },
+          '401': error('Unauthenticated'),
+          '403': error('Forbidden / locked'),
+          '404': error('Not found'),
+        },
+      },
+    },
+
+    '/students/me/online-courses/{slug}/lessons/{lessonId}/progress': {
+      post: {
+        tags: ['OnlineCourses', 'StudentHub'],
+        summary: 'Update lesson progress',
+        description: 'Session STUDENT. status IN_PROGRESS | COMPLETED.',
+        operationId: 'updateMyOnlineLessonProgress',
+        security: session,
+        parameters: [
+          idParam('slug', 'Course slug', 'string'),
+          idParam('lessonId', 'Lesson id'),
+        ],
+        requestBody: {
+          required: true,
+          ...jsonSchema('UpdateOnlineLessonProgressRequest'),
+        },
+        responses: {
+          '200': {
+            description: 'Progress',
+            ...jsonSchema('OnlineLessonProgressResponse'),
+          },
+          '400': error('Invalid body'),
+          '401': error('Unauthenticated'),
+          '403': error('Forbidden'),
+          '404': error('Not found'),
+        },
+      },
+    },
+
+    '/students/me/online-courses/{slug}/lessons/{lessonId}/quiz': {
+      get: {
+        tags: ['OnlineCourses', 'StudentHub'],
+        summary: 'Get quiz (student)',
+        description: 'Session STUDENT. Public quiz (no correct answers).',
+        operationId: 'getMyOnlineLessonQuiz',
+        security: session,
+        parameters: [
+          idParam('slug', 'Course slug', 'string'),
+          idParam('lessonId', 'Lesson id'),
+        ],
+        responses: {
+          '200': {
+            description: 'Quiz',
+            ...jsonSchema('OnlineQuizPublicResponse'),
+          },
+          '401': error('Unauthenticated'),
+          '403': error('Forbidden'),
+          '404': error('Not found'),
+        },
+      },
+    },
+
+    '/students/me/online-courses/{slug}/lessons/{lessonId}/quiz/submit': {
+      post: {
+        tags: ['OnlineCourses', 'StudentHub'],
+        summary: 'Submit quiz attempt',
+        description: 'Session STUDENT.',
+        operationId: 'submitMyOnlineLessonQuiz',
+        security: session,
+        parameters: [
+          idParam('slug', 'Course slug', 'string'),
+          idParam('lessonId', 'Lesson id'),
+        ],
+        requestBody: {
+          required: true,
+          ...jsonSchema('SubmitOnlineQuizRequest'),
+        },
+        responses: {
+          '200': {
+            description: 'Result',
+            ...jsonSchema('OnlineQuizAttemptResult'),
+          },
+          '400': error('Invalid body'),
+          '401': error('Unauthenticated'),
+          '403': error('Forbidden'),
+          '404': error('Not found'),
+        },
+      },
+    },
+
+    '/students/me/online-courses/{slug}/lessons/{lessonId}/submissions': {
+      get: {
+        tags: ['OnlineCourses', 'StudentHub'],
+        summary: 'List my submissions',
+        description: 'Session STUDENT. Own text submissions only.',
+        operationId: 'listMyOnlineLessonSubmissions',
+        security: session,
+        parameters: [
+          idParam('slug', 'Course slug', 'string'),
+          idParam('lessonId', 'Lesson id'),
+        ],
+        responses: {
+          '200': {
+            description: 'Submissions',
+            ...jsonSchema('OnlineLessonSubmissionListResponse'),
+          },
+          '401': error('Unauthenticated'),
+          '403': error('Forbidden'),
+          '404': error('Not found'),
+        },
+      },
+      post: {
+        tags: ['OnlineCourses', 'StudentHub'],
+        summary: 'Create submission',
+        description: 'Session STUDENT.',
+        operationId: 'createMyOnlineLessonSubmission',
+        security: session,
+        parameters: [
+          idParam('slug', 'Course slug', 'string'),
+          idParam('lessonId', 'Lesson id'),
+        ],
+        requestBody: {
+          required: true,
+          ...jsonSchema('CreateOnlineLessonSubmissionRequest'),
+        },
+        responses: {
+          '201': {
+            description: 'Created',
+            ...jsonSchema('OnlineLessonSubmissionResponse'),
+          },
+          '400': error('Invalid body'),
+          '401': error('Unauthenticated'),
+          '403': error('Forbidden'),
+          '404': error('Not found'),
+        },
+      },
+    },
+
+    '/students/me/online-courses/assets/{assetId}/download': {
+      get: {
+        tags: ['OnlineCourses', 'StudentHub'],
+        summary: 'Student asset download',
+        description: 'Session STUDENT with entitled access. Signed GET or externalUrl.',
+        operationId: 'downloadMyOnlineLessonAsset',
+        security: session,
+        parameters: [idParam('assetId', 'Asset id')],
+        responses: {
+          '200': {
+            description: 'Download ref',
+            ...jsonSchema('OnlineLessonAssetDownloadResponse'),
+          },
+          '401': error('Unauthenticated'),
+          '403': error('Forbidden'),
+          '404': error('Not found'),
         },
       },
     },

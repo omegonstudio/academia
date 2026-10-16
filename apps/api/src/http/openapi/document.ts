@@ -53,9 +53,13 @@ export function buildOpenApiDocument(): OpenApiDocument {
         'is created with frozen `academyPercentage` and amounts; later settings changes',
         'do not rewrite frozen rows. **MANUAL** payments may be marked SUCCEEDED via',
         '`POST /finance/payments/{id}/succeed`; Mercado Pago / Stripe use webhooks.',
-        'Webhook endpoints accept no session cookie; **signature verification is TODO**',
-        'until provider credentials/SDKs are wired. Settlement status is `OPEN` →',
-        '`MARKED_PAID` (domain has no `OWED`).',
+        'Webhook endpoints accept no session cookie; **signature verification runs',
+        'when provider webhook secrets are set** (otherwise stub-friendly). Settlement',
+        'status is `OPEN` → `MARKED_PAID` (domain has no `OWED`).',
+        '',
+        '## Online courses (async LMS)',
+        'Separate from live Course/Group/ClassSession. Public catalogue, admin CRUD,',
+        'student free enroll + progress. Paid self-serve checkout is post-MVP.',
         '',
         '## Academy timezone',
         'Civil dates for calendar/generate use `ACADEMY_TIMEZONE` (IANA; default',
@@ -105,6 +109,11 @@ export function buildOpenApiDocument(): OpenApiDocument {
         name: 'Finance',
         description:
           'Settings, charges, payments, refunds, allocations, settlements, provider webhooks',
+      },
+      {
+        name: 'OnlineCourses',
+        description:
+          'Async LMS: admin CRUD, public catalogue, student enroll/progress',
       },
     ],
     paths: buildOpenApiPaths(),

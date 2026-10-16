@@ -25,6 +25,7 @@ Use this before the first (and every) deploy from `main` to DigitalOcean.
 - [ ] Spaces PROD bucket + keys (not MinIO sample keys).
 - [ ] Resend domain verified; `NOTIFICATIONS_ENABLED=true`.
 - [ ] (Optional) Google Meet: `GOOGLE_MEET_CLIENT_ID` / `_SECRET` / `_REFRESH_TOKEN` (+ Calendar API enabled).
+- [ ] (Optional) Zoom S2S (API host only): `ZOOM_ACCOUNT_ID` / `ZOOM_CLIENT_ID` / `ZOOM_CLIENT_SECRET` / `ZOOM_HOST_USER_ID` — leave empty until class-route wiring ships.
 - [ ] Mercado Pago + Stripe **live** tokens + webhook secrets pointing at:
   - `https://<prod>/api/finance/webhooks/mercado-pago`
   - `https://<prod>/api/finance/webhooks/stripe`

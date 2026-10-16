@@ -3,8 +3,12 @@
 import Link from 'next/link'
 import { useCallback, useEffect, useState } from 'react'
 import { BookOpen, Plus, Search } from 'lucide-react'
-import type { OnlineCourse, OnlineCourseAccessMode } from '@academia/shared'
-import { ONLINE_COURSE_ACCESS_MODES } from '@academia/shared'
+import type {
+  FinanceCurrency,
+  OnlineCourse,
+  OnlineCourseAccessMode,
+} from '@academia/shared'
+import { FINANCE_CURRENCIES, ONLINE_COURSE_ACCESS_MODES } from '@academia/shared'
 import { DashboardShell, PageHeader } from '@/components/dashboard-shell'
 import {
   Alert,
@@ -49,7 +53,7 @@ function CreateOnlineCourseForm({
     subtitle: '',
     description: '',
     price: '',
-    currency: 'ARS' as 'ARS' | 'USD',
+    currency: 'ARS' as FinanceCurrency,
     accessMode: 'OPEN' as OnlineCourseAccessMode,
   })
   const [error, setError] = useState('')
@@ -227,11 +231,14 @@ function CreateOnlineCourseForm({
                 id="oc-currency"
                 value={form.currency}
                 onChange={(event) =>
-                  update('currency', event.target.value as 'ARS' | 'USD')
+                  update('currency', event.target.value as FinanceCurrency)
                 }
               >
-                <option value="ARS">ARS</option>
-                <option value="USD">USD</option>
+                {FINANCE_CURRENCIES.map((code) => (
+                  <option key={code} value={code}>
+                    {code}
+                  </option>
+                ))}
               </Select>
             </Field>
           </div>

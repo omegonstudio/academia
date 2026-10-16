@@ -207,6 +207,7 @@ export {
   classSessionCalendarEventSchema,
   classSessionCalendarResponseSchema,
   meetingUrlSchema,
+  meetingDescriptionSchema,
   type ClassSession,
   type ClassSessionListResponse,
   type ClassSessionResponse,
@@ -218,6 +219,7 @@ export {
   type ClassSessionCalendarEvent,
   type ClassSessionCalendarResponse,
   type MeetingUrl,
+  type MeetingDescription,
 } from './class-sessions.js';
 export {
   ATTENDANCE_STATUSES,

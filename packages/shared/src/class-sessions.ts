@@ -17,6 +17,10 @@ export const meetingUrlSchema = z
 
 export type MeetingUrl = z.infer<typeof meetingUrlSchema>;
 
+/** Plain-text Meet/Calendar description (may include URLs). */
+export const meetingDescriptionSchema = z.string().trim().max(4000);
+export type MeetingDescription = z.infer<typeof meetingDescriptionSchema>;
+
 /**
  * Concrete class occurrence for a Group.
  * Duration is derived from Group → Course.serviceType (not persisted).
@@ -31,6 +35,12 @@ export const classSessionSchema = z.object({
   scheduleOptionId: z.string().uuid().nullable(),
   teacherId: z.string().uuid().nullable(),
   meetingUrl: meetingUrlSchema.nullable(),
+  /** Google Calendar event id when Meet was provisioned by the API. */
+  googleCalendarEventId: z.string().max(1024).nullable(),
+  /** Zoom meeting id when Zoom was provisioned by the API. */
+  zoomMeetingId: z.string().max(255).nullable(),
+  /** Text sent to the Google Calendar / Meet event description. */
+  meetingDescription: meetingDescriptionSchema.nullable(),
   isActive: z.boolean(),
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),
@@ -48,6 +58,12 @@ export type ClassSessionListResponse = z.infer<
 
 export const classSessionResponseSchema = z.object({
   classSession: classSessionSchema,
+  /**
+   * Present on POST /classes when the class was persisted but Google Meet
+   * provisioning failed. Client should open the class and retry via PATCH
+   * `createGoogleMeet` (do not create a second class).
+   */
+  meetCreationFailed: z.boolean().optional(),
 });
 
 export type ClassSessionResponse = z.infer<typeof classSessionResponseSchema>;
@@ -58,6 +74,7 @@ export const createClassSessionRequestSchema = z
     /** Instant when the class starts. endAt is derived from Course.serviceType. */
     startAt: z.string().datetime(),
     meetingUrl: meetingUrlSchema.optional(),
+    meetingDescription: meetingDescriptionSchema.optional(),
     /**
      * When true, the API creates a Google Calendar event with Meet for this
      * start/end and sets meetingUrl. Requires Google Meet credentials.
@@ -79,19 +96,37 @@ export const updateClassSessionRequestSchema = z
     isActive: z.boolean().optional(),
     /** Set to null to clear an existing meeting URL. */
     meetingUrl: meetingUrlSchema.nullable().optional(),
+    meetingDescription: meetingDescriptionSchema.nullable().optional(),
+    /** Server-set after Meet create; clients normally omit. Null clears. */
+    googleCalendarEventId: z.string().max(1024).nullable().optional(),
+    /** Server-set after Zoom create; clients normally omit. Null clears. */
+    zoomMeetingId: z.string().max(255).nullable().optional(),
     createGoogleMeet: z.boolean().optional(),
+    /**
+     * When true, deletes the Google Calendar event (best-effort) and clears
+     * meetingUrl + googleCalendarEventId. Keeps meetingDescription.
+     */
+    removeGoogleMeet: z.boolean().optional(),
   })
   .refine(
     (value) =>
       value.startAt !== undefined ||
       value.isActive !== undefined ||
       value.meetingUrl !== undefined ||
-      value.createGoogleMeet === true,
+      value.meetingDescription !== undefined ||
+      value.googleCalendarEventId !== undefined ||
+      value.zoomMeetingId !== undefined ||
+      value.createGoogleMeet === true ||
+      value.removeGoogleMeet === true,
     { message: 'At least one field is required.' },
   )
   .refine((value) => !(value.createGoogleMeet && value.meetingUrl), {
     message: 'Use createGoogleMeet or meetingUrl, not both.',
     path: ['createGoogleMeet'],
+  })
+  .refine((value) => !(value.createGoogleMeet && value.removeGoogleMeet), {
+    message: 'Use createGoogleMeet or removeGoogleMeet, not both.',
+    path: ['removeGoogleMeet'],
   });
 
 export type UpdateClassSessionRequest = z.infer<

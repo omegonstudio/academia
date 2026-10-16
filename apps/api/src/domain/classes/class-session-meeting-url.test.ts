@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { meetingUrlSchema } from '@academia/shared';
+import {
+  classSessionSchema,
+  meetingUrlSchema,
+  updateClassSessionRequestSchema,
+} from '@academia/shared';
 import {
   createClassSession,
   generateClassSessionsForGroup,
@@ -33,6 +37,61 @@ describe('meetingUrlSchema', () => {
   });
 });
 
+describe('classSessionSchema zoomMeetingId', () => {
+  const baseSession = {
+    id: '11111111-1111-4111-8111-111111111111',
+    groupId: '22222222-2222-4222-8222-222222222222',
+    startAt: '2026-10-20T21:00:00.000Z',
+    endAt: '2026-10-20T23:00:00.000Z',
+    serviceType: 'GROUP_120' as const,
+    durationMinutes: 120 as const,
+    scheduleOptionId: null,
+    teacherId: null,
+    meetingUrl: null,
+    googleCalendarEventId: null,
+    meetingDescription: null,
+    isActive: true,
+    createdAt: '2026-10-16T12:00:00.000Z',
+    updatedAt: '2026-10-16T12:00:00.000Z',
+  };
+
+  it('accepts null zoomMeetingId and a Zoom-managed id', () => {
+    expect(
+      classSessionSchema.safeParse({ ...baseSession, zoomMeetingId: null })
+        .success,
+    ).toBe(true);
+    expect(
+      classSessionSchema.safeParse({
+        ...baseSession,
+        zoomMeetingId: '98765432101',
+        meetingUrl: 'https://zoom.us/j/98765432101',
+      }).success,
+    ).toBe(true);
+  });
+
+  it('rejects oversized zoomMeetingId', () => {
+    expect(
+      classSessionSchema.safeParse({
+        ...baseSession,
+        zoomMeetingId: 'x'.repeat(256),
+      }).success,
+    ).toBe(false);
+  });
+
+  it('allows patching zoomMeetingId alone on update requests', () => {
+    expect(
+      updateClassSessionRequestSchema.safeParse({
+        zoomMeetingId: '12345',
+      }).success,
+    ).toBe(true);
+    expect(
+      updateClassSessionRequestSchema.safeParse({
+        zoomMeetingId: null,
+      }).success,
+    ).toBe(true);
+  });
+});
+
 describe('class-session meetingUrl', () => {
   function setup() {
     const store = createInMemoryClassSessionStore();
@@ -57,6 +116,8 @@ describe('class-session meetingUrl', () => {
       startAt: '2026-09-14T21:00:00.000Z',
     });
     expect(without.meetingUrl).toBeNull();
+    expect(without.zoomMeetingId).toBeNull();
+    expect(without.googleCalendarEventId).toBeNull();
 
     const withUrl = await createClassSession(store, {
       groupId: 'group-1',
@@ -64,6 +125,7 @@ describe('class-session meetingUrl', () => {
       meetingUrl: 'https://meet.google.com/abc-defg-hij',
     });
     expect(withUrl.meetingUrl).toBe('https://meet.google.com/abc-defg-hij');
+    expect(withUrl.zoomMeetingId).toBeNull();
   });
 
   it('patches add/replace/clear meetingUrl without rescheduling', async () => {

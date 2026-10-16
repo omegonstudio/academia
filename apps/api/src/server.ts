@@ -34,6 +34,10 @@ import {
   createGoogleMeetService,
   parseGoogleMeetCredentials,
 } from './domain/classes/google-meet-service.js';
+import {
+  createZoomMeetingService,
+  parseZoomMeetingCredentials,
+} from './domain/classes/zoom-meeting-service.js';
 import { createNotificationAudience } from './domain/notifications/notification-audience.js';
 import { createEmailTemplateStore } from './domain/notifications/email-template-store.js';
 import { createNotificationPublisher } from './domain/notifications/notification-publisher.js';
@@ -116,6 +120,11 @@ async function main(): Promise<void> {
   });
   const googleMeet = createGoogleMeetService({
     credentials: parseGoogleMeetCredentials(env),
+    logger,
+  });
+  // Instantiated for boot/config readiness; class-route wiring comes later.
+  const zoomMeeting = createZoomMeetingService({
+    credentials: parseZoomMeetingCredentials(env),
     logger,
   });
   const startedAt = Date.now();
@@ -334,7 +343,12 @@ async function main(): Promise<void> {
 
   const server = app.listen(env.API_PORT, () => {
     logger.info(
-      { port: env.API_PORT, environment: env.NODE_ENV },
+      {
+        port: env.API_PORT,
+        environment: env.NODE_ENV,
+        googleMeetConfigured: googleMeet.isConfigured(),
+        zoomConfigured: zoomMeeting.isConfigured(),
+      },
       'API listening',
     );
   });

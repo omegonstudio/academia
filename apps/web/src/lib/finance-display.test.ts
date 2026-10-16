@@ -13,6 +13,7 @@ describe('finance-display', () => {
   it('formats minor units with currency', () => {
     expect(formatMoneyMinor('10000', 'ARS')).toBe('ARS 100,00')
     expect(formatMoneyMinor('-4000', 'USD')).toBe('-USD 40,00')
+    expect(formatMoneyMinor('9950', 'EUR')).toBe('EUR 99,50')
   })
 
   it('labels domain enums in Spanish', () => {

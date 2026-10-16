@@ -82,6 +82,9 @@ export interface ClassSessionRecord {
   startAt: Date;
   endAt: Date;
   meetingUrl: string | null;
+  googleCalendarEventId: string | null;
+  zoomMeetingId: string | null;
+  meetingDescription: string | null;
   isActive: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -182,6 +185,9 @@ export interface ClassSessionStore {
     startAt: Date;
     endAt: Date;
     meetingUrl: string | null;
+    googleCalendarEventId: string | null;
+    zoomMeetingId: string | null;
+    meetingDescription: string | null;
     isActive: boolean;
   }): Promise<ClassSessionRecord>;
   /**
@@ -194,6 +200,9 @@ export interface ClassSessionStore {
       startAt: Date;
       endAt: Date;
       meetingUrl: string | null;
+      googleCalendarEventId: string | null;
+      zoomMeetingId: string | null;
+      meetingDescription: string | null;
       isActive: boolean;
     }>,
   ): Promise<{ created: ClassSessionRecord[]; skippedCount: number }>;
@@ -203,6 +212,9 @@ export interface ClassSessionStore {
       startAt?: Date;
       endAt?: Date;
       meetingUrl?: string | null;
+      googleCalendarEventId?: string | null;
+      zoomMeetingId?: string | null;
+      meetingDescription?: string | null;
       isActive?: boolean;
     },
   ): Promise<ClassSessionRecord>;
@@ -247,6 +259,9 @@ export function toClassSessionDto(
     scheduleOptionId: context.scheduleOptionId,
     teacherId: context.teacherId,
     meetingUrl: record.meetingUrl,
+    googleCalendarEventId: record.googleCalendarEventId ?? null,
+    zoomMeetingId: record.zoomMeetingId ?? null,
+    meetingDescription: record.meetingDescription ?? null,
     isActive: record.isActive,
     createdAt: record.createdAt.toISOString(),
     updatedAt: record.updatedAt.toISOString(),
@@ -444,6 +459,9 @@ export async function generateClassSessionsForGroup(
     startAt: Date;
     endAt: Date;
     meetingUrl: string | null;
+    googleCalendarEventId: string | null;
+    zoomMeetingId: string | null;
+    meetingDescription: string | null;
     isActive: boolean;
   }> = [];
 
@@ -463,6 +481,9 @@ export async function generateClassSessionsForGroup(
       startAt,
       endAt,
       meetingUrl: null,
+      googleCalendarEventId: null,
+      zoomMeetingId: null,
+      meetingDescription: null,
       isActive: true,
     });
   }
@@ -573,6 +594,9 @@ export async function createClassSession(
       startAt,
       endAt,
       meetingUrl: input.meetingUrl ?? null,
+      googleCalendarEventId: null,
+      zoomMeetingId: null,
+      meetingDescription: input.meetingDescription ?? null,
       isActive: true,
     });
     return toClassSessionDto(record, lockedContext);
@@ -608,6 +632,9 @@ export async function updateClassSession(
     const record = await store.update(id, {
       isActive: input.isActive,
       meetingUrl: input.meetingUrl,
+      googleCalendarEventId: input.googleCalendarEventId,
+      zoomMeetingId: input.zoomMeetingId,
+      meetingDescription: input.meetingDescription,
     });
     return toClassSessionDto(record, context);
   }
@@ -628,6 +655,9 @@ export async function updateClassSession(
       endAt,
       isActive: input.isActive,
       meetingUrl: input.meetingUrl,
+      googleCalendarEventId: input.googleCalendarEventId,
+      zoomMeetingId: input.zoomMeetingId,
+      meetingDescription: input.meetingDescription,
     });
     return toClassSessionDto(record, lockedContext);
   });

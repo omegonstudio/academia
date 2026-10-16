@@ -23,10 +23,21 @@ export interface GoogleMeetCreateResult {
   eventId: string;
 }
 
+export interface GoogleMeetUpdateInput {
+  eventId: string;
+  summary?: string;
+  description?: string;
+  startAtIso?: string;
+  endAtIso?: string;
+  timeZone?: string;
+}
+
 export interface GoogleMeetService {
   isConfigured(): boolean;
   calendarId(): string | null;
   createMeeting(input: GoogleMeetCreateInput): Promise<GoogleMeetCreateResult>;
+  updateMeeting(input: GoogleMeetUpdateInput): Promise<void>;
+  deleteMeeting(input: { eventId: string }): Promise<void>;
 }
 
 export class GoogleMeetNotConfiguredError extends Error {
@@ -36,10 +47,39 @@ export class GoogleMeetNotConfiguredError extends Error {
   }
 }
 
-export class GoogleMeetCreateError extends Error {
+export class GoogleMeetApiError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'GoogleMeetApiError';
+  }
+}
+
+/** @deprecated Prefer GoogleMeetApiError — kept for existing call sites. */
+export class GoogleMeetCreateError extends GoogleMeetApiError {
   constructor(message: string) {
     super(message);
     this.name = 'GoogleMeetCreateError';
+  }
+}
+
+export class GoogleMeetPastStartError extends GoogleMeetApiError {
+  constructor() {
+    super('Cannot create a Google Meet for a class that starts in the past.');
+    this.name = 'GoogleMeetPastStartError';
+  }
+}
+
+/** Rejects create when the class start instant is strictly before `now`. */
+export function assertMeetingStartNotInPast(
+  startAtIso: string,
+  now: Date = new Date(),
+): void {
+  const startAt = new Date(startAtIso);
+  if (Number.isNaN(startAt.getTime())) {
+    throw new GoogleMeetApiError('Invalid meeting start time.');
+  }
+  if (startAt.getTime() < now.getTime()) {
+    throw new GoogleMeetPastStartError();
   }
 }
 
@@ -79,19 +119,23 @@ async function refreshAccessToken(
     body,
   });
   if (!response.ok) {
-    throw new GoogleMeetCreateError(
+    throw new GoogleMeetApiError(
       'Could not refresh Google OAuth access token.',
     );
   }
   const json = (await response.json()) as { access_token?: string };
   if (!json.access_token) {
-    throw new GoogleMeetCreateError('Google OAuth response missing access_token.');
+    throw new GoogleMeetApiError('Google OAuth response missing access_token.');
   }
   return json.access_token;
 }
 
+function eventUrl(calendarId: string, eventId: string): string {
+  return `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events/${encodeURIComponent(eventId)}`;
+}
+
 /**
- * Creates a Calendar event with an attached Google Meet conference.
+ * Creates / updates / deletes Calendar events with an attached Google Meet conference.
  * Requires a Workspace / personal Google account with Calendar API enabled and
  * a refresh token that includes `https://www.googleapis.com/auth/calendar`.
  */
@@ -116,6 +160,8 @@ export function createGoogleMeetService(options: {
       if (!credentials) {
         throw new GoogleMeetNotConfiguredError();
       }
+
+      assertMeetingStartNotInPast(input.startAtIso);
 
       const accessToken = await refreshAccessToken(credentials, fetchFn);
       const calendarId = encodeURIComponent(credentials.calendarId);
@@ -178,6 +224,95 @@ export function createGoogleMeetService(options: {
       }
 
       return { meetingUrl, eventId: json.id };
+    },
+
+    async updateMeeting(input) {
+      if (!credentials) {
+        throw new GoogleMeetNotConfiguredError();
+      }
+
+      const body: Record<string, unknown> = {};
+      if (input.summary !== undefined) body.summary = input.summary;
+      if (input.description !== undefined) body.description = input.description;
+      if (input.startAtIso !== undefined && input.timeZone !== undefined) {
+        body.start = {
+          dateTime: input.startAtIso,
+          timeZone: input.timeZone,
+        };
+      }
+      if (input.endAtIso !== undefined && input.timeZone !== undefined) {
+        body.end = {
+          dateTime: input.endAtIso,
+          timeZone: input.timeZone,
+        };
+      }
+      if (Object.keys(body).length === 0) {
+        return;
+      }
+
+      const accessToken = await refreshAccessToken(credentials, fetchFn);
+      const response = await fetchFn(
+        eventUrl(credentials.calendarId, input.eventId),
+        {
+          method: 'PATCH',
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(body),
+        },
+      );
+
+      if (!response.ok) {
+        const detail = await response.text().catch(() => '');
+        logger.warn(
+          {
+            status: response.status,
+            eventId: input.eventId,
+            detail: detail.slice(0, 300),
+          },
+          'Google Calendar Meet update failed',
+        );
+        throw new GoogleMeetApiError(
+          'Google Calendar rejected the Meet event update request.',
+        );
+      }
+    },
+
+    async deleteMeeting(input) {
+      if (!credentials) {
+        throw new GoogleMeetNotConfiguredError();
+      }
+
+      const accessToken = await refreshAccessToken(credentials, fetchFn);
+      const response = await fetchFn(
+        eventUrl(credentials.calendarId, input.eventId),
+        {
+          method: 'DELETE',
+          headers: { Authorization: `Bearer ${accessToken}` },
+        },
+      );
+
+      // 404 / 410: already gone — treat as success.
+      if (response.ok || response.status === 204) {
+        return;
+      }
+      if (response.status === 404 || response.status === 410) {
+        return;
+      }
+
+      const detail = await response.text().catch(() => '');
+      logger.warn(
+        {
+          status: response.status,
+          eventId: input.eventId,
+          detail: detail.slice(0, 300),
+        },
+        'Google Calendar Meet delete failed',
+      );
+      throw new GoogleMeetApiError(
+        'Google Calendar rejected the Meet event delete request.',
+      );
     },
   };
 }

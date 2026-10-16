@@ -24,6 +24,9 @@ function mapRow(row: {
   startAt: Date;
   endAt: Date;
   meetingUrl: string | null;
+  googleCalendarEventId: string | null;
+  zoomMeetingId: string | null;
+  meetingDescription: string | null;
   isActive: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -34,6 +37,9 @@ function mapRow(row: {
     startAt: row.startAt,
     endAt: row.endAt,
     meetingUrl: row.meetingUrl,
+    googleCalendarEventId: row.googleCalendarEventId,
+    zoomMeetingId: row.zoomMeetingId,
+    meetingDescription: row.meetingDescription,
     isActive: row.isActive,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
@@ -223,6 +229,9 @@ function createOps(database: DbClient): Omit<
           startAt: input.startAt,
           endAt: input.endAt,
           meetingUrl: input.meetingUrl,
+          googleCalendarEventId: input.googleCalendarEventId,
+          zoomMeetingId: input.zoomMeetingId,
+          meetingDescription: input.meetingDescription,
           isActive: input.isActive,
         },
       });
@@ -251,6 +260,9 @@ function createOps(database: DbClient): Omit<
           startAt: input.startAt,
           endAt: input.endAt,
           meetingUrl: input.meetingUrl,
+          googleCalendarEventId: input.googleCalendarEventId,
+          zoomMeetingId: input.zoomMeetingId,
+          meetingDescription: input.meetingDescription,
           isActive: input.isActive,
         })),
         skipDuplicates: true,
@@ -275,11 +287,23 @@ function createOps(database: DbClient): Omit<
         startAt?: Date;
         endAt?: Date;
         meetingUrl?: string | null;
+        googleCalendarEventId?: string | null;
+        zoomMeetingId?: string | null;
+        meetingDescription?: string | null;
         isActive?: boolean;
       } = {};
       if (patch.startAt !== undefined) data.startAt = patch.startAt;
       if (patch.endAt !== undefined) data.endAt = patch.endAt;
       if (patch.meetingUrl !== undefined) data.meetingUrl = patch.meetingUrl;
+      if (patch.googleCalendarEventId !== undefined) {
+        data.googleCalendarEventId = patch.googleCalendarEventId;
+      }
+      if (patch.zoomMeetingId !== undefined) {
+        data.zoomMeetingId = patch.zoomMeetingId;
+      }
+      if (patch.meetingDescription !== undefined) {
+        data.meetingDescription = patch.meetingDescription;
+      }
       if (patch.isActive !== undefined) data.isActive = patch.isActive;
 
       const row = await database.classSession.update({ where: { id }, data });
