@@ -572,6 +572,31 @@ SEO/accessibility baselines already exist. This stage deepens them.
 - [ ] TLS termination and the reverse proxy in front of the stack (ops on DigitalOcean).
 - [ ] Privacy/security documentation (personal data inventory, retention).
 
+## Online courses (async LMS) — Fases 1–3 base
+
+Distinct from live `Course` → `Group` → `ClassSession`. Uses `OnlineCourse*` models + `online_courses` permissions.
+
+### Done
+- [x] Audit: do not reuse Enrollment/Group; new OnlineCourseAccess; Charge FKs optional for future paid flow.
+- [x] Prisma migration `20261016010000_online_courses` + shared Zod contracts + `online_courses` permission catalog.
+- [x] Domain: CRUD, modules/lessons reorder, assets (TEXT/LINK/VIDEO/DOCUMENT upload), access, progress LINEAR/OPEN, quiz, submissions.
+- [x] HTTP: admin `/online-courses*`, public `/public/online-courses*`, student `/students/me/online-courses*`.
+- [x] Web: `/dashboard/online-courses*`, `/cursos` (catálogo), `/cursos/[slug]`, `/dashboard/student/courses*`.
+- [x] Browser client: `listPublicOnlineCoursesBrowser` + detalle/aula/admin existentes.
+- [x] Tests: `online-courses.test.ts` (create/publish, access, enroll-free, progress, LINEAR, quiz strip, public filter, permissions); `online-course-media.test.ts` (precio, embeds, contenido pendiente).
+
+### Pending / known limits
+- [ ] OpenAPI paths for online courses.
+- [ ] Paid self-serve checkout: Charge/Payment for online courses + grant access on `succeedPayment` (today: admin grant or free enroll; paid CTA is contact-only).
+- [ ] `succeedPayment` still requires Group.teacherId — needs OnlineCourse.authorTeacherId resolution before paid charges.
+- [ ] Quiz admin UI is a single SINGLE_CHOICE question editor (API supports full upsert).
+- [ ] Certificates, ratings, analytics, advanced course duplication (Fase 4).
+- [ ] Video file upload/transcoding (VIDEO is external HTTPS URL; DOCUMENT reuses Material MIME allowlist — no video MIME).
+- [ ] Sitemap enumeration of published `/cursos/[slug]` (catálogo `/cursos` ya está en sitemap).
+- [ ] Integration tests against real PostgreSQL for online courses.
+- [x] Seed Spanish2Go estructura: `npm run db:seed:spanish2go` importa taller (5/5) + Mis 4 amigos (11/40) en DRAFT desde `_research_out/spanish2go_migration/*.json`. Sin URLs de assets (0% contenido interno). Gaps: precio EUR no cabe en FinanceCurrency (ARS|USD); autora requiere Teacher FK.
+- [ ] Carga real de materiales Spanish2Go (vídeos/PDF/quizzes) cuando haya acceso legítimo a uTeach o exportación oficial.
+
 ## Future backlog
 
 These must remain visible in the roadmap but are not MVP:

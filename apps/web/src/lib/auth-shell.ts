@@ -17,6 +17,7 @@ export type ShellNavSection = {
 const STUDENT_LINKS: readonly ShellNavLink[] = [
   { label: 'Inicio', href: '/dashboard/student' },
   { label: 'Mis clases', href: '/dashboard/student/classes' },
+  { label: 'Cursos online', href: '/dashboard/student/courses' },
   { label: 'Materiales', href: '/dashboard/student/materials' },
   { label: 'Asistencia', href: '/dashboard/student/attendance' },
   { label: 'Finanzas', href: '/dashboard/student/finance' },
@@ -37,6 +38,7 @@ const ACADEMIA_LINKS: readonly ShellNavLink[] = [
   { label: 'Profesores', href: '/dashboard/teachers' },
   { label: 'Asignaciones', href: '/dashboard/assignments' },
   { label: 'Cursos', href: '/dashboard/courses' },
+  { label: 'Cursos online', href: '/dashboard/online-courses' },
   { label: 'Grupos', href: '/dashboard/groups' },
 ];
 

@@ -15,8 +15,10 @@ Legend:
 
 | Status | Route       | Notes                                                              |
 | ------ | ----------- | ------------------------------------------------------------------ |
-| `[x]`  | `/`         | Landing one-page. Anchors `#cursos`, `#metodo`, `#academia`, `#contacto`. Única ruta pública indexable (Fase 4). |
-| `[x]`  | —           | **Decisión producto (Fase 4):** no se restauran `/about`, `/courses`, `/teachers`, `/contact` como páginas; contenido en anchors de `/`. Sitemap solo lista `/`. |
+| `[x]`  | `/`         | Landing one-page. Anchors `#cursos`, `#metodo`, `#academia`, `#contacto`. Enlace a `/cursos` (catálogo LMS). |
+| `[x]`  | `/cursos` | Catálogo público de cursos online (`GET /public/online-courses`). Solo PUBLISHED + isActive. En sitemap. |
+| `[x]`  | `/cursos/[slug]` | Landing pública de curso online (`GET /public/online-courses/:slug`). No está en `privateRoutePrefixes`. Sitemap de slugs individuales pendiente. |
+| `[x]`  | —           | **Decisión producto (Fase 4):** no se restauran `/about`, `/courses`, `/teachers`, `/contact` como páginas; contenido en anchors de `/`. Catálogo LMS vive en `/cursos` (no en `/courses`). |
 
 Auth & shell: HttpOnly session (`GET /auth/me`). Módulos operativos del dashboard
 cableados a API real (Fase 3). Sin DEV bypass. `lib/academy-data.ts` eliminado (Fase 4).
@@ -35,6 +37,10 @@ cableados a API real (Fase 3). Sin DEV bypass. `lib/academy-data.ts` eliminado (
 | `[x]`  | `/dashboard/assignments` | API real assign via `POST /students/:id/teacher`. |
 | `[x]`  | `/dashboard/courses` | API real `GET/POST /courses` (`courseType`/`serviceType`). Session gate via layout. |
 | `[x]`  | `/dashboard/courses/[id]` | API real `GET/PATCH/DELETE` (soft-delete) + sección Materiales (LINK + FILE 3-step). Session gate via layout. |
+| `[x]`  | `/dashboard/online-courses` | Backoffice cursos online: listado + crear (`GET/POST /online-courses`). |
+| `[x]`  | `/dashboard/online-courses/[id]` | Editor: datos, publish/unpublish/archive, módulos/lecciones/assets. |
+| `[x]`  | `/dashboard/student/courses` | Estudiante: cursos online inscritos + progreso %. |
+| `[x]`  | `/dashboard/student/courses/[slug]` | Viewer: temario, lección, progreso, quiz, prev/next. |
 | `[x]`  | `/dashboard/groups` | API real `GET/POST /groups` (+ teacher/schedule opcionales al crear). Session gate via layout. |
 | `[x]`  | `/dashboard/groups/[id]` | API real detail: PATCH/DELETE; teacher; scheduleOptionId; enrollment máx. 15. Session gate via layout. |
 | `[x]`  | `/dashboard/calendar` | API real `GET /classes/calendar?from&to` (mes civil). Session gate via layout. |
@@ -243,6 +249,52 @@ Out of scope for Stage 5:
 
 Storage: private S3-compatible bucket (MinIO dev / Spaces prod); short-lived signed URLs; no public permanent file URLs.
 
+## Online courses (async)
+
+**API routes: DONE** (domain + HTTP). **Web UI: DONE** (admin + public + student viewer).
+
+### Public
+
+| Status | Method | Path | Notes |
+| ------ | ------ | ---- | ----- |
+| `[x]` | GET | `/public/online-courses` | PUBLISHED + isActive only; card shape (no modules detail URLs) |
+| `[x]` | GET | `/public/online-courses/:slug` | Outline titles + asset kinds only; no private URLs |
+
+### Admin (`online_courses.*` permissions; SUPER_ADMIN/DIRECTOR bypass)
+
+| Status | Method | Path | Notes |
+| ------ | ------ | ---- | ----- |
+| `[x]` | GET/POST | `/online-courses` | List / create |
+| `[x]` | GET/PATCH/DELETE | `/online-courses/:id` | Read / update / soft-delete |
+| `[x]` | POST | `/online-courses/:id/publish` \| `/unpublish` \| `/archive` | Status transitions |
+| `[x]` | GET/POST | `/online-courses/:id/modules` | Modules CRUD list/create |
+| `[x]` | PATCH | `/online-courses/:courseId/modules/:moduleId` | Update module |
+| `[x]` | POST | `/online-courses/:id/modules/reorder` | Reorder modules |
+| `[x]` | GET/POST | `/online-courses/:courseId/modules/:moduleId/lessons` | Lessons |
+| `[x]` | PATCH | `…/lessons/:lessonId` | Update lesson |
+| `[x]` | POST | `…/lessons/reorder` | Reorder lessons |
+| `[x]` | GET/POST | `/online-courses/lessons/:lessonId/assets` | TEXT/LINK/VIDEO assets |
+| `[x]` | POST | `/online-courses/lessons/:lessonId/assets/uploads` | DOCUMENT upload intent |
+| `[x]` | POST | `/online-courses/assets/:assetId/complete` | Verify object → READY |
+| `[x]` | PATCH/DELETE | `/online-courses/assets/:assetId` | Update / soft-delete |
+| `[x]` | GET | `/online-courses/assets/:assetId/download` | Signed GET / externalUrl |
+| `[x]` | PUT/GET | `/online-courses/lessons/:lessonId/quiz` | Admin quiz (includes correct answers) |
+| `[x]` | POST/DELETE | `/online-courses/:id/access` | Grant / revoke student access |
+| `[x]` | GET | `/online-courses/:id/preview` | Student-like outline without access grant |
+
+### Student (role STUDENT + active access)
+
+| Status | Method | Path | Notes |
+| ------ | ------ | ---- | ----- |
+| `[x]` | GET | `/students/me/online-courses` | Entitled published courses |
+| `[x]` | GET | `/students/me/online-courses/:slug` | Outline + progress + LINEAR locks |
+| `[x]` | GET | `/students/me/online-courses/:slug/lessons/:lessonId` | Content; 403 if locked/no access |
+| `[x]` | POST | `…/lessons/:lessonId/progress` | `IN_PROGRESS` \| `COMPLETED` |
+| `[x]` | POST | `…/enroll-free` | Free courses only |
+| `[x]` | GET/POST | `…/lessons/:lessonId/quiz` (+ `/submit`) | Public quiz (no answers) / submit |
+| `[x]` | GET/POST | `…/lessons/:lessonId/submissions` | Own text submissions |
+| `[x]` | GET | `/students/me/online-courses/assets/:assetId/download` | Entitled download |
+
 ## Stage 6 — Finance & Settlements
 
 **Stage 6A design: DONE** (`docs/DECISIONS.md` #41 + #44).  
@@ -306,6 +358,7 @@ Payment MANUAL still explicit).
 | `[x]` | `GET /students/me/finance` | Curated charges/payments/refunds + summary; no split |
 | `[x]` | `POST /students/me/finance/charges/:chargeId/pay` | Owned OPEN → Payment PENDING (currency→provider stub) |
 | `[x]` | `GET /classes/calendar` | Reused; student scope by session |
+| `[x]` | `/students/me/online-courses*` | See **Online courses (async)** |
 
 ### Product rules
 

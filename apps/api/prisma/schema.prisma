@@ -136,6 +136,8 @@ model User {
   paymentsCreated        Payment[]                @relation("PaymentCreatedBy")
   notifications          Notification[]
   emailTemplatesUpdated  NotificationEmailTemplate[] @relation("EmailTemplateUpdatedBy")
+  onlineCourseAccessesGranted OnlineCourseAccess[] @relation("OnlineCourseAccessGrantedBy")
+  onlineLessonAssetsCreated   OnlineLessonAsset[]
 
   @@index([role])
   @@map("users")
@@ -219,6 +221,10 @@ model Student {
   charges           Charge[]
   payments          Payment[]
   revenueAllocations RevenueAllocation[]
+  onlineCourseAccesses OnlineCourseAccess[]
+  onlineLessonProgress OnlineLessonProgress[]
+  onlineQuizAttempts   OnlineQuizAttempt[]
+  onlineSubmissions    OnlineLessonSubmission[]
 
   @@index([isActive])
   @@index([lastName, firstName])
@@ -250,6 +256,7 @@ model Teacher {
   groups             Group[]
   revenueAllocations RevenueAllocation[]
   settlements        TeacherSettlement[]
+  onlineCoursesAuthored OnlineCourse[]
 
   @@index([isActive])
   @@index([availability])
@@ -572,6 +579,13 @@ model Charge {
   classSessionId String?       @map("class_session_id") @db.Uuid
   classSession   ClassSession? @relation(fields: [classSessionId], references: [id], onDelete: Restrict)
 
+  /// Online-course product charge (async LMS). Distinct from live Course.
+  onlineCourseId String?       @map("online_course_id") @db.Uuid
+  onlineCourse   OnlineCourse? @relation(fields: [onlineCourseId], references: [id], onDelete: Restrict)
+
+  onlineCourseAccessId String?            @map("online_course_access_id") @db.Uuid
+  onlineCourseAccess   OnlineCourseAccess? @relation(fields: [onlineCourseAccessId], references: [id], onDelete: Restrict)
+
   description String? @db.VarChar(500)
 
   createdByUserId String @map("created_by_user_id") @db.Uuid
@@ -595,6 +609,8 @@ model Charge {
   @@index([groupId])
   @@index([enrollmentId])
   @@index([classSessionId])
+  @@index([onlineCourseId])
+  @@index([onlineCourseAccessId])
   @@index([status])
   @@map("charges")
 }
@@ -738,4 +754,354 @@ model WebhookEvent {
   @@unique([provider, providerEventId])
   @@index([createdAt])
   @@map("webhook_events")
+}
+
+// ---------------------------------------------------------------------------
+// Online courses (async LMS) — distinct from live Course → Group → ClassSession.
+// ---------------------------------------------------------------------------
+
+enum OnlineCourseStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+
+  @@map("online_course_status")
+}
+
+enum OnlineCourseAccessMode {
+  OPEN
+  LINEAR
+
+  @@map("online_course_access_mode")
+}
+
+enum OnlineLessonStatus {
+  DRAFT
+  PUBLISHED
+
+  @@map("online_lesson_status")
+}
+
+/// VIDEO | DOCUMENT | TEXT | LINK — extensible via app validation.
+enum OnlineLessonAssetKind {
+  VIDEO
+  DOCUMENT
+  TEXT
+  LINK
+
+  @@map("online_lesson_asset_kind")
+}
+
+enum OnlineLessonProgressStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  COMPLETED
+
+  @@map("online_lesson_progress_status")
+}
+
+enum OnlineQuizQuestionType {
+  SINGLE_CHOICE
+  MULTIPLE_CHOICE
+  TRUE_FALSE
+  SHORT_TEXT
+
+  @@map("online_quiz_question_type")
+}
+
+enum OnlineSubmissionStatus {
+  SUBMITTED
+  REVIEWED
+
+  @@map("online_submission_status")
+}
+
+/// Async learning product. Not the live `Course` (serviceType / ClassSession).
+model OnlineCourse {
+  id String @id @default(uuid()) @db.Uuid
+
+  title       String  @db.VarChar(200)
+  slug        String  @unique @db.VarChar(120)
+  subtitle    String? @db.VarChar(300)
+  description String? @db.VarChar(10000)
+
+  authorTeacherId String?  @map("author_teacher_id") @db.Uuid
+  authorTeacher   Teacher? @relation(fields: [authorTeacherId], references: [id], onDelete: SetNull)
+
+  /// HTTPS cover URL (public marketing image). Private files use asset storage.
+  coverImageUrl String? @map("cover_image_url") @db.VarChar(2048)
+
+  /// JSON string arrays for marketing bullets.
+  benefits Json?
+  bonus    Json?
+
+  status     OnlineCourseStatus     @default(DRAFT)
+  accessMode OnlineCourseAccessMode @default(OPEN) @map("access_mode")
+
+  certificateEnabled Boolean @default(false) @map("certificate_enabled")
+
+  /// List price in minor units (#44). Null or 0 = free when published.
+  amountMinor BigInt?          @map("amount_minor")
+  currency    FinanceCurrency?
+
+  isActive Boolean @default(true) @map("is_active")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  modules  OnlineCourseModule[]
+  accesses OnlineCourseAccess[]
+  charges  Charge[]
+
+  @@index([status, isActive])
+  @@index([authorTeacherId])
+  @@map("online_courses")
+}
+
+model OnlineCourseModule {
+  id String @id @default(uuid()) @db.Uuid
+
+  onlineCourseId String       @map("online_course_id") @db.Uuid
+  onlineCourse   OnlineCourse @relation(fields: [onlineCourseId], references: [id], onDelete: Restrict)
+
+  title       String  @db.VarChar(200)
+  description String? @db.VarChar(2000)
+  position    Int
+
+  isActive Boolean @default(true) @map("is_active")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  lessons OnlineLesson[]
+
+  @@index([onlineCourseId, position])
+  @@index([onlineCourseId, isActive])
+  @@map("online_course_modules")
+}
+
+model OnlineLesson {
+  id String @id @default(uuid()) @db.Uuid
+
+  moduleId String             @map("module_id") @db.Uuid
+  module   OnlineCourseModule @relation(fields: [moduleId], references: [id], onDelete: Restrict)
+
+  title            String  @db.VarChar(200)
+  description      String? @db.VarChar(2000)
+  position         Int
+  estimatedMinutes Int?    @map("estimated_minutes")
+  isRequired       Boolean @default(true) @map("is_required")
+  status           OnlineLessonStatus @default(DRAFT)
+
+  /// When true, students may submit text/files for this lesson.
+  acceptsSubmission Boolean @default(false) @map("accepts_submission")
+
+  isActive Boolean @default(true) @map("is_active")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  assets      OnlineLessonAsset[]
+  quiz        OnlineQuiz?
+  progress    OnlineLessonProgress[]
+  submissions OnlineLessonSubmission[]
+
+  @@index([moduleId, position])
+  @@index([moduleId, isActive])
+  @@map("online_lessons")
+}
+
+/// Content block inside a lesson. FILE-like assets reuse Material storage patterns.
+model OnlineLessonAsset {
+  id String @id @default(uuid()) @db.Uuid
+
+  lessonId String       @map("lesson_id") @db.Uuid
+  lesson   OnlineLesson @relation(fields: [lessonId], references: [id], onDelete: Restrict)
+
+  kind     OnlineLessonAssetKind
+  title    String @db.VarChar(200)
+  position Int
+
+  /// TEXT body (sanitised HTML/plain). Null for non-TEXT kinds.
+  bodyText String? @map("body_text") @db.VarChar(50000)
+
+  /// VIDEO/LINK external https URL, or VIDEO provider embed URL.
+  externalUrl String? @map("external_url") @db.VarChar(2048)
+
+  uploadStatus     MaterialUploadStatus? @map("upload_status")
+  mimeType         String?               @map("mime_type") @db.VarChar(100)
+  sizeBytes        Int?                  @map("size_bytes")
+  storageKey       String?               @unique @map("storage_key") @db.VarChar(512)
+  originalFilename String?               @map("original_filename") @db.VarChar(255)
+
+  createdByUserId String @map("created_by_user_id") @db.Uuid
+  createdBy       User   @relation(fields: [createdByUserId], references: [id], onDelete: Restrict)
+
+  isActive Boolean @default(true) @map("is_active")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([lessonId, position])
+  @@index([lessonId, isActive])
+  @@map("online_lesson_assets")
+}
+
+/// Student entitlement to an online course. Distinct from Group Enrollment.
+model OnlineCourseAccess {
+  id String @id @default(uuid()) @db.Uuid
+
+  onlineCourseId String       @map("online_course_id") @db.Uuid
+  onlineCourse   OnlineCourse @relation(fields: [onlineCourseId], references: [id], onDelete: Restrict)
+
+  studentId String  @map("student_id") @db.Uuid
+  student   Student @relation(fields: [studentId], references: [id], onDelete: Restrict)
+
+  isActive  Boolean   @default(true) @map("is_active")
+  grantedAt DateTime  @default(now()) @map("granted_at")
+  expiresAt DateTime? @map("expires_at") @db.Timestamptz(3)
+
+  grantedByUserId String? @map("granted_by_user_id") @db.Uuid
+  grantedBy       User?   @relation("OnlineCourseAccessGrantedBy", fields: [grantedByUserId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  charges Charge[]
+
+  @@unique([onlineCourseId, studentId])
+  @@index([studentId, isActive])
+  @@index([onlineCourseId, isActive])
+  @@map("online_course_accesses")
+}
+
+model OnlineLessonProgress {
+  id String @id @default(uuid()) @db.Uuid
+
+  lessonId String       @map("lesson_id") @db.Uuid
+  lesson   OnlineLesson @relation(fields: [lessonId], references: [id], onDelete: Restrict)
+
+  studentId String  @map("student_id") @db.Uuid
+  student   Student @relation(fields: [studentId], references: [id], onDelete: Restrict)
+
+  status OnlineLessonProgressStatus @default(NOT_STARTED)
+
+  startedAt   DateTime? @map("started_at") @db.Timestamptz(3)
+  completedAt DateTime? @map("completed_at") @db.Timestamptz(3)
+  scorePercent Int?     @map("score_percent")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([lessonId, studentId])
+  @@index([studentId, status])
+  @@map("online_lesson_progress")
+}
+
+model OnlineQuiz {
+  id String @id @default(uuid()) @db.Uuid
+
+  lessonId String       @unique @map("lesson_id") @db.Uuid
+  lesson   OnlineLesson @relation(fields: [lessonId], references: [id], onDelete: Restrict)
+
+  title              String  @db.VarChar(200)
+  passScorePercent   Int?    @map("pass_score_percent")
+  isActive           Boolean @default(true) @map("is_active")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  questions OnlineQuizQuestion[]
+  attempts  OnlineQuizAttempt[]
+
+  @@map("online_quizzes")
+}
+
+model OnlineQuizQuestion {
+  id String @id @default(uuid()) @db.Uuid
+
+  quizId String     @map("quiz_id") @db.Uuid
+  quiz   OnlineQuiz @relation(fields: [quizId], references: [id], onDelete: Cascade)
+
+  prompt   String                @db.VarChar(2000)
+  type     OnlineQuizQuestionType
+  position Int
+  points   Int                   @default(1)
+  /// SHORT_TEXT expected answer (case-insensitive trim match). Null otherwise.
+  correctText String?            @map("correct_text") @db.VarChar(500)
+  explanation String?            @db.VarChar(2000)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  options OnlineQuizOption[]
+
+  @@index([quizId, position])
+  @@map("online_quiz_questions")
+}
+
+model OnlineQuizOption {
+  id String @id @default(uuid()) @db.Uuid
+
+  questionId String             @map("question_id") @db.Uuid
+  question   OnlineQuizQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  label      String  @db.VarChar(1000)
+  position   Int
+  isCorrect  Boolean @default(false) @map("is_correct")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([questionId, position])
+  @@map("online_quiz_options")
+}
+
+model OnlineQuizAttempt {
+  id String @id @default(uuid()) @db.Uuid
+
+  quizId String     @map("quiz_id") @db.Uuid
+  quiz   OnlineQuiz @relation(fields: [quizId], references: [id], onDelete: Restrict)
+
+  studentId String  @map("student_id") @db.Uuid
+  student   Student @relation(fields: [studentId], references: [id], onDelete: Restrict)
+
+  scorePercent Int     @map("score_percent")
+  passed       Boolean
+  /// Student answers + per-question results (server-evaluated).
+  answersJson  Json    @map("answers_json")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([quizId, studentId, createdAt])
+  @@index([studentId])
+  @@map("online_quiz_attempts")
+}
+
+model OnlineLessonSubmission {
+  id String @id @default(uuid()) @db.Uuid
+
+  lessonId String       @map("lesson_id") @db.Uuid
+  lesson   OnlineLesson @relation(fields: [lessonId], references: [id], onDelete: Restrict)
+
+  studentId String  @map("student_id") @db.Uuid
+  student   Student @relation(fields: [studentId], references: [id], onDelete: Restrict)
+
+  bodyText String?                @map("body_text") @db.VarChar(10000)
+  status   OnlineSubmissionStatus @default(SUBMITTED)
+  feedback String?                @db.VarChar(2000)
+
+  /// Optional private file (same storage pattern as materials).
+  uploadStatus     MaterialUploadStatus? @map("upload_status")
+  mimeType         String?               @map("mime_type") @db.VarChar(100)
+  sizeBytes        Int?                  @map("size_bytes")
+  storageKey       String?               @unique @map("storage_key") @db.VarChar(512)
+  originalFilename String?               @map("original_filename") @db.VarChar(255)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([lessonId, studentId])
+  @@index([studentId])
+  @@map("online_lesson_submissions")
 }

@@ -18,9 +18,14 @@ export const site = {
  * landing. Legacy `/about|/courses|/teachers|/contact` stay folded into
  * `/#academia`, `/#cursos`, `/#contacto` (and método) — not restored as
  * separate crawlable pages.
+ *
+ * `/cursos` (catalog) and `/cursos/[slug]` are public LMS surfaces (not in
+ * privateRoutePrefixes). Sitemap stays with `/` until we enumerate published
+ * slugs server-side.
  */
 export const publicRoutes = [
   { path: '/', changeFrequency: 'monthly' as const, priority: 1 },
+  { path: '/cursos', changeFrequency: 'weekly' as const, priority: 0.8 },
 ] as const;
 
 /** Routes that must never be indexed. */

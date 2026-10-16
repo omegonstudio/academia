@@ -21,6 +21,11 @@ import {
   createChargeRequestSchema,
   createClassNoteRequestSchema,
   createClassSessionRequestSchema,
+  createOnlineCourseModuleRequestSchema,
+  createOnlineCourseRequestSchema,
+  createOnlineLessonAssetRequestSchema,
+  createOnlineLessonAssetUploadRequestSchema,
+  createOnlineLessonRequestSchema,
   emailTemplateListResponseSchema,
   emailTemplateResponseSchema,
   googleMeetStatusResponseSchema,
@@ -48,20 +53,41 @@ import {
   materialListResponseSchema,
   materialResponseSchema,
   materialUploadResponseSchema,
+  grantOnlineCourseAccessRequestSchema,
+  onlineCourseAccessSchema,
+  onlineCourseListResponseSchema,
+  onlineCourseModuleSchema,
+  onlineCourseResponseSchema,
+  onlineLessonAssetDownloadResponseSchema,
+  onlineLessonAssetSchema,
+  onlineLessonAssetUploadResponseSchema,
+  onlineLessonProgressSchema,
+  onlineLessonSchema,
+  onlineQuizAdminSchema,
+  onlineQuizAttemptResultSchema,
+  onlineQuizPublicSchema,
+  upsertOnlineQuizRequestSchema,
   paymentListResponseSchema,
   paymentResponseSchema,
   permissionListResponseSchema,
   permissionMutationResponseSchema,
   provisionAdministrativeRequestSchema,
+  publicOnlineCourseListResponseSchema,
+  publicOnlineCourseResponseSchema,
   refundResponseSchema,
+  reorderOnlineCourseModulesRequestSchema,
+  reorderOnlineLessonsRequestSchema,
   revenueAllocationListResponseSchema,
   scheduleOptionListResponseSchema,
   sessionResponseSchema,
   studentListResponseSchema,
+  studentOnlineCourseOutlineSchema,
+  studentOnlineLessonDetailSchema,
   studentResponseSchema,
   studentAttendanceListResponseSchema,
   studentFinanceCheckoutResponseSchema,
   studentFinanceResponseSchema,
+  submitOnlineQuizRequestSchema,
   teacherAttendanceListResponseSchema,
   teacherAssignmentResponseSchema,
   teacherHubStudentListResponseSchema,
@@ -77,6 +103,10 @@ import {
   updateFinanceSettingsRequestSchema,
   updateGroupRequestSchema,
   updateMaterialRequestSchema,
+  updateOnlineCourseModuleRequestSchema,
+  updateOnlineCourseRequestSchema,
+  updateOnlineLessonRequestSchema,
+  updateOnlineLessonProgressRequestSchema,
   updateStudentRequestSchema,
   updateTeacherRequestSchema,
   type AcademyPercentage,
@@ -95,6 +125,11 @@ import {
   type CreateChargeRequest,
   type CreateClassNoteRequest,
   type CreateClassSessionRequest,
+  type CreateOnlineCourseModuleRequest,
+  type CreateOnlineCourseRequest,
+  type CreateOnlineLessonAssetRequest,
+  type CreateOnlineLessonAssetUploadRequest,
+  type CreateOnlineLessonRequest,
   type EmailTemplate,
   type EmailTemplateListResponse,
   type GoogleMeetStatusResponse,
@@ -116,10 +151,26 @@ import {
   type Material,
   type MaterialDownloadResponse,
   type MaterialUploadResponse,
+  type OnlineCourse,
+  type OnlineCourseAccess,
+  type OnlineCourseAccessMode,
+  type OnlineCourseModule,
+  type OnlineCourseStatus,
+  type OnlineLesson,
+  type OnlineLessonAsset,
+  type OnlineLessonAssetDownloadResponse,
+  type OnlineLessonAssetUploadResponse,
+  type OnlineLessonProgress,
+  type OnlineQuizAdmin,
+  type OnlineQuizAttemptResult,
+  type OnlineQuizPublic,
+  type UpsertOnlineQuizRequest,
   type Payment,
   type PaymentListQuery,
   type PermissionRef,
   type ProvisionAdministrativeRequest,
+  type PublicOnlineCourse,
+  type PublicOnlineCourseListResponse,
   type Refund,
   type RevenueAllocation,
   type ScheduleOption,
@@ -129,6 +180,9 @@ import {
   type StudentAttendanceItem,
   type StudentFinanceCheckoutResponse,
   type StudentFinanceResponse,
+  type StudentOnlineCourseOutline,
+  type StudentOnlineLessonDetail,
+  type SubmitOnlineQuizRequest,
   type Teacher,
   type TeacherAttendanceItem,
   type TeacherHubStudent,
@@ -141,9 +195,14 @@ import {
   type UpdateCourseRequest,
   type UpdateGroupRequest,
   type UpdateMaterialRequest,
+  type UpdateOnlineCourseModuleRequest,
+  type UpdateOnlineCourseRequest,
+  type UpdateOnlineLessonProgressRequest,
+  type UpdateOnlineLessonRequest,
   type UpdateStudentRequest,
   type UpdateTeacherRequest,
 } from '@academia/shared';
+import { z } from 'zod';
 import {
   materialMutationErrorMessage,
   materialsListPath,
@@ -3411,6 +3470,1462 @@ export async function updateEmailTemplateBrowser(
       };
     }
     return { ok: true, data: parsed.data.template };
+  } catch {
+    return {
+      ok: false,
+      status: 503,
+      message: 'No pudimos conectar con el servidor.',
+    };
+  }
+}
+
+// —— Online courses (async) ——
+
+const onlineCourseModuleListSchema = z.object({
+  modules: z.array(onlineCourseModuleSchema),
+});
+const onlineCourseModuleResponseSchema = z.object({
+  module: onlineCourseModuleSchema,
+});
+const onlineLessonListSchema = z.object({
+  lessons: z.array(onlineLessonSchema),
+});
+const onlineLessonResponseSchema = z.object({
+  lesson: onlineLessonSchema,
+});
+const onlineLessonAssetListSchema = z.object({
+  assets: z.array(onlineLessonAssetSchema),
+});
+const onlineLessonAssetResponseSchema = z.object({
+  asset: onlineLessonAssetSchema,
+});
+const onlineCourseAccessResponseSchema = z.object({
+  access: onlineCourseAccessSchema,
+});
+const onlineLessonProgressResponseSchema = z.object({
+  progress: onlineLessonProgressSchema,
+});
+const studentOnlineQuizResponseSchema = z.object({
+  quiz: onlineQuizPublicSchema,
+});
+
+export const onlineCourseStatusLabels: Record<OnlineCourseStatus, string> = {
+  DRAFT: 'Borrador',
+  PUBLISHED: 'Publicado',
+  ARCHIVED: 'Archivado',
+};
+
+export const onlineCourseAccessModeLabels: Record<
+  OnlineCourseAccessMode,
+  string
+> = {
+  OPEN: 'Libre',
+  LINEAR: 'Lineal',
+};
+
+export function slugifyOnlineCourseTitle(title: string): string {
+  return title
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 120);
+}
+
+export async function getSessionBrowser(): Promise<
+  BrowserApiResult<SessionUser | null>
+> {
+  try {
+    const response = await browserFetch('/auth/me');
+    if (response.status === 401) {
+      return { ok: true, data: null };
+    }
+    if (!response.ok) {
+      return {
+        ok: false,
+        status: response.status,
+        message: genericError(response.status, 'No pudimos verificar tu sesión.'),
+      };
+    }
+    const parsed = sessionResponseSchema.safeParse(await response.json());
+    if (!parsed.success) {
+      return {
+        ok: false,
+        status: 500,
+        message: 'Respuesta inválida del servidor.',
+      };
+    }
+    return { ok: true, data: parsed.data.user };
+  } catch {
+    return {
+      ok: false,
+      status: 503,
+      message: 'No pudimos conectar con el servidor.',
+    };
+  }
+}
+
+export async function listOnlineCoursesBrowser(): Promise<
+  BrowserApiResult<OnlineCourse[]>
+> {
+  try {
+    const response = await browserFetch('/online-courses');
+    if (!response.ok) {
+      return {
+        ok: false,
+        status: response.status,
+        message: genericError(
+          response.status,
+          'No pudimos cargar los cursos online.',
+        ),
+      };
+    }
+    const parsed = onlineCourseListResponseSchema.safeParse(
+      await response.json(),
+    );
+    if (!parsed.success) {
+      return {
+        ok: false,
+        status: 500,
+        message: 'Respuesta inválida del servidor.',
+      };
+    }
+    return { ok: true, data: parsed.data.courses };
+  } catch {
+    return {
+      ok: false,
+      status: 503,
+      message: 'No pudimos conectar con el servidor.',
+    };
+  }
+}
+
+export async function getOnlineCourseBrowser(
+  id: string,
+): Promise<BrowserApiResult<OnlineCourse>> {
+  try {
+    const response = await browserFetch(`/online-courses/${id}`);
+    if (!response.ok) {
+      return {
+        ok: false,
+        status: response.status,
+        message: genericError(
+          response.status,
+          'No pudimos cargar el curso online.',
+        ),
+      };
+    }
+    const parsed = onlineCourseResponseSchema.safeParse(await response.json());
+    if (!parsed.success) {
+      return {
+        ok: false,
+        status: 500,
+        message: 'Respuesta inválida del servidor.',
+      };
+    }
+    return { ok: true, data: parsed.data.course };
+  } catch {
+    return {
+      ok: false,
+      status: 503,
+      message: 'No pudimos conectar con el servidor.',
+    };
+  }
+}
+
+export async function createOnlineCourseBrowser(
+  body: CreateOnlineCourseRequest,
+): Promise<BrowserApiResult<OnlineCourse>> {
+  const validated = createOnlineCourseRequestSchema.safeParse(body);
+  if (!validated.success) {
+    return {
+      ok: false,
+      status: 400,
+      message: 'Revisá título, slug y el resto de los datos.',
+    };
+  }
+  try {
+    const response = await browserFetch('/online-courses', {
+      method: 'POST',
+      body: JSON.stringify(validated.data),
+    });
+    if (!response.ok) {
+      return {
+        ok: false,
+        status: response.status,
+        message: genericError(
+          response.status,
+          'No pudimos crear el curso online.',
+        ),
+      };
+    }
+    const parsed = onlineCourseResponseSchema.safeParse(await response.json());
+    if (!parsed.success) {
+      return {
+        ok: false,
+        status: 500,
+        message: 'Respuesta inválida del servidor.',
+      };
+    }
+    return { ok: true, data: parsed.data.course };
+  } catch {
+    return {
+      ok: false,
+      status: 503,
+      message: 'No pudimos conectar con el servidor.',
+    };
+  }
+}
+
+export async function updateOnlineCourseBrowser(
+  id: string,
+  body: UpdateOnlineCourseRequest,
+): Promise<BrowserApiResult<OnlineCourse>> {
+  const validated = updateOnlineCourseRequestSchema.safeParse(body);
+  if (!validated.success) {
+    return {
+      ok: false,
+      status: 400,
+      message: 'Revisá los datos e intentá de nuevo.',
+    };
+  }
+  try {
+    const response = await browserFetch(`/online-courses/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(validated.data),
+    });
+    if (!response.ok) {
+      return {
+        ok: false,
+        status: response.status,
+        message: genericError(
+          response.status,
+          'No pudimos actualizar el curso online.',
+        ),
+      };
+    }
+    const parsed = onlineCourseResponseSchema.safeParse(await response.json());
+    if (!parsed.success) {
+      return {
+        ok: false,
+        status: 500,
+        message: 'Respuesta inválida del servidor.',
+      };
+    }
+    return { ok: true, data: parsed.data.course };
+  } catch {
+    return {
+      ok: false,
+      status: 503,
+      message: 'No pudimos conectar con el servidor.',
+    };
+  }
+}
+
+async function onlineCourseStatusActionBrowser(
+  id: string,
+  action: 'publish' | 'unpublish' | 'archive',
+  fallback: string,
+): Promise<BrowserApiResult<OnlineCourse>> {
+  try {
+    const response = await browserFetch(`/online-courses/${id}/${action}`, {
+      method: 'POST',
+    });
+    if (!response.ok) {
+      return {
+        ok: false,
+        status: response.status,
+        message: genericError(response.status, fallback),
+      };
+    }
+    const parsed = onlineCourseResponseSchema.safeParse(await response.json());
+    if (!parsed.success) {
+      return {
+        ok: false,
+        status: 500,
+        message: 'Respuesta inválida del servidor.',
+      };
+    }
+    return { ok: true, data: parsed.data.course };
+  } catch {
+    return {
+      ok: false,
+      status: 503,
+      message: 'No pudimos conectar con el servidor.',
+    };
+  }
+}
+
+export function publishOnlineCourseBrowser(id: string) {
+  return onlineCourseStatusActionBrowser(
+    id,
+    'publish',
+    'No pudimos publicar el curso.',
+  );
+}
+
+export function unpublishOnlineCourseBrowser(id: string) {
+  return onlineCourseStatusActionBrowser(
+    id,
+    'unpublish',
+    'No pudimos despublicar el curso.',
+  );
+}
+
+export function archiveOnlineCourseBrowser(id: string) {
+  return onlineCourseStatusActionBrowser(
+    id,
+    'archive',
+    'No pudimos archivar el curso.',
+  );
+}
+
+export async function listOnlineCourseModulesBrowser(
+  courseId: string,
+): Promise<BrowserApiResult<OnlineCourseModule[]>> {
+  try {
+    const response = await browserFetch(`/online-courses/${courseId}/modules`);
+    if (!response.ok) {
+      return {
+        ok: false,
+        status: response.status,
+        message: genericError(response.status, 'No pudimos cargar los módulos.'),
+      };
+    }
+    const parsed = onlineCourseModuleListSchema.safeParse(await response.json());
+    if (!parsed.success) {
+      return {
+        ok: false,
+        status: 500,
+        message: 'Respuesta inválida del servidor.',
+      };
+    }
+    return { ok: true, data: parsed.data.modules };
+  } catch {
+    return {
+      ok: false,
+      status: 503,
+      message: 'No pudimos conectar con el servidor.',
+    };
+  }
+}
+
+export async function createOnlineCourseModuleBrowser(
+  courseId: string,
+  body: CreateOnlineCourseModuleRequest,
+): Promise<BrowserApiResult<OnlineCourseModule>> {
+  const validated = createOnlineCourseModuleRequestSchema.safeParse(body);
+  if (!validated.success) {
+    return {
+      ok: false,
+      status: 400,
+      message: 'Ingresá un título de módulo válido.',
+    };
+  }
+  try {
+    const response = await browserFetch(`/online-courses/${courseId}/modules`, {
+      method: 'POST',
+      body: JSON.stringify(validated.data),
+    });
+    if (!response.ok) {
+      return {
+        ok: false,
+        status: response.status,
+        message: genericError(response.status, 'No pudimos crear el módulo.'),
+      };
+    }
+    const parsed = onlineCourseModuleResponseSchema.safeParse(
+      await response.json(),
+    );
+    if (!parsed.success) {
+      return {
+        ok: false,
+        status: 500,
+        message: 'Respuesta inválida del servidor.',
+      };
+    }
+    return { ok: true, data: parsed.data.module };
+  } catch {
+    return {
+      ok: false,
+      status: 503,
+      message: 'No pudimos conectar con el servidor.',
+    };
+  }
+}
+
+export async function updateOnlineCourseModuleBrowser(
+  courseId: string,
+  moduleId: string,
+  body: UpdateOnlineCourseModuleRequest,
+): Promise<BrowserApiResult<OnlineCourseModule>> {
+  const validated = updateOnlineCourseModuleRequestSchema.safeParse(body);
+  if (!validated.success) {
+    return {
+      ok: false,
+      status: 400,
+      message: 'Revisá los datos del módulo.',
+    };
+  }
+  try {
+    const response = await browserFetch(
+      `/online-courses/${courseId}/modules/${moduleId}`,
+      {
+        method: 'PATCH',
+        body: JSON.stringify(validated.data),
+      },
+    );
+    if (!response.ok) {
+      return {
+        ok: false,
+        status: response.status,
+        message: genericError(
+          response.status,
+          'No pudimos actualizar el módulo.',
+        ),
+      };
+    }
+    const parsed = onlineCourseModuleResponseSchema.safeParse(
+      await response.json(),
+    );
+    if (!parsed.success) {
+      return {
+        ok: false,
+        status: 500,
+        message: 'Respuesta inválida del servidor.',
+      };
+    }
+    return { ok: true, data: parsed.data.module };
+  } catch {
+    return {
+      ok: false,
+      status: 503,
+      message: 'No pudimos conectar con el servidor.',
+    };
+  }
+}
+
+export async function reorderOnlineCourseModulesBrowser(
+  courseId: string,
+  moduleIds: string[],
+): Promise<BrowserApiResult<OnlineCourseModule[]>> {
+  const validated = reorderOnlineCourseModulesRequestSchema.safeParse({
+    moduleIds,
+  });
+  if (!validated.success) {
+    return {
+      ok: false,
+      status: 400,
+      message: 'No pudimos reordenar los módulos.',
+    };
+  }
+  try {
+    const response = await browserFetch(
+      `/online-courses/${courseId}/modules/reorder`,
+      {
+        method: 'POST',
+        body: JSON.stringify(validated.data),
+      },
+    );
+    if (!response.ok) {
+      return {
+        ok: false,
+        status: response.status,
+        message: genericError(
+          response.status,
+          'No pudimos reordenar los módulos.',
+        ),
+      };
+    }
+    const parsed = onlineCourseModuleListSchema.safeParse(await response.json());
+    if (!parsed.success) {
+      return {
+        ok: false,
+        status: 500,
+        message: 'Respuesta inválida del servidor.',
+      };
+    }
+    return { ok: true, data: parsed.data.modules };
+  } catch {
+    return {
+      ok: false,
+      status: 503,
+      message: 'No pudimos conectar con el servidor.',
+    };
+  }
+}
+
+export async function listOnlineLessonsBrowser(
+  courseId: string,
+  moduleId: string,
+): Promise<BrowserApiResult<OnlineLesson[]>> {
+  try {
+    const response = await browserFetch(
+      `/online-courses/${courseId}/modules/${moduleId}/lessons`,
+    );
+    if (!response.ok) {
+      return {
+        ok: false,
+        status: response.status,
+        message: genericError(response.status, 'No pudimos cargar las lecciones.'),
+      };
+    }
+    const parsed = onlineLessonListSchema.safeParse(await response.json());
+    if (!parsed.success) {
+      return {
+        ok: false,
+        status: 500,
+        message: 'Respuesta inválida del servidor.',
+      };
+    }
+    return { ok: true, data: parsed.data.lessons };
+  } catch {
+    return {
+      ok: false,
+      status: 503,
+      message: 'No pudimos conectar con el servidor.',
+    };
+  }
+}
+
+export async function createOnlineLessonBrowser(
+  courseId: string,
+  moduleId: string,
+  body: CreateOnlineLessonRequest,
+): Promise<BrowserApiResult<OnlineLesson>> {
+  const validated = createOnlineLessonRequestSchema.safeParse(body);
+  if (!validated.success) {
+    return {
+      ok: false,
+      status: 400,
+      message: 'Ingresá un título de lección válido.',
+    };
+  }
+  try {
+    const response = await browserFetch(
+      `/online-courses/${courseId}/modules/${moduleId}/lessons`,
+      {
+        method: 'POST',
+        body: JSON.stringify(validated.data),
+      },
+    );
+    if (!response.ok) {
+      return {
+        ok: false,
+        status: response.status,
+        message: genericError(response.status, 'No pudimos crear la lección.'),
+      };
+    }
+    const parsed = onlineLessonResponseSchema.safeParse(await response.json());
+    if (!parsed.success) {
+      return {
+        ok: false,
+        status: 500,
+        message: 'Respuesta inválida del servidor.',
+      };
+    }
+    return { ok: true, data: parsed.data.lesson };
+  } catch {
+    return {
+      ok: false,
+      status: 503,
+      message: 'No pudimos conectar con el servidor.',
+    };
+  }
+}
+
+export async function updateOnlineLessonBrowser(
+  courseId: string,
+  moduleId: string,
+  lessonId: string,
+  body: UpdateOnlineLessonRequest,
+): Promise<BrowserApiResult<OnlineLesson>> {
+  const validated = updateOnlineLessonRequestSchema.safeParse(body);
+  if (!validated.success) {
+    return {
+      ok: false,
+      status: 400,
+      message: 'Revisá los datos de la lección.',
+    };
+  }
+  try {
+    const response = await browserFetch(
+      `/online-courses/${courseId}/modules/${moduleId}/lessons/${lessonId}`,
+      {
+        method: 'PATCH',
+        body: JSON.stringify(validated.data),
+      },
+    );
+    if (!response.ok) {
+      return {
+        ok: false,
+        status: response.status,
+        message: genericError(
+          response.status,
+          'No pudimos actualizar la lección.',
+        ),
+      };
+    }
+    const parsed = onlineLessonResponseSchema.safeParse(await response.json());
+    if (!parsed.success) {
+      return {
+        ok: false,
+        status: 500,
+        message: 'Respuesta inválida del servidor.',
+      };
+    }
+    return { ok: true, data: parsed.data.lesson };
+  } catch {
+    return {
+      ok: false,
+      status: 503,
+      message: 'No pudimos conectar con el servidor.',
+    };
+  }
+}
+
+export async function reorderOnlineLessonsBrowser(
+  courseId: string,
+  moduleId: string,
+  lessonIds: string[],
+): Promise<BrowserApiResult<OnlineLesson[]>> {
+  const validated = reorderOnlineLessonsRequestSchema.safeParse({ lessonIds });
+  if (!validated.success) {
+    return {
+      ok: false,
+      status: 400,
+      message: 'No pudimos reordenar las lecciones.',
+    };
+  }
+  try {
+    const response = await browserFetch(
+      `/online-courses/${courseId}/modules/${moduleId}/lessons/reorder`,
+      {
+        method: 'POST',
+        body: JSON.stringify(validated.data),
+      },
+    );
+    if (!response.ok) {
+      return {
+        ok: false,
+        status: response.status,
+        message: genericError(
+          response.status,
+          'No pudimos reordenar las lecciones.',
+        ),
+      };
+    }
+    const parsed = onlineLessonListSchema.safeParse(await response.json());
+    if (!parsed.success) {
+      return {
+        ok: false,
+        status: 500,
+        message: 'Respuesta inválida del servidor.',
+      };
+    }
+    return { ok: true, data: parsed.data.lessons };
+  } catch {
+    return {
+      ok: false,
+      status: 503,
+      message: 'No pudimos conectar con el servidor.',
+    };
+  }
+}
+
+export async function listOnlineLessonAssetsBrowser(
+  lessonId: string,
+): Promise<BrowserApiResult<OnlineLessonAsset[]>> {
+  try {
+    const response = await browserFetch(
+      `/online-courses/lessons/${lessonId}/assets`,
+    );
+    if (!response.ok) {
+      return {
+        ok: false,
+        status: response.status,
+        message: genericError(
+          response.status,
+          'No pudimos cargar los contenidos de la lección.',
+        ),
+      };
+    }
+    const parsed = onlineLessonAssetListSchema.safeParse(await response.json());
+    if (!parsed.success) {
+      return {
+        ok: false,
+        status: 500,
+        message: 'Respuesta inválida del servidor.',
+      };
+    }
+    return { ok: true, data: parsed.data.assets };
+  } catch {
+    return {
+      ok: false,
+      status: 503,
+      message: 'No pudimos conectar con el servidor.',
+    };
+  }
+}
+
+export async function createOnlineLessonAssetBrowser(
+  lessonId: string,
+  body: CreateOnlineLessonAssetRequest,
+): Promise<BrowserApiResult<OnlineLessonAsset>> {
+  const validated = createOnlineLessonAssetRequestSchema.safeParse(body);
+  if (!validated.success) {
+    return {
+      ok: false,
+      status: 400,
+      message: 'Revisá el contenido (texto o URL HTTPS).',
+    };
+  }
+  try {
+    const response = await browserFetch(
+      `/online-courses/lessons/${lessonId}/assets`,
+      {
+        method: 'POST',
+        body: JSON.stringify(validated.data),
+      },
+    );
+    if (!response.ok) {
+      return {
+        ok: false,
+        status: response.status,
+        message: genericError(
+          response.status,
+          'No pudimos agregar el contenido.',
+        ),
+      };
+    }
+    const parsed = onlineLessonAssetResponseSchema.safeParse(
+      await response.json(),
+    );
+    if (!parsed.success) {
+      return {
+        ok: false,
+        status: 500,
+        message: 'Respuesta inválida del servidor.',
+      };
+    }
+    return { ok: true, data: parsed.data.asset };
+  } catch {
+    return {
+      ok: false,
+      status: 503,
+      message: 'No pudimos conectar con el servidor.',
+    };
+  }
+}
+
+export async function createOnlineLessonAssetUploadBrowser(
+  lessonId: string,
+  body: CreateOnlineLessonAssetUploadRequest,
+): Promise<BrowserApiResult<OnlineLessonAssetUploadResponse>> {
+  const validated = createOnlineLessonAssetUploadRequestSchema.safeParse(body);
+  if (!validated.success) {
+    return {
+      ok: false,
+      status: 400,
+      message: 'Revisá el archivo (tipo, tamaño y nombre).',
+    };
+  }
+  try {
+    const response = await browserFetch(
+      `/online-courses/lessons/${lessonId}/assets/uploads`,
+      {
+        method: 'POST',
+        body: JSON.stringify(validated.data),
+      },
+    );
+    if (!response.ok) {
+      return {
+        ok: false,
+        status: response.status,
+        message: genericError(
+          response.status,
+          'No pudimos preparar la subida del documento.',
+        ),
+      };
+    }
+    const parsed = onlineLessonAssetUploadResponseSchema.safeParse(
+      await response.json(),
+    );
+    if (!parsed.success) {
+      return {
+        ok: false,
+        status: 500,
+        message: 'Respuesta inválida del servidor.',
+      };
+    }
+    return { ok: true, data: parsed.data };
+  } catch {
+    return {
+      ok: false,
+      status: 503,
+      message: 'No pudimos conectar con el servidor.',
+    };
+  }
+}
+
+export async function completeOnlineLessonAssetUploadBrowser(
+  assetId: string,
+): Promise<BrowserApiResult<OnlineLessonAsset>> {
+  try {
+    const response = await browserFetch(
+      `/online-courses/assets/${assetId}/complete`,
+      { method: 'POST' },
+    );
+    if (!response.ok) {
+      return {
+        ok: false,
+        status: response.status,
+        message: genericError(
+          response.status,
+          'No pudimos completar la subida del documento.',
+        ),
+      };
+    }
+    const parsed = onlineLessonAssetResponseSchema.safeParse(
+      await response.json(),
+    );
+    if (!parsed.success) {
+      return {
+        ok: false,
+        status: 500,
+        message: 'Respuesta inválida del servidor.',
+      };
+    }
+    return { ok: true, data: parsed.data.asset };
+  } catch {
+    return {
+      ok: false,
+      status: 503,
+      message: 'No pudimos conectar con el servidor.',
+    };
+  }
+}
+
+/** DOCUMENT upload: intent → PUT storage → complete. */
+export async function uploadOnlineLessonDocumentBrowser(
+  lessonId: string,
+  body: CreateOnlineLessonAssetUploadRequest,
+  file: File,
+  onProgress?: (phase: 'intent' | 'storage' | 'complete') => void,
+): Promise<BrowserApiResult<OnlineLessonAsset>> {
+  onProgress?.('intent');
+  const intent = await createOnlineLessonAssetUploadBrowser(lessonId, body);
+  if (!intent.ok) return intent;
+
+  onProgress?.('storage');
+  const put = await putMaterialFileToStorageBrowser(
+    intent.data.uploadUrl,
+    file,
+  );
+  if (!put.ok) return put;
+
+  onProgress?.('complete');
+  const completed = await completeOnlineLessonAssetUploadBrowser(
+    intent.data.asset.id,
+  );
+  if (!completed.ok) return completed;
+  if (completed.data.uploadStatus !== 'READY') {
+    return {
+      ok: false,
+      status: 500,
+      message: 'El archivo no quedó disponible. Intentá de nuevo.',
+    };
+  }
+  return completed;
+}
+
+export async function deleteOnlineLessonAssetBrowser(
+  assetId: string,
+): Promise<BrowserApiResult<null>> {
+  try {
+    const response = await browserFetch(`/online-courses/assets/${assetId}`, {
+      method: 'DELETE',
+    });
+    if (!response.ok && response.status !== 204) {
+      return {
+        ok: false,
+        status: response.status,
+        message: genericError(
+          response.status,
+          'No pudimos eliminar el contenido.',
+        ),
+      };
+    }
+    return { ok: true, data: null };
+  } catch {
+    return {
+      ok: false,
+      status: 503,
+      message: 'No pudimos conectar con el servidor.',
+    };
+  }
+}
+
+export async function downloadOnlineLessonAssetBrowser(
+  assetId: string,
+): Promise<BrowserApiResult<OnlineLessonAssetDownloadResponse>> {
+  try {
+    const response = await browserFetch(
+      `/online-courses/assets/${assetId}/download`,
+    );
+    if (!response.ok) {
+      return {
+        ok: false,
+        status: response.status,
+        message: genericError(
+          response.status,
+          'No pudimos obtener el enlace de descarga.',
+        ),
+      };
+    }
+    const parsed = onlineLessonAssetDownloadResponseSchema.safeParse(
+      await response.json(),
+    );
+    if (!parsed.success) {
+      return {
+        ok: false,
+        status: 500,
+        message: 'Respuesta inválida del servidor.',
+      };
+    }
+    return { ok: true, data: parsed.data };
+  } catch {
+    return {
+      ok: false,
+      status: 503,
+      message: 'No pudimos conectar con el servidor.',
+    };
+  }
+}
+
+export async function listPublicOnlineCoursesBrowser(): Promise<
+  BrowserApiResult<PublicOnlineCourseListResponse['courses']>
+> {
+  try {
+    const response = await browserFetch('/public/online-courses');
+    if (!response.ok) {
+      return {
+        ok: false,
+        status: response.status,
+        message: genericError(
+          response.status,
+          'No pudimos cargar el catálogo de cursos.',
+        ),
+      };
+    }
+    const parsed = publicOnlineCourseListResponseSchema.safeParse(
+      await response.json(),
+    );
+    if (!parsed.success) {
+      return {
+        ok: false,
+        status: 500,
+        message: 'Respuesta inválida del servidor.',
+      };
+    }
+    return { ok: true, data: parsed.data.courses };
+  } catch {
+    return {
+      ok: false,
+      status: 503,
+      message: 'No pudimos conectar con el servidor.',
+    };
+  }
+}
+
+export async function getPublicOnlineCourseBrowser(
+  slug: string,
+): Promise<BrowserApiResult<PublicOnlineCourse>> {
+  try {
+    const response = await browserFetch(`/public/online-courses/${slug}`);
+    if (!response.ok) {
+      return {
+        ok: false,
+        status: response.status,
+        message: genericError(
+          response.status,
+          'No pudimos cargar el curso.',
+        ),
+      };
+    }
+    const parsed = publicOnlineCourseResponseSchema.safeParse(
+      await response.json(),
+    );
+    if (!parsed.success) {
+      return {
+        ok: false,
+        status: 500,
+        message: 'Respuesta inválida del servidor.',
+      };
+    }
+    return { ok: true, data: parsed.data.course };
+  } catch {
+    return {
+      ok: false,
+      status: 503,
+      message: 'No pudimos conectar con el servidor.',
+    };
+  }
+}
+
+export async function listStudentOnlineCoursesBrowser(): Promise<
+  BrowserApiResult<OnlineCourse[]>
+> {
+  try {
+    const response = await browserFetch('/students/me/online-courses');
+    if (!response.ok) {
+      return {
+        ok: false,
+        status: response.status,
+        message: genericError(
+          response.status,
+          'No pudimos cargar tus cursos online.',
+        ),
+      };
+    }
+    const parsed = onlineCourseListResponseSchema.safeParse(
+      await response.json(),
+    );
+    if (!parsed.success) {
+      return {
+        ok: false,
+        status: 500,
+        message: 'Respuesta inválida del servidor.',
+      };
+    }
+    return { ok: true, data: parsed.data.courses };
+  } catch {
+    return {
+      ok: false,
+      status: 503,
+      message: 'No pudimos conectar con el servidor.',
+    };
+  }
+}
+
+export async function getStudentOnlineCourseOutlineBrowser(
+  slug: string,
+): Promise<BrowserApiResult<StudentOnlineCourseOutline>> {
+  try {
+    const response = await browserFetch(`/students/me/online-courses/${slug}`);
+    if (!response.ok) {
+      return {
+        ok: false,
+        status: response.status,
+        message: genericError(
+          response.status,
+          'No pudimos cargar el curso.',
+        ),
+      };
+    }
+    const parsed = studentOnlineCourseOutlineSchema.safeParse(
+      await response.json(),
+    );
+    if (!parsed.success) {
+      return {
+        ok: false,
+        status: 500,
+        message: 'Respuesta inválida del servidor.',
+      };
+    }
+    return { ok: true, data: parsed.data };
+  } catch {
+    return {
+      ok: false,
+      status: 503,
+      message: 'No pudimos conectar con el servidor.',
+    };
+  }
+}
+
+export async function getStudentOnlineLessonBrowser(
+  slug: string,
+  lessonId: string,
+): Promise<BrowserApiResult<StudentOnlineLessonDetail>> {
+  try {
+    const response = await browserFetch(
+      `/students/me/online-courses/${slug}/lessons/${lessonId}`,
+    );
+    if (!response.ok) {
+      return {
+        ok: false,
+        status: response.status,
+        message: genericError(
+          response.status,
+          'No pudimos cargar la lección.',
+        ),
+      };
+    }
+    const parsed = studentOnlineLessonDetailSchema.safeParse(
+      await response.json(),
+    );
+    if (!parsed.success) {
+      return {
+        ok: false,
+        status: 500,
+        message: 'Respuesta inválida del servidor.',
+      };
+    }
+    return { ok: true, data: parsed.data };
+  } catch {
+    return {
+      ok: false,
+      status: 503,
+      message: 'No pudimos conectar con el servidor.',
+    };
+  }
+}
+
+export async function updateStudentOnlineLessonProgressBrowser(
+  slug: string,
+  lessonId: string,
+  body: UpdateOnlineLessonProgressRequest,
+): Promise<BrowserApiResult<OnlineLessonProgress>> {
+  const validated = updateOnlineLessonProgressRequestSchema.safeParse(body);
+  if (!validated.success) {
+    return {
+      ok: false,
+      status: 400,
+      message: 'Estado de progreso inválido.',
+    };
+  }
+  try {
+    const response = await browserFetch(
+      `/students/me/online-courses/${slug}/lessons/${lessonId}/progress`,
+      {
+        method: 'POST',
+        body: JSON.stringify(validated.data),
+      },
+    );
+    if (!response.ok) {
+      return {
+        ok: false,
+        status: response.status,
+        message: genericError(
+          response.status,
+          'No pudimos actualizar el progreso.',
+        ),
+      };
+    }
+    const parsed = onlineLessonProgressResponseSchema.safeParse(
+      await response.json(),
+    );
+    if (!parsed.success) {
+      return {
+        ok: false,
+        status: 500,
+        message: 'Respuesta inválida del servidor.',
+      };
+    }
+    return { ok: true, data: parsed.data.progress };
+  } catch {
+    return {
+      ok: false,
+      status: 503,
+      message: 'No pudimos conectar con el servidor.',
+    };
+  }
+}
+
+export async function enrollFreeOnlineCourseBrowser(
+  slug: string,
+): Promise<BrowserApiResult<OnlineCourseAccess>> {
+  try {
+    const response = await browserFetch(
+      `/students/me/online-courses/${slug}/enroll-free`,
+      { method: 'POST' },
+    );
+    if (!response.ok) {
+      return {
+        ok: false,
+        status: response.status,
+        message: genericError(
+          response.status,
+          'No pudimos inscribirte en el curso gratis.',
+        ),
+      };
+    }
+    const parsed = onlineCourseAccessResponseSchema.safeParse(
+      await response.json(),
+    );
+    if (!parsed.success) {
+      return {
+        ok: false,
+        status: 500,
+        message: 'Respuesta inválida del servidor.',
+      };
+    }
+    return { ok: true, data: parsed.data.access };
+  } catch {
+    return {
+      ok: false,
+      status: 503,
+      message: 'No pudimos conectar con el servidor.',
+    };
+  }
+}
+
+export async function getStudentOnlineLessonQuizBrowser(
+  slug: string,
+  lessonId: string,
+): Promise<BrowserApiResult<OnlineQuizPublic | null>> {
+  try {
+    const response = await browserFetch(
+      `/students/me/online-courses/${slug}/lessons/${lessonId}/quiz`,
+    );
+    if (response.status === 404) {
+      return { ok: true, data: null };
+    }
+    if (!response.ok) {
+      return {
+        ok: false,
+        status: response.status,
+        message: genericError(response.status, 'No pudimos cargar el quiz.'),
+      };
+    }
+    const parsed = studentOnlineQuizResponseSchema.safeParse(
+      await response.json(),
+    );
+    if (!parsed.success) {
+      return {
+        ok: false,
+        status: 500,
+        message: 'Respuesta inválida del servidor.',
+      };
+    }
+    return { ok: true, data: parsed.data.quiz };
+  } catch {
+    return {
+      ok: false,
+      status: 503,
+      message: 'No pudimos conectar con el servidor.',
+    };
+  }
+}
+
+export async function submitStudentOnlineLessonQuizBrowser(
+  slug: string,
+  lessonId: string,
+  body: SubmitOnlineQuizRequest,
+): Promise<BrowserApiResult<OnlineQuizAttemptResult>> {
+  const validated = submitOnlineQuizRequestSchema.safeParse(body);
+  if (!validated.success) {
+    return {
+      ok: false,
+      status: 400,
+      message: 'Revisá tus respuestas e intentá de nuevo.',
+    };
+  }
+  try {
+    const response = await browserFetch(
+      `/students/me/online-courses/${slug}/lessons/${lessonId}/quiz/submit`,
+      {
+        method: 'POST',
+        body: JSON.stringify(validated.data),
+      },
+    );
+    if (!response.ok) {
+      return {
+        ok: false,
+        status: response.status,
+        message: genericError(
+          response.status,
+          'No pudimos enviar el quiz.',
+        ),
+      };
+    }
+    const parsed = onlineQuizAttemptResultSchema.safeParse(
+      await response.json(),
+    );
+    if (!parsed.success) {
+      return {
+        ok: false,
+        status: 500,
+        message: 'Respuesta inválida del servidor.',
+      };
+    }
+    return { ok: true, data: parsed.data };
+  } catch {
+    return {
+      ok: false,
+      status: 503,
+      message: 'No pudimos conectar con el servidor.',
+    };
+  }
+}
+
+export async function downloadStudentOnlineLessonAssetBrowser(
+  assetId: string,
+): Promise<BrowserApiResult<OnlineLessonAssetDownloadResponse>> {
+  try {
+    const response = await browserFetch(
+      `/students/me/online-courses/assets/${assetId}/download`,
+    );
+    if (!response.ok) {
+      return {
+        ok: false,
+        status: response.status,
+        message: genericError(
+          response.status,
+          'No pudimos obtener el enlace de descarga.',
+        ),
+      };
+    }
+    const parsed = onlineLessonAssetDownloadResponseSchema.safeParse(
+      await response.json(),
+    );
+    if (!parsed.success) {
+      return {
+        ok: false,
+        status: 500,
+        message: 'Respuesta inválida del servidor.',
+      };
+    }
+    return { ok: true, data: parsed.data };
+  } catch {
+    return {
+      ok: false,
+      status: 503,
+      message: 'No pudimos conectar con el servidor.',
+    };
+  }
+}
+
+export async function grantOnlineCourseAccessBrowser(
+  courseId: string,
+  body: { studentId: string; expiresAt?: string | null },
+): Promise<BrowserApiResult<OnlineCourseAccess>> {
+  const validated = grantOnlineCourseAccessRequestSchema.safeParse(body);
+  if (!validated.success) {
+    return {
+      ok: false,
+      status: 400,
+      message: 'Seleccioná un estudiante válido.',
+    };
+  }
+  try {
+    const response = await browserFetch(`/online-courses/${courseId}/access`, {
+      method: 'POST',
+      body: JSON.stringify(validated.data),
+    });
+    if (!response.ok) {
+      return {
+        ok: false,
+        status: response.status,
+        message: genericError(
+          response.status,
+          'No pudimos conceder el acceso.',
+        ),
+      };
+    }
+    const parsed = z
+      .object({ access: onlineCourseAccessSchema })
+      .safeParse(await response.json());
+    if (!parsed.success) {
+      return {
+        ok: false,
+        status: 500,
+        message: 'Respuesta inválida del servidor.',
+      };
+    }
+    return { ok: true, data: parsed.data.access };
+  } catch {
+    return {
+      ok: false,
+      status: 503,
+      message: 'No pudimos conectar con el servidor.',
+    };
+  }
+}
+
+export async function getOnlineQuizAdminBrowser(
+  lessonId: string,
+): Promise<BrowserApiResult<OnlineQuizAdmin | null>> {
+  try {
+    const response = await browserFetch(
+      `/online-courses/lessons/${lessonId}/quiz`,
+    );
+    if (response.status === 404) {
+      return { ok: true, data: null };
+    }
+    if (!response.ok) {
+      return {
+        ok: false,
+        status: response.status,
+        message: genericError(
+          response.status,
+          'No pudimos cargar el cuestionario.',
+        ),
+      };
+    }
+    const parsed = z
+      .object({ quiz: onlineQuizAdminSchema })
+      .safeParse(await response.json());
+    if (!parsed.success) {
+      return {
+        ok: false,
+        status: 500,
+        message: 'Respuesta inválida del servidor.',
+      };
+    }
+    return { ok: true, data: parsed.data.quiz };
+  } catch {
+    return {
+      ok: false,
+      status: 503,
+      message: 'No pudimos conectar con el servidor.',
+    };
+  }
+}
+
+export async function upsertOnlineQuizBrowser(
+  lessonId: string,
+  body: UpsertOnlineQuizRequest,
+): Promise<BrowserApiResult<OnlineQuizAdmin>> {
+  const validated = upsertOnlineQuizRequestSchema.safeParse(body);
+  if (!validated.success) {
+    return {
+      ok: false,
+      status: 400,
+      message: 'Revisá el cuestionario (preguntas y opciones).',
+    };
+  }
+  try {
+    const response = await browserFetch(
+      `/online-courses/lessons/${lessonId}/quiz`,
+      {
+        method: 'PUT',
+        body: JSON.stringify(validated.data),
+      },
+    );
+    if (!response.ok) {
+      return {
+        ok: false,
+        status: response.status,
+        message: genericError(
+          response.status,
+          'No pudimos guardar el cuestionario.',
+        ),
+      };
+    }
+    const parsed = z
+      .object({ quiz: onlineQuizAdminSchema })
+      .safeParse(await response.json());
+    if (!parsed.success) {
+      return {
+        ok: false,
+        status: 500,
+        message: 'Respuesta inválida del servidor.',
+      };
+    }
+    return { ok: true, data: parsed.data.quiz };
   } catch {
     return {
       ok: false,

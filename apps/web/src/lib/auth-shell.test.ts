@@ -30,6 +30,7 @@ describe('dashboardNavSections', () => {
     expect(hrefs).toEqual([
       '/dashboard/student',
       '/dashboard/student/classes',
+      '/dashboard/student/courses',
       '/dashboard/student/materials',
       '/dashboard/student/attendance',
       '/dashboard/student/finance',

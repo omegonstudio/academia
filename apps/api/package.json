@@ -15,7 +15,8 @@
     "prisma:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy",
-    "db:seed": "tsx src/seed/cli.ts"
+    "db:seed": "tsx src/seed/cli.ts",
+    "db:seed:spanish2go": "tsx src/seed/spanish2go-cli.ts"
   },
   "dependencies": {
     "@academia/shared": "*",

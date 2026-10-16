@@ -1,0 +1,319 @@
+{
+  "source": {
+    "platform": "uTeach",
+    "courseUrl": "https://spanish2go.uteach.io/courses/taller-calentamientos-top-y-cortos-modernos",
+    "scrapedAt": "2026-10-16T03:19:52Z",
+    "supplementarySources": [
+      {
+        "url": "https://spanish2go.online/oferta-taller-calentamientos-top-y-cortos-modernos-en-tu-clase-ele/",
+        "role": "landing comercial / oferta",
+        "usedFor": ["description", "benefits", "whatIs", "whatIsNot", "bonus"]
+      },
+      {
+        "url": "https://spanish2go.online/calentamientos-y-cortos-modernos-en-tu-clase-ele/",
+        "role": "landing comercial / evento original",
+        "usedFor": ["durationHint", "accessLifetime", "recordingPolicy"]
+      }
+    ],
+    "extractionMethod": "public HTML via fetch; sin autenticación; sin acceso a lecciones internas"
+  },
+  "course": {
+    "title": "Taller calentamientos top y cortos modernos",
+    "slug": "taller-calentamientos-top-y-cortos-modernos",
+    "author": "Sara Spanish2Go",
+    "subtitle": null,
+    "description": "Taller útil y práctico en el que se van directa al grano. Se aprenden calentamientos (actividades, juegos o herramientas sencillas) que usan Sara, las profes a las que mentoriza y profes que ya han hecho este taller, para mejorar las clases y ahorrar tiempo. Es adaptable a cualquier nivel. Se ven ejemplos de todo y se puede descargar la presentación con todo incluido. También se aprende a seleccionar cortos modernos y a cómo usarlos (de regalo).",
+    "descriptionSources": {
+      "uteachPublicPage": "Sin descripción larga visible en la ficha pública de uTeach; solo título, categoría, programa, autora y precio.",
+      "commercialLanding": "Descripción reconstruida a partir de las landings de spanish2go.online citadas en supplementarySources."
+    },
+    "price": 40,
+    "currency": "EUR",
+    "benefits": [
+      "Aprender a conectar más con el alumnado durante las sesiones",
+      "Conocer otras formas de adaptar las clases",
+      "Llevar los juegos a las clases de forma fácil",
+      "Hacer efecto WOW en los alumnos y alumnas",
+      "Conocer cortos modernos, interesantes y cortos",
+      "Usable tanto online como en clases presenciales"
+    ],
+    "whatIncludes": [
+      "Grabación del taller",
+      "Presentación descargable",
+      "Valoración del taller",
+      "Promoción / descuento 10% para el curso Mis 4 amigos del pasado",
+      "Mensaje final de agradecimiento"
+    ],
+    "whatIs": [
+      "Es un taller útil y práctico en el que voy directa al grano",
+      "Aprenderás los calentamientos que tanto yo, como las profes a las que mentorizo y los profes que ya han hecho este taller, usan y que nos funcionan",
+      "Estos calentamientos son actividades, juegos o herramientas sencillas que puedes utilizar para mejorar tus clases y ahorrar tiempo",
+      "Es adaptable a cualquier nivel (te enseñaré cómo hacerlo)",
+      "Veremos ejemplos de todo y te podrás descargar la presentación con todo incluido",
+      "También aprenderás a seleccionar cortos modernos y a cómo usarlos (DE REGALO)"
+    ],
+    "whatIsNot": [
+      "No es un taller de gramática",
+      "No te cuento nada que NO puedas aplicar de forma inmediata y sencilla",
+      "No vengo a hacerte perder el tiempo, pasaremos directamente a la acción"
+    ],
+    "bonus": [
+      "Seleccionar cortos modernos y cómo usarlos (indicado como REGALO en las landings comerciales)"
+    ],
+    "category": "CURSOS Y TALLERES",
+    "targetAudience": "Profesores/as de español ELE (inferido del posicionamiento comercial; no hay campo explícito 'público objetivo' en uTeach)",
+    "prerequisites": null,
+    "accessAndModality": {
+      "fromUteach": "Curso/taller alojado en plataforma uTeach; contenido interno no accesible sin matrícula",
+      "fromCommercialLanding": [
+        "Grabación enviada por correo si no se puede asistir al directo original",
+        "Acceso a la grabación de por vida (según landing del evento)",
+        "Duración aproximada del taller en vivo original: 1 hora y media aproximadamente (incluye espacio para dudas)"
+      ]
+    },
+    "metadata": {
+      "platformCategoryLabel": "CURSOS Y TALLERES",
+      "publicProgramVisibleWithoutLogin": true,
+      "lessonBodiesAccessibleWithoutLogin": false,
+      "relatedCoursePromo": {
+        "title": "Mis 4 amigos del pasado",
+        "discountMentioned": "10%",
+        "relatedCourseUrl": "https://spanish2go.uteach.io/courses/mis-4-amigos-pasados-del-pasado"
+      }
+    }
+  },
+  "modules": [
+    {
+      "title": "Grabación",
+      "position": 1,
+      "description": null,
+      "lessonsCountDeclared": 1,
+      "lessons": [
+        {
+          "title": "Grabación del taller",
+          "position": 1,
+          "contentType": "video",
+          "contentTypeConfidence": "inferred_from_title",
+          "description": null,
+          "textContent": null,
+          "estimatedMinutes": null,
+          "estimatedMinutesNote": "Landing comercial del evento original indica ~90 minutos de duración del taller en vivo; no confirmado para la grabación alojada en uTeach",
+          "assets": [
+            {
+              "type": "video",
+              "title": "Grabación del taller",
+              "sourceUrl": null,
+              "mimeType": null,
+              "duration": null,
+              "availability": "mentioned_not_accessible",
+              "notes": "Aparece en el programa público de uTeach. No se obtuvo URL, plataforma de hosting ni duración. Requiere acceso autenticado."
+            }
+          ],
+          "activities": [],
+          "quiz": null
+        }
+      ]
+    },
+    {
+      "title": "PRESENTACIÓN",
+      "position": 2,
+      "description": null,
+      "lessonsCountDeclared": 1,
+      "lessons": [
+        {
+          "title": "Descárgatela",
+          "position": 1,
+          "contentType": "documento",
+          "contentTypeConfidence": "inferred_from_title_and_cta",
+          "description": "CTA pública: Descárgatela. Landings comerciales confirman presentación descargable con el contenido del taller.",
+          "textContent": null,
+          "estimatedMinutes": null,
+          "assets": [
+            {
+              "type": "document",
+              "title": "Presentación del taller (nombre de archivo original desconocido)",
+              "sourceUrl": null,
+              "mimeType": null,
+              "duration": null,
+              "availability": "mentioned_not_accessible",
+              "notes": "Confirmado como recurso descargable por título/CTA y landings. No se obtuvo URL ni tipo MIME. No se afirma disponibilidad de descarga pública."
+            }
+          ],
+          "activities": [],
+          "quiz": null
+        }
+      ]
+    },
+    {
+      "title": "Valoración del taller",
+      "position": 3,
+      "description": null,
+      "lessonsCountDeclared": 1,
+      "lessons": [
+        {
+          "title": "Valora el taller",
+          "position": 1,
+          "contentType": "valoracion",
+          "contentTypeConfidence": "inferred_from_title",
+          "description": null,
+          "textContent": null,
+          "estimatedMinutes": null,
+          "assets": [],
+          "activities": [
+            {
+              "type": "course_review",
+              "title": "Valora el taller",
+              "instructions": null,
+              "fieldsVisible": false,
+              "availability": "mentioned_not_accessible",
+              "notes": "Formulario/actividad de valoración mencionada en el programa. Campos, escala y textos internos no accesibles sin login."
+            }
+          ],
+          "quiz": null
+        }
+      ]
+    },
+    {
+      "title": "Descuento 10% curso Mis 4 amigos del pasado",
+      "position": 4,
+      "description": null,
+      "lessonsCountDeclared": 1,
+      "lessons": [
+        {
+          "title": "CURSO MIS 4 AMIGOS DEL PASADO",
+          "position": 1,
+          "contentType": "enlace",
+          "contentTypeConfidence": "inferred_from_module_and_lesson_title",
+          "description": "Promoción de descuento 10% hacia el curso Mis 4 amigos del pasado.",
+          "textContent": null,
+          "estimatedMinutes": null,
+          "assets": [
+            {
+              "type": "link",
+              "title": "CURSO MIS 4 AMIGOS DEL PASADO",
+              "sourceUrl": null,
+              "destinationUrlSuspected": "https://spanish2go.uteach.io/courses/mis-4-amigos-pasados-del-pasado",
+              "mimeType": null,
+              "duration": null,
+              "availability": "mentioned_not_accessible",
+              "notes": "El enlace interno de la lección no se pudo abrir. La URL sospechada es la ficha pública del curso relacionado; no confirmada como destino exacto del botón de la lección."
+            }
+          ],
+          "activities": [],
+          "quiz": null
+        }
+      ]
+    },
+    {
+      "title": "GRACIAS",
+      "position": 5,
+      "description": null,
+      "lessonsCountDeclared": 1,
+      "lessons": [
+        {
+          "title": "GRACIAS",
+          "position": 1,
+          "contentType": "texto",
+          "contentTypeConfidence": "inferred_from_title",
+          "description": null,
+          "textContent": null,
+          "estimatedMinutes": null,
+          "assets": [],
+          "activities": [],
+          "quiz": null,
+          "notes": "Solo el título es visible públicamente. El mensaje de agradecimiento completo no está accesible."
+        }
+      ]
+    }
+  ],
+  "inventories": {
+    "videos": [
+      {
+        "lessonPath": "1.Grabación > Grabación del taller",
+        "title": "Grabación del taller",
+        "sourceUrl": null,
+        "platform": null,
+        "duration": null,
+        "availability": "mentioned_not_accessible"
+      }
+    ],
+    "documents": [
+      {
+        "lessonPath": "2.PRESENTACIÓN > Descárgatela",
+        "title": "Presentación del taller (nombre original desconocido)",
+        "originalFilename": null,
+        "fileType": null,
+        "sourceUrl": null,
+        "downloadAvailablePublicly": false,
+        "availability": "mentioned_not_accessible"
+      }
+    ],
+    "links": [
+      {
+        "lessonPath": "4.Descuento 10%... > CURSO MIS 4 AMIGOS DEL PASADO",
+        "visibleText": "CURSO MIS 4 AMIGOS DEL PASADO",
+        "destinationUrl": null,
+        "destinationUrlSuspected": "https://spanish2go.uteach.io/courses/mis-4-amigos-pasados-del-pasado",
+        "availability": "mentioned_not_accessible"
+      }
+    ],
+    "quizzesAndActivities": [
+      {
+        "lessonPath": "3.Valoración del taller > Valora el taller",
+        "type": "valoracion",
+        "contentAccessible": false
+      }
+    ]
+  },
+  "limitations": [
+    "Sin autenticación de alumno/comprador: imposible abrir lecciones internas de uTeach.",
+    "curl directo a uteach.io fue bloqueado por Cloudflare; la extracción usó fetch de contenido público renderizado.",
+    "No hay URLs de vídeo, PDF ni formularios en la ficha pública.",
+    "contentType de cada lección se infiere del título/CTA del programa, no de la inspección del asset real.",
+    "Materiales concretos de cortometrajes (listado de cortos, fichas, enlaces) no aparecen en el programa público; solo se menciona el bonus en landings comerciales.",
+    "Textos exactos de la lección GRACIAS y del formulario de valoración no están disponibles."
+  ],
+  "unavailableContent": [
+    {
+      "item": "Vídeo de la grabación del taller",
+      "reason": "Protegido / requiere matrícula"
+    },
+    {
+      "item": "Archivo de la presentación descargable",
+      "reason": "Protegido / requiere matrícula"
+    },
+    {
+      "item": "Formulario de valoración (campos y textos)",
+      "reason": "Protegido / requiere matrícula"
+    },
+    {
+      "item": "URL exacta del descuento / CTA al curso de pasados",
+      "reason": "Lección interna no accesible"
+    },
+    {
+      "item": "Texto completo de GRACIAS",
+      "reason": "Lección interna no accesible"
+    },
+    {
+      "item": "Recursos detallados de cortometrajes modernos",
+      "reason": "No listados en programa público; posiblemente dentro de grabación/presentación"
+    }
+  ],
+  "coverage": {
+    "modulesIdentified": 5,
+    "lessonsIdentified": 5,
+    "lessonTitlesComplete": true,
+    "lessonBodiesAccessible": 0,
+    "assetsMentioned": 3,
+    "assetsWithSourceUrl": 0,
+    "commercialFieldsFromLanding": true,
+    "percentages": {
+      "structureProgramCoverage": 100,
+      "structureProgramCoverageBasis": "5/5 módulos y 5/5 lecciones del programa público identificados con título y orden",
+      "lessonInternalContentCoverage": 0,
+      "lessonInternalContentCoverageBasis": "0/5 lecciones con cuerpo/texto/asset accesible",
+      "assetUrlCoverage": 0,
+      "assetUrlCoverageBasis": "0/3 assets mencionados con URL de origen"
+    }
+  }
+}

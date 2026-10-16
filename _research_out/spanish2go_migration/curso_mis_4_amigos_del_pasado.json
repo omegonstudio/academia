@@ -1,0 +1,1113 @@
+{
+  "source": {
+    "platform": "uTeach",
+    "courseUrl": "https://spanish2go.uteach.io/courses/mis-4-amigos-pasados-del-pasado",
+    "scrapedAt": "2026-10-16T03:19:52Z",
+    "supplementarySources": [
+      {
+        "url": "https://spanish2go.online/mis-4-amigos-del-pasado-2/",
+        "role": "landing comercial",
+        "usedFor": ["targetPainPoints", "accessAndModality", "benefitsCommercial", "audienceHints"]
+      }
+    ],
+    "extractionMethod": "public HTML via fetch; sin autenticación; sin acceso a lecciones internas"
+  },
+  "course": {
+    "title": "Mis 4 amigos del pasado: Un viaje pedagógico",
+    "slug": "mis-4-amigos-pasados-del-pasado",
+    "author": "Sara Spanish2Go",
+    "subtitle": "Pretérito perfecto, indefinido,imperfecto y pluscuamperfecto",
+    "description": "Es un curso diseñado para aprender de forma correcta el uso de los 4 pasados del español y aprender a cómo enseñarlos de una forma RÁPIDA, EFECTIVA, LÓGICA y sin largas listas.\n\nLo novedoso de este curso es que se verá a través del Storytelling y de la gramática cognitiva.\n\nRealizaremos un viaje juntos a través de la mano de 4 personajes, que representarán a cada tiempo verbal.\n\nSerá la primera vez que puedas obtener un curso tan completo como este👇\n\n✅ Explicación de los 4 tiempos verbales a través de la gramática cognitiva y de 4 historias paralelas.\n\n✅ Descripción física y de personalidad de los 4 personajes (y actividades para trabajar con ellos) haciendo uso de la Inteligencia artificial\n\n✅ Material organizado de cada tiempo verbal: Gramática, verbos irregulares y sus particularidades, ejemplos y frases para trabajar con tu alumnado.\n\nBONUS EXTRA:.\n\n✅ Mini curso: cómo usar la inteligencia artificial para crear personajes únicos para tus clases.\n\n✅ Cómo usar el Storytelling para tus clases, unidades didácticas y textos únicos, usando la IA: Chat GPT",
+    "price": 150,
+    "currency": "EUR",
+    "benefits": [
+      "Explicación de los 4 tiempos verbales a través de la gramática cognitiva y de 4 historias paralelas",
+      "Descripción física y de personalidad de los 4 personajes (y actividades para trabajar con ellos) haciendo uso de la Inteligencia artificial",
+      "Material organizado de cada tiempo verbal: Gramática, verbos irregulares y sus particularidades, ejemplos y frases para trabajar con tu alumnado"
+    ],
+    "whatIncludes": [
+      "Programa de 11 módulos / 40 lecciones (según conteo del programa público)",
+      "Personajes: Herminia (Pretérito Perfecto), Merlí (Pretérito indefinido), Alba María (Pretérito Imperfecto), María Rocío (Pretérito Pluscuamperfecto)",
+      "Vídeos y documentos por personaje",
+      "Cuestionario inicial y re-test",
+      "Conclusiones",
+      "Actividad creativa / viaje con IA",
+      "Valoración y certificado (mencionado en título del módulo 10)",
+      "Bonus: mini curso de inteligencia artificial"
+    ],
+    "bonus": [
+      "Mini curso: cómo usar la inteligencia artificial para crear personajes únicos para tus clases",
+      "Cómo usar el Storytelling para tus clases, unidades didácticas y textos únicos, usando la IA: Chat GPT",
+      "Módulo 11 BONUS incluye: (REGALO) 19 Herramientas IA, para gente curiosa o emprendedora"
+    ],
+    "category": null,
+    "targetAudience": "Profesores/as de español (énfasis comercial en profes no nativos en landing; no hay campo explícito en uTeach)",
+    "prerequisites": null,
+    "accessAndModality": {
+      "fromUteach": "Curso alojado en uTeach; ficha pública visible; contenido interno no accesible sin matrícula",
+      "fromCommercialLanding": [
+        "100% online, 100% a tu ritmo",
+        "Acceso a una plataforma con usuario y contraseña",
+        "Sin tiempos ni presiones horarias; eliges momento y lugar",
+        "Creado para aplicar a clases de forma instantánea"
+      ]
+    },
+    "commercialPainPointsFromLanding": [
+      "¿Te cuesta explicar y entender correctamente los 4 tiempos del pasado?",
+      "¿Sientes que a tu alumnado le aburre este tema y no consiguen aplicarlo bien?",
+      "¿Te faltan recursos y material dinámico para sentirte cómoda/o explicándolo?",
+      "¿Sabes cómo enseñarlo usando la gramática cognitiva?"
+    ],
+    "charactersConfirmedInProgram": [
+      {
+        "name": "Herminia",
+        "tense": "Pretérito Perfecto",
+        "modulePosition": 3
+      },
+      {
+        "name": "Merlí",
+        "tense": "Pretérito indefinido",
+        "modulePosition": 4
+      },
+      {
+        "name": "Alba María",
+        "tense": "Pretérito Imperfecto",
+        "modulePosition": 5
+      },
+      {
+        "name": "María Rocío",
+        "tense": "Pretérito Pluscuamperfecto",
+        "modulePosition": 6
+      }
+    ],
+    "metadata": {
+      "publicProgramVisibleWithoutLogin": true,
+      "lessonBodiesAccessibleWithoutLogin": false,
+      "declaredPartsPerModuleFromPublicPage": [1, 2, 7, 7, 6, 4, 2, 2, 1, 1, 7],
+      "lessonsParsedFromPublicProgram": 40
+    }
+  },
+  "modules": [
+    {
+      "title": "MÓDULO 1: Ponte a prueba (test) y cuéntame de ti",
+      "position": 1,
+      "description": null,
+      "lessonsCountDeclared": 1,
+      "lessons": [
+        {
+          "title": "¡EMPEZAMOS! ¡Nos ponemos manos a la obra! (Cuestionario)",
+          "position": 1,
+          "contentType": "cuestionario",
+          "contentTypeConfidence": "inferred_from_title",
+          "description": null,
+          "textContent": null,
+          "estimatedMinutes": null,
+          "assets": [],
+          "activities": [
+            {
+              "type": "questionnaire",
+              "title": "¡EMPEZAMOS! ¡Nos ponemos manos a la obra! (Cuestionario)",
+              "availability": "mentioned_not_accessible",
+              "notes": "Diagnóstico inicial / cuestionario. Enunciados, opciones y respuestas no accesibles."
+            }
+          ],
+          "quiz": {
+            "accessible": false,
+            "questions": [],
+            "notes": "Solo se conoce la existencia del cuestionario por el título de la lección."
+          }
+        }
+      ]
+    },
+    {
+      "title": "Módulo 2: Introducción al curso y presentación de los protagonistas",
+      "position": 2,
+      "description": null,
+      "lessonsCountDeclared": 2,
+      "lessons": [
+        {
+          "title": "Empezamos nuestro viaje pedagógico",
+          "position": 1,
+          "contentType": "desconocido",
+          "contentTypeConfidence": "title_only_no_type_marker",
+          "description": null,
+          "textContent": null,
+          "estimatedMinutes": null,
+          "assets": [],
+          "activities": [],
+          "quiz": null,
+          "notes": "Sin marcador Vídeo/DOCUMENTO/Cuestionario en el título público. Tipo real no verificable."
+        },
+        {
+          "title": "Documento para descargar",
+          "position": 2,
+          "contentType": "documento",
+          "contentTypeConfidence": "inferred_from_title",
+          "description": null,
+          "textContent": null,
+          "estimatedMinutes": null,
+          "assets": [
+            {
+              "type": "document",
+              "title": "Documento para descargar",
+              "sourceUrl": null,
+              "mimeType": null,
+              "duration": null,
+              "availability": "mentioned_not_accessible",
+              "notes": "Nombre de archivo original desconocido."
+            }
+          ],
+          "activities": [],
+          "quiz": null
+        }
+      ]
+    },
+    {
+      "title": "Módulo 3: Herminia: Pretérito Perfecto",
+      "position": 3,
+      "description": null,
+      "lessonsCountDeclared": 7,
+      "lessons": [
+        {
+          "title": "Vídeo: HERMINIA, presentación (descripción y forma de hablar)",
+          "position": 1,
+          "contentType": "video",
+          "contentTypeConfidence": "inferred_from_title_prefix",
+          "description": null,
+          "textContent": null,
+          "estimatedMinutes": null,
+          "assets": [
+            {
+              "type": "video",
+              "title": "HERMINIA, presentación (descripción y forma de hablar)",
+              "sourceUrl": null,
+              "mimeType": null,
+              "duration": null,
+              "availability": "mentioned_not_accessible",
+              "notes": "Plataforma de hosting desconocida."
+            }
+          ],
+          "activities": [],
+          "quiz": null
+        },
+        {
+          "title": "DOCUMENTO HERMINIA, presentación (descripción y forma de hablar)",
+          "position": 2,
+          "contentType": "documento",
+          "contentTypeConfidence": "inferred_from_title_prefix",
+          "description": null,
+          "textContent": null,
+          "estimatedMinutes": null,
+          "assets": [
+            {
+              "type": "document",
+              "title": "DOCUMENTO HERMINIA, presentación (descripción y forma de hablar)",
+              "sourceUrl": null,
+              "mimeType": null,
+              "duration": null,
+              "availability": "mentioned_not_accessible",
+              "notes": "Nombre de archivo original desconocido."
+            }
+          ],
+          "activities": [],
+          "quiz": null
+        },
+        {
+          "title": "Vídeo: HERMINIA, mito y gramática cognitiva",
+          "position": 3,
+          "contentType": "video",
+          "contentTypeConfidence": "inferred_from_title_prefix",
+          "description": null,
+          "textContent": null,
+          "estimatedMinutes": null,
+          "assets": [
+            {
+              "type": "video",
+              "title": "HERMINIA, mito y gramática cognitiva",
+              "sourceUrl": null,
+              "mimeType": null,
+              "duration": null,
+              "availability": "mentioned_not_accessible",
+              "notes": ""
+            }
+          ],
+          "activities": [],
+          "quiz": null
+        },
+        {
+          "title": "DOCUMENTO HERMINIA, mito y gramática cognitiva",
+          "position": 4,
+          "contentType": "documento",
+          "contentTypeConfidence": "inferred_from_title_prefix",
+          "description": null,
+          "textContent": null,
+          "estimatedMinutes": null,
+          "assets": [
+            {
+              "type": "document",
+              "title": "DOCUMENTO HERMINIA, mito y gramática cognitiva",
+              "sourceUrl": null,
+              "mimeType": null,
+              "duration": null,
+              "availability": "mentioned_not_accessible",
+              "notes": ""
+            }
+          ],
+          "activities": [],
+          "quiz": null
+        },
+        {
+          "title": "Vídeo: HERMINIA, ejercicios prácticos",
+          "position": 5,
+          "contentType": "video",
+          "contentTypeConfidence": "inferred_from_title_prefix",
+          "description": null,
+          "textContent": null,
+          "estimatedMinutes": null,
+          "assets": [
+            {
+              "type": "video",
+              "title": "HERMINIA, ejercicios prácticos",
+              "sourceUrl": null,
+              "mimeType": null,
+              "duration": null,
+              "availability": "mentioned_not_accessible",
+              "notes": ""
+            }
+          ],
+          "activities": [],
+          "quiz": null
+        },
+        {
+          "title": "DOCUMENTO HERMINIA, ejercicios prácticos",
+          "position": 6,
+          "contentType": "documento",
+          "contentTypeConfidence": "inferred_from_title_prefix",
+          "description": null,
+          "textContent": null,
+          "estimatedMinutes": null,
+          "assets": [
+            {
+              "type": "document",
+              "title": "DOCUMENTO HERMINIA, ejercicios prácticos",
+              "sourceUrl": null,
+              "mimeType": null,
+              "duration": null,
+              "availability": "mentioned_not_accessible",
+              "notes": ""
+            }
+          ],
+          "activities": [],
+          "quiz": null
+        },
+        {
+          "title": "Practica con esta canción",
+          "position": 7,
+          "contentType": "enlace",
+          "contentTypeConfidence": "inferred_probable_external_resource",
+          "description": null,
+          "textContent": null,
+          "estimatedMinutes": null,
+          "assets": [
+            {
+              "type": "link",
+              "title": "Practica con esta canción",
+              "sourceUrl": null,
+              "mimeType": null,
+              "duration": null,
+              "availability": "mentioned_not_accessible",
+              "notes": "Probable enlace externo a canción. URL no disponible públicamente. No se confirma tipología exacta (enlace vs embed)."
+            }
+          ],
+          "activities": [],
+          "quiz": null
+        }
+      ]
+    },
+    {
+      "title": "Módulo 4: Merlí: Pretérito indefinido",
+      "position": 4,
+      "description": null,
+      "lessonsCountDeclared": 7,
+      "lessons": [
+        {
+          "title": "Vídeo: MERLÍ presentación (descripción y forma de hablar)",
+          "position": 1,
+          "contentType": "video",
+          "contentTypeConfidence": "inferred_from_title_prefix",
+          "description": null,
+          "textContent": null,
+          "estimatedMinutes": null,
+          "assets": [
+            {
+              "type": "video",
+              "title": "MERLÍ presentación (descripción y forma de hablar)",
+              "sourceUrl": null,
+              "mimeType": null,
+              "duration": null,
+              "availability": "mentioned_not_accessible",
+              "notes": ""
+            }
+          ],
+          "activities": [],
+          "quiz": null
+        },
+        {
+          "title": "DOCUMENTO MERLÍ, presentación (descripción y forma de hablar)",
+          "position": 2,
+          "contentType": "documento",
+          "contentTypeConfidence": "inferred_from_title_prefix",
+          "description": null,
+          "textContent": null,
+          "estimatedMinutes": null,
+          "assets": [
+            {
+              "type": "document",
+              "title": "DOCUMENTO MERLÍ, presentación (descripción y forma de hablar)",
+              "sourceUrl": null,
+              "mimeType": null,
+              "duration": null,
+              "availability": "mentioned_not_accessible",
+              "notes": ""
+            }
+          ],
+          "activities": [],
+          "quiz": null
+        },
+        {
+          "title": "Video: MERLÍ, gramática cognitiva",
+          "position": 3,
+          "contentType": "video",
+          "contentTypeConfidence": "inferred_from_title_prefix",
+          "description": null,
+          "textContent": null,
+          "estimatedMinutes": null,
+          "assets": [
+            {
+              "type": "video",
+              "title": "MERLÍ, gramática cognitiva",
+              "sourceUrl": null,
+              "mimeType": null,
+              "duration": null,
+              "availability": "mentioned_not_accessible",
+              "notes": ""
+            }
+          ],
+          "activities": [],
+          "quiz": null
+        },
+        {
+          "title": "DOCUMENTO MERLÍ, gramática cognitiva",
+          "position": 4,
+          "contentType": "documento",
+          "contentTypeConfidence": "inferred_from_title_prefix",
+          "description": null,
+          "textContent": null,
+          "estimatedMinutes": null,
+          "assets": [
+            {
+              "type": "document",
+              "title": "DOCUMENTO MERLÍ, gramática cognitiva",
+              "sourceUrl": null,
+              "mimeType": null,
+              "duration": null,
+              "availability": "mentioned_not_accessible",
+              "notes": ""
+            }
+          ],
+          "activities": [],
+          "quiz": null
+        },
+        {
+          "title": "Video: MERLÍ, ejercicios prácticos",
+          "position": 5,
+          "contentType": "video",
+          "contentTypeConfidence": "inferred_from_title_prefix",
+          "description": null,
+          "textContent": null,
+          "estimatedMinutes": null,
+          "assets": [
+            {
+              "type": "video",
+              "title": "MERLÍ, ejercicios prácticos",
+              "sourceUrl": null,
+              "mimeType": null,
+              "duration": null,
+              "availability": "mentioned_not_accessible",
+              "notes": ""
+            }
+          ],
+          "activities": [],
+          "quiz": null
+        },
+        {
+          "title": "Canción para recordar los verbos irregulares del pretérito indefinido",
+          "position": 6,
+          "contentType": "enlace",
+          "contentTypeConfidence": "inferred_probable_external_resource",
+          "description": null,
+          "textContent": null,
+          "estimatedMinutes": null,
+          "assets": [
+            {
+              "type": "link",
+              "title": "Canción para recordar los verbos irregulares del pretérito indefinido",
+              "sourceUrl": null,
+              "mimeType": null,
+              "duration": null,
+              "availability": "mentioned_not_accessible",
+              "notes": "URL no disponible públicamente."
+            }
+          ],
+          "activities": [],
+          "quiz": null
+        },
+        {
+          "title": "DOCUMENTO MERLÍ, ejercicios prácticos",
+          "position": 7,
+          "contentType": "documento",
+          "contentTypeConfidence": "inferred_from_title_prefix",
+          "description": null,
+          "textContent": null,
+          "estimatedMinutes": null,
+          "assets": [
+            {
+              "type": "document",
+              "title": "DOCUMENTO MERLÍ, ejercicios prácticos",
+              "sourceUrl": null,
+              "mimeType": null,
+              "duration": null,
+              "availability": "mentioned_not_accessible",
+              "notes": ""
+            }
+          ],
+          "activities": [],
+          "quiz": null
+        }
+      ]
+    },
+    {
+      "title": "Módulo 5: Alba María: Pretérito Imperfecto",
+      "position": 5,
+      "description": null,
+      "lessonsCountDeclared": 6,
+      "lessons": [
+        {
+          "title": "Video: ALBA MARÍA, presentación (descripción y forma de hablar)",
+          "position": 1,
+          "contentType": "video",
+          "contentTypeConfidence": "inferred_from_title_prefix",
+          "description": null,
+          "textContent": null,
+          "estimatedMinutes": null,
+          "assets": [
+            {
+              "type": "video",
+              "title": "ALBA MARÍA, presentación (descripción y forma de hablar)",
+              "sourceUrl": null,
+              "mimeType": null,
+              "duration": null,
+              "availability": "mentioned_not_accessible",
+              "notes": ""
+            }
+          ],
+          "activities": [],
+          "quiz": null
+        },
+        {
+          "title": "DOCUMENTO ALBA MARÍA, presentación (descripción y forma de hablar)",
+          "position": 2,
+          "contentType": "documento",
+          "contentTypeConfidence": "inferred_from_title_prefix",
+          "description": null,
+          "textContent": null,
+          "estimatedMinutes": null,
+          "assets": [
+            {
+              "type": "document",
+              "title": "DOCUMENTO ALBA MARÍA, presentación (descripción y forma de hablar)",
+              "sourceUrl": null,
+              "mimeType": null,
+              "duration": null,
+              "availability": "mentioned_not_accessible",
+              "notes": ""
+            }
+          ],
+          "activities": [],
+          "quiz": null
+        },
+        {
+          "title": "Video: ALBA MARÍA lucha y gramática cognitiva",
+          "position": 3,
+          "contentType": "video",
+          "contentTypeConfidence": "inferred_from_title_prefix",
+          "description": null,
+          "textContent": null,
+          "estimatedMinutes": null,
+          "assets": [
+            {
+              "type": "video",
+              "title": "ALBA MARÍA lucha y gramática cognitiva",
+              "sourceUrl": null,
+              "mimeType": null,
+              "duration": null,
+              "availability": "mentioned_not_accessible",
+              "notes": ""
+            }
+          ],
+          "activities": [],
+          "quiz": null
+        },
+        {
+          "title": "DOCUMENTO ALBA MARÍA, lucha y gramática cognitiva PRETÉRITO IMPERFECTO",
+          "position": 4,
+          "contentType": "documento",
+          "contentTypeConfidence": "inferred_from_title_prefix",
+          "description": null,
+          "textContent": null,
+          "estimatedMinutes": null,
+          "assets": [
+            {
+              "type": "document",
+              "title": "DOCUMENTO ALBA MARÍA, lucha y gramática cognitiva PRETÉRITO IMPERFECTO",
+              "sourceUrl": null,
+              "mimeType": null,
+              "duration": null,
+              "availability": "mentioned_not_accessible",
+              "notes": "El fragmento 'PRETÉRITO IMPERFECTO' aparece concatenado en el scrape público del título; podría formar parte del título del documento. No se separó en lección adicional porque el módulo declara 6 partes y el parseo produce exactamente 6 lecciones."
+            }
+          ],
+          "activities": [],
+          "quiz": null
+        },
+        {
+          "title": "Video: ALBA MARÍA, ejercicios prácticos",
+          "position": 5,
+          "contentType": "video",
+          "contentTypeConfidence": "inferred_from_title_prefix",
+          "description": null,
+          "textContent": null,
+          "estimatedMinutes": null,
+          "assets": [
+            {
+              "type": "video",
+              "title": "ALBA MARÍA, ejercicios prácticos",
+              "sourceUrl": null,
+              "mimeType": null,
+              "duration": null,
+              "availability": "mentioned_not_accessible",
+              "notes": ""
+            }
+          ],
+          "activities": [],
+          "quiz": null
+        },
+        {
+          "title": "DOCUMENTO ALBA MARÍA, ejercicios para practicar",
+          "position": 6,
+          "contentType": "documento",
+          "contentTypeConfidence": "inferred_from_title_prefix",
+          "description": null,
+          "textContent": null,
+          "estimatedMinutes": null,
+          "assets": [
+            {
+              "type": "document",
+              "title": "DOCUMENTO ALBA MARÍA, ejercicios para practicar",
+              "sourceUrl": null,
+              "mimeType": null,
+              "duration": null,
+              "availability": "mentioned_not_accessible",
+              "notes": ""
+            }
+          ],
+          "activities": [],
+          "quiz": null
+        }
+      ]
+    },
+    {
+      "title": "Módulo 6: María Rocío: Pretérito Pluscuamperfecto",
+      "position": 6,
+      "description": null,
+      "lessonsCountDeclared": 4,
+      "lessons": [
+        {
+          "title": "Video: MARÍA ROCÍO, presentación (descripción y forma de hablar)",
+          "position": 1,
+          "contentType": "video",
+          "contentTypeConfidence": "inferred_from_title_prefix",
+          "description": null,
+          "textContent": null,
+          "estimatedMinutes": null,
+          "assets": [
+            {
+              "type": "video",
+              "title": "MARÍA ROCÍO, presentación (descripción y forma de hablar)",
+              "sourceUrl": null,
+              "mimeType": null,
+              "duration": null,
+              "availability": "mentioned_not_accessible",
+              "notes": ""
+            }
+          ],
+          "activities": [],
+          "quiz": null
+        },
+        {
+          "title": "DOCUMENTO MARÍA ROCÍO, presentación (descripción y forma de hablar)",
+          "position": 2,
+          "contentType": "documento",
+          "contentTypeConfidence": "inferred_from_title_prefix",
+          "description": null,
+          "textContent": null,
+          "estimatedMinutes": null,
+          "assets": [
+            {
+              "type": "document",
+              "title": "DOCUMENTO MARÍA ROCÍO, presentación (descripción y forma de hablar)",
+              "sourceUrl": null,
+              "mimeType": null,
+              "duration": null,
+              "availability": "mentioned_not_accessible",
+              "notes": ""
+            }
+          ],
+          "activities": [],
+          "quiz": null
+        },
+        {
+          "title": "Video: MARÍA ROCÍO, práctica y JUEGO DE ROLES",
+          "position": 3,
+          "contentType": "video",
+          "contentTypeConfidence": "inferred_from_title_prefix",
+          "description": null,
+          "textContent": null,
+          "estimatedMinutes": null,
+          "assets": [
+            {
+              "type": "video",
+              "title": "MARÍA ROCÍO, práctica y JUEGO DE ROLES",
+              "sourceUrl": null,
+              "mimeType": null,
+              "duration": null,
+              "availability": "mentioned_not_accessible",
+              "notes": ""
+            }
+          ],
+          "activities": [],
+          "quiz": null
+        },
+        {
+          "title": "DOCUMENTO MARÍA ROCÍO, práctica y JUEGO DE ROLES",
+          "position": 4,
+          "contentType": "documento",
+          "contentTypeConfidence": "inferred_from_title_prefix",
+          "description": null,
+          "textContent": null,
+          "estimatedMinutes": null,
+          "assets": [
+            {
+              "type": "document",
+              "title": "DOCUMENTO MARÍA ROCÍO, práctica y JUEGO DE ROLES",
+              "sourceUrl": null,
+              "mimeType": null,
+              "duration": null,
+              "availability": "mentioned_not_accessible",
+              "notes": ""
+            }
+          ],
+          "activities": [],
+          "quiz": null
+        }
+      ]
+    },
+    {
+      "title": "Módulo 7: Conclusiones",
+      "position": 7,
+      "description": null,
+      "lessonsCountDeclared": 2,
+      "lessons": [
+        {
+          "title": "RESUMEN Y CONCLUSIONES",
+          "position": 1,
+          "contentType": "desconocido",
+          "contentTypeConfidence": "title_only_no_type_marker",
+          "description": null,
+          "textContent": null,
+          "estimatedMinutes": null,
+          "assets": [],
+          "activities": [],
+          "quiz": null,
+          "notes": "Podría ser vídeo o texto; no verificable sin acceso interno."
+        },
+        {
+          "title": "Resumen y conclusiones (Si tienes dudas, anótalas y las veremos en la sesión grupal)",
+          "position": 2,
+          "contentType": "desconocido",
+          "contentTypeConfidence": "title_only_no_type_marker",
+          "description": "Menciona sesión grupal para dudas.",
+          "textContent": null,
+          "estimatedMinutes": null,
+          "assets": [],
+          "activities": [
+            {
+              "type": "note_taking_prompt",
+              "title": "Anotar dudas para sesión grupal",
+              "availability": "described_in_title_only",
+              "notes": "Solo se conoce la instrucción del título. No hay formulario de entrega visible públicamente."
+            }
+          ],
+          "quiz": null
+        }
+      ]
+    },
+    {
+      "title": "Módulo 8: Viaje de los 4 amigos por el país de las letras",
+      "position": 8,
+      "description": null,
+      "lessonsCountDeclared": 2,
+      "lessons": [
+        {
+          "title": "Viaje al país de las letras (creado con la IA)",
+          "position": 1,
+          "contentType": "desconocido",
+          "contentTypeConfidence": "title_only_no_type_marker",
+          "description": "Proyecto/contenido creado con IA según el título.",
+          "textContent": null,
+          "estimatedMinutes": null,
+          "assets": [],
+          "activities": [],
+          "quiz": null,
+          "notes": "Tipo de asset (vídeo/texto/documento) no verificable."
+        },
+        {
+          "title": "Lo explicaré en el último módulo¿Te animas a enviarme tu cuento sobre los 4 amigos del pasado?",
+          "position": 2,
+          "contentType": "entrega",
+          "contentTypeConfidence": "inferred_from_call_to_action_in_title",
+          "description": "Invitación a enviar un cuento sobre los 4 amigos del pasado. Nota: el scrape público concatenó dos frases; posible título compuesto.",
+          "textContent": null,
+          "estimatedMinutes": null,
+          "assets": [],
+          "activities": [
+            {
+              "type": "submission",
+              "title": "Enviar cuento sobre los 4 amigos del pasado",
+              "instructions": "¿Te animas a enviarme tu cuento sobre los 4 amigos del pasado?",
+              "availability": "mentioned_not_accessible",
+              "notes": "No se pudo ver el mecanismo de entrega (upload, email, formulario)."
+            }
+          ],
+          "quiz": null
+        }
+      ]
+    },
+    {
+      "title": "Módulo 9: Pon a prueba tu conocimiento de nuevo",
+      "position": 9,
+      "description": null,
+      "lessonsCountDeclared": 1,
+      "lessons": [
+        {
+          "title": "Repetimos el cuestionario",
+          "position": 1,
+          "contentType": "cuestionario",
+          "contentTypeConfidence": "inferred_from_title",
+          "description": "Re-test del diagnóstico inicial (relación inferida por el título; no confirmada igualdad de preguntas).",
+          "textContent": null,
+          "estimatedMinutes": null,
+          "assets": [],
+          "activities": [
+            {
+              "type": "questionnaire",
+              "title": "Repetimos el cuestionario",
+              "availability": "mentioned_not_accessible"
+            }
+          ],
+          "quiz": {
+            "accessible": false,
+            "questions": [],
+            "notes": "Contenido del cuestionario no accesible."
+          }
+        }
+      ]
+    },
+    {
+      "title": "Módulo 10: Valoración del curso y certificado. ¡Enhorabuena, profe!",
+      "position": 10,
+      "description": null,
+      "lessonsCountDeclared": 1,
+      "lessons": [
+        {
+          "title": "Valora el curso. Tu respetuosos feedback es importante para mí",
+          "position": 1,
+          "contentType": "valoracion",
+          "contentTypeConfidence": "inferred_from_title",
+          "description": "El título del módulo menciona certificado; no se verificó entrega automática de certificado ni plantilla.",
+          "textContent": null,
+          "estimatedMinutes": null,
+          "assets": [],
+          "activities": [
+            {
+              "type": "course_review",
+              "title": "Valora el curso",
+              "availability": "mentioned_not_accessible",
+              "notes": "Campos del formulario no accesibles. Certificado mencionado en título de módulo, no verificado como asset descargable."
+            }
+          ],
+          "quiz": null
+        }
+      ]
+    },
+    {
+      "title": "Módulo 11: BONUS: Mini curso de inteligencia artificial",
+      "position": 11,
+      "description": null,
+      "lessonsCountDeclared": 7,
+      "lessons": [
+        {
+          "title": "La revolución tecnológica gracias a la INTELIGENCIA ARTIFICIAL",
+          "position": 1,
+          "contentType": "desconocido",
+          "contentTypeConfidence": "title_only_no_type_marker",
+          "description": null,
+          "textContent": null,
+          "estimatedMinutes": null,
+          "assets": [],
+          "activities": [],
+          "quiz": null
+        },
+        {
+          "title": "Vídeo: Cómo crear imágenes únicas (Dalle y Canva)",
+          "position": 2,
+          "contentType": "video",
+          "contentTypeConfidence": "inferred_from_title_prefix",
+          "description": null,
+          "textContent": null,
+          "estimatedMinutes": null,
+          "assets": [
+            {
+              "type": "video",
+              "title": "Cómo crear imágenes únicas (Dalle y Canva)",
+              "sourceUrl": null,
+              "mimeType": null,
+              "duration": null,
+              "availability": "mentioned_not_accessible",
+              "notes": ""
+            }
+          ],
+          "activities": [],
+          "quiz": null
+        },
+        {
+          "title": "Vídeo: Cómo usar CHAT GPT (Alucina conmigo)",
+          "position": 3,
+          "contentType": "video",
+          "contentTypeConfidence": "inferred_from_title_prefix",
+          "description": null,
+          "textContent": null,
+          "estimatedMinutes": null,
+          "assets": [
+            {
+              "type": "video",
+              "title": "Cómo usar CHAT GPT (Alucina conmigo)",
+              "sourceUrl": null,
+              "mimeType": null,
+              "duration": null,
+              "availability": "mentioned_not_accessible",
+              "notes": ""
+            }
+          ],
+          "activities": [],
+          "quiz": null
+        },
+        {
+          "title": "DOCUMENTO MÓDULO 11 (Presentación)",
+          "position": 4,
+          "contentType": "documento",
+          "contentTypeConfidence": "inferred_from_title_prefix",
+          "description": null,
+          "textContent": null,
+          "estimatedMinutes": null,
+          "assets": [
+            {
+              "type": "document",
+              "title": "DOCUMENTO MÓDULO 11 (Presentación)",
+              "sourceUrl": null,
+              "mimeType": null,
+              "duration": null,
+              "availability": "mentioned_not_accessible",
+              "notes": ""
+            }
+          ],
+          "activities": [],
+          "quiz": null
+        },
+        {
+          "title": "(REGALO): 19 Herramientas IA, para gente curiosa o emprendedora",
+          "position": 5,
+          "contentType": "documento",
+          "contentTypeConfidence": "inferred_probable_document_or_list",
+          "description": "Regalo mencionado en el programa.",
+          "textContent": null,
+          "estimatedMinutes": null,
+          "assets": [
+            {
+              "type": "document",
+              "title": "(REGALO): 19 Herramientas IA, para gente curiosa o emprendedora",
+              "sourceUrl": null,
+              "mimeType": null,
+              "duration": null,
+              "availability": "mentioned_not_accessible",
+              "notes": "Podría ser PDF/lista/enlace; tipología exacta no verificada."
+            }
+          ],
+          "activities": [],
+          "quiz": null
+        },
+        {
+          "title": "Vídeo: Chateamos con la IA",
+          "position": 6,
+          "contentType": "video",
+          "contentTypeConfidence": "inferred_from_title_prefix",
+          "description": null,
+          "textContent": null,
+          "estimatedMinutes": null,
+          "assets": [
+            {
+              "type": "video",
+              "title": "Chateamos con la IA",
+              "sourceUrl": null,
+              "mimeType": null,
+              "duration": null,
+              "availability": "mentioned_not_accessible",
+              "notes": ""
+            }
+          ],
+          "activities": [],
+          "quiz": null
+        },
+        {
+          "title": "Documento chatear con la IA",
+          "position": 7,
+          "contentType": "documento",
+          "contentTypeConfidence": "inferred_from_title_prefix",
+          "description": null,
+          "textContent": null,
+          "estimatedMinutes": null,
+          "assets": [
+            {
+              "type": "document",
+              "title": "Documento chatear con la IA",
+              "sourceUrl": null,
+              "mimeType": null,
+              "duration": null,
+              "availability": "mentioned_not_accessible",
+              "notes": ""
+            }
+          ],
+          "activities": [],
+          "quiz": null
+        }
+      ]
+    }
+  ],
+  "inventories": {
+    "videos": [
+      {"module": 3, "lesson": 1, "title": "HERMINIA, presentación (descripción y forma de hablar)", "sourceUrl": null, "platform": null, "duration": null, "availability": "mentioned_not_accessible"},
+      {"module": 3, "lesson": 3, "title": "HERMINIA, mito y gramática cognitiva", "sourceUrl": null, "platform": null, "duration": null, "availability": "mentioned_not_accessible"},
+      {"module": 3, "lesson": 5, "title": "HERMINIA, ejercicios prácticos", "sourceUrl": null, "platform": null, "duration": null, "availability": "mentioned_not_accessible"},
+      {"module": 4, "lesson": 1, "title": "MERLÍ presentación (descripción y forma de hablar)", "sourceUrl": null, "platform": null, "duration": null, "availability": "mentioned_not_accessible"},
+      {"module": 4, "lesson": 3, "title": "MERLÍ, gramática cognitiva", "sourceUrl": null, "platform": null, "duration": null, "availability": "mentioned_not_accessible"},
+      {"module": 4, "lesson": 5, "title": "MERLÍ, ejercicios prácticos", "sourceUrl": null, "platform": null, "duration": null, "availability": "mentioned_not_accessible"},
+      {"module": 5, "lesson": 1, "title": "ALBA MARÍA, presentación (descripción y forma de hablar)", "sourceUrl": null, "platform": null, "duration": null, "availability": "mentioned_not_accessible"},
+      {"module": 5, "lesson": 3, "title": "ALBA MARÍA lucha y gramática cognitiva", "sourceUrl": null, "platform": null, "duration": null, "availability": "mentioned_not_accessible"},
+      {"module": 5, "lesson": 5, "title": "ALBA MARÍA, ejercicios prácticos", "sourceUrl": null, "platform": null, "duration": null, "availability": "mentioned_not_accessible"},
+      {"module": 6, "lesson": 1, "title": "MARÍA ROCÍO, presentación (descripción y forma de hablar)", "sourceUrl": null, "platform": null, "duration": null, "availability": "mentioned_not_accessible"},
+      {"module": 6, "lesson": 3, "title": "MARÍA ROCÍO, práctica y JUEGO DE ROLES", "sourceUrl": null, "platform": null, "duration": null, "availability": "mentioned_not_accessible"},
+      {"module": 11, "lesson": 2, "title": "Cómo crear imágenes únicas (Dalle y Canva)", "sourceUrl": null, "platform": null, "duration": null, "availability": "mentioned_not_accessible"},
+      {"module": 11, "lesson": 3, "title": "Cómo usar CHAT GPT (Alucina conmigo)", "sourceUrl": null, "platform": null, "duration": null, "availability": "mentioned_not_accessible"},
+      {"module": 11, "lesson": 6, "title": "Chateamos con la IA", "sourceUrl": null, "platform": null, "duration": null, "availability": "mentioned_not_accessible"}
+    ],
+    "documents": [
+      {"module": 2, "lesson": 2, "title": "Documento para descargar", "sourceUrl": null, "originalFilename": null, "fileType": null, "availability": "mentioned_not_accessible"},
+      {"module": 3, "lesson": 2, "title": "DOCUMENTO HERMINIA, presentación (descripción y forma de hablar)", "sourceUrl": null, "originalFilename": null, "fileType": null, "availability": "mentioned_not_accessible"},
+      {"module": 3, "lesson": 4, "title": "DOCUMENTO HERMINIA, mito y gramática cognitiva", "sourceUrl": null, "originalFilename": null, "fileType": null, "availability": "mentioned_not_accessible"},
+      {"module": 3, "lesson": 6, "title": "DOCUMENTO HERMINIA, ejercicios prácticos", "sourceUrl": null, "originalFilename": null, "fileType": null, "availability": "mentioned_not_accessible"},
+      {"module": 4, "lesson": 2, "title": "DOCUMENTO MERLÍ, presentación (descripción y forma de hablar)", "sourceUrl": null, "originalFilename": null, "fileType": null, "availability": "mentioned_not_accessible"},
+      {"module": 4, "lesson": 4, "title": "DOCUMENTO MERLÍ, gramática cognitiva", "sourceUrl": null, "originalFilename": null, "fileType": null, "availability": "mentioned_not_accessible"},
+      {"module": 4, "lesson": 7, "title": "DOCUMENTO MERLÍ, ejercicios prácticos", "sourceUrl": null, "originalFilename": null, "fileType": null, "availability": "mentioned_not_accessible"},
+      {"module": 5, "lesson": 2, "title": "DOCUMENTO ALBA MARÍA, presentación (descripción y forma de hablar)", "sourceUrl": null, "originalFilename": null, "fileType": null, "availability": "mentioned_not_accessible"},
+      {"module": 5, "lesson": 4, "title": "DOCUMENTO ALBA MARÍA, lucha y gramática cognitiva PRETÉRITO IMPERFECTO", "sourceUrl": null, "originalFilename": null, "fileType": null, "availability": "mentioned_not_accessible"},
+      {"module": 5, "lesson": 6, "title": "DOCUMENTO ALBA MARÍA, ejercicios para practicar", "sourceUrl": null, "originalFilename": null, "fileType": null, "availability": "mentioned_not_accessible"},
+      {"module": 6, "lesson": 2, "title": "DOCUMENTO MARÍA ROCÍO, presentación (descripción y forma de hablar)", "sourceUrl": null, "originalFilename": null, "fileType": null, "availability": "mentioned_not_accessible"},
+      {"module": 6, "lesson": 4, "title": "DOCUMENTO MARÍA ROCÍO, práctica y JUEGO DE ROLES", "sourceUrl": null, "originalFilename": null, "fileType": null, "availability": "mentioned_not_accessible"},
+      {"module": 11, "lesson": 4, "title": "DOCUMENTO MÓDULO 11 (Presentación)", "sourceUrl": null, "originalFilename": null, "fileType": null, "availability": "mentioned_not_accessible"},
+      {"module": 11, "lesson": 5, "title": "(REGALO): 19 Herramientas IA, para gente curiosa o emprendedora", "sourceUrl": null, "originalFilename": null, "fileType": null, "availability": "mentioned_not_accessible", "notes": "Tipología exacta no verificada"},
+      {"module": 11, "lesson": 7, "title": "Documento chatear con la IA", "sourceUrl": null, "originalFilename": null, "fileType": null, "availability": "mentioned_not_accessible"}
+    ],
+    "links": [
+      {"module": 3, "lesson": 7, "visibleText": "Practica con esta canción", "destinationUrl": null, "availability": "mentioned_not_accessible"},
+      {"module": 4, "lesson": 6, "visibleText": "Canción para recordar los verbos irregulares del pretérito indefinido", "destinationUrl": null, "availability": "mentioned_not_accessible"}
+    ],
+    "quizzesAndActivities": [
+      {"module": 1, "lesson": 1, "type": "cuestionario", "title": "¡EMPEZAMOS! ¡Nos ponemos manos a la obra! (Cuestionario)", "contentAccessible": false},
+      {"module": 7, "lesson": 2, "type": "note_taking_prompt", "title": "Anotar dudas para sesión grupal", "contentAccessible": false},
+      {"module": 8, "lesson": 2, "type": "entrega", "title": "Enviar cuento sobre los 4 amigos del pasado", "contentAccessible": false},
+      {"module": 9, "lesson": 1, "type": "cuestionario", "title": "Repetimos el cuestionario", "contentAccessible": false},
+      {"module": 10, "lesson": 1, "type": "valoracion", "title": "Valora el curso", "contentAccessible": false}
+    ]
+  },
+  "limitations": [
+    "Sin autenticación: cuerpos de lección, URLs de assets, quizzes y descargas no accesibles.",
+    "Los contentType se infieren de prefijos del título (Vídeo/Video/DOCUMENTO/Cuestionario) o del sentido del CTA; no de inspección del archivo.",
+    "Algunas lecciones sin marcador de tipo quedan como 'desconocido'.",
+    "En el módulo 8 el scrape público concatenó dos frases en un mismo bloque; se interpretaron como 2 lecciones para cuadrar '2 Parte'.",
+    "Certificado mencionado en título del módulo 10; no verificado como archivo o emisión automática.",
+    "curl a uteach.io bloqueado por Cloudflare; extracción vía fetch del contenido público."
+  ],
+  "unavailableContent": [
+    {"item": "Todos los archivos de vídeo (14 mencionados por título)", "reason": "Requieren matrícula / login"},
+    {"item": "Todos los documentos (15 mencionados por título)", "reason": "Requieren matrícula / login"},
+    {"item": "URLs de canciones (2)", "reason": "Dentro de lecciones protegidas"},
+    {"item": "Preguntas y respuestas de cuestionarios (módulos 1 y 9)", "reason": "Dentro de lecciones protegidas"},
+    {"item": "Formulario de valoración y certificado (módulo 10)", "reason": "Dentro de lecciones protegidas"},
+    {"item": "Mecanismo de entrega del cuento (módulo 8)", "reason": "Dentro de lecciones protegidas"},
+    {"item": "Texto completo de lecciones sin marcador de tipo (p.ej. M2L1, M7, M11L1)", "reason": "Dentro de lecciones protegidas"}
+  ],
+  "coverage": {
+    "modulesIdentified": 11,
+    "lessonsIdentified": 40,
+    "lessonTitlesComplete": true,
+    "lessonBodiesAccessible": 0,
+    "videosMentioned": 14,
+    "documentsMentioned": 15,
+    "linksMentioned": 2,
+    "quizzesActivitiesMentioned": 5,
+    "assetsWithSourceUrl": 0,
+    "charactersConfirmed": ["Herminia", "Merlí", "Alba María", "María Rocío"],
+    "elementsCheckedFromBrief": {
+      "diagnosticoInicial": "confirmado_en_programa",
+      "introduccionProtagonistas": "confirmado_en_programa",
+      "modulosPorPersonaje": "confirmado_en_programa",
+      "videosYDocumentosGramatica": "confirmados_por_titulo_no_accesibles",
+      "ejerciciosYPracticas": "confirmados_por_titulo_no_accesibles",
+      "conclusiones": "confirmado_en_programa",
+      "proyectoCreativoIA": "confirmado_en_programa",
+      "reTest": "confirmado_en_programa",
+      "valoracionYCertificado": "valoracion_confirmada_certificado_solo_mencionado_en_titulo",
+      "bonus": "confirmado_en_programa"
+    },
+    "percentages": {
+      "structureProgramCoverage": 100,
+      "structureProgramCoverageBasis": "11/11 módulos y 40/40 lecciones del programa público identificados con título y orden (conteo de partes declarado coincide)",
+      "lessonInternalContentCoverage": 0,
+      "lessonInternalContentCoverageBasis": "0/40 lecciones con cuerpo/texto/asset accesible",
+      "assetUrlCoverage": 0,
+      "assetUrlCoverageBasis": "0 URLs de origen sobre 14 vídeos + 15 documentos + 2 enlaces mencionados",
+      "commercialMetadataCoverage": 85,
+      "commercialMetadataCoverageBasis": "Título, slug, autora, precio, subtítulo, descripción uTeach, benefits y bonus disponibles; requisitos previos null; categoría null en uTeach"
+    }
+  }
+}

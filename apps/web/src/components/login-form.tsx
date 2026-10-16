@@ -1,13 +1,20 @@
 'use client'
 
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useState, type FormEvent } from 'react'
 import { ArrowRight, GraduationCap, Loader2, Moon, Sun } from 'lucide-react'
 import { loginErrorMessage } from '@/lib/auth-shell'
 
+/** Only allow same-origin relative paths (no protocol / open redirects). */
+function safeNextPath(raw: string | null): string | null {
+  if (!raw || !raw.startsWith('/') || raw.startsWith('//')) return null
+  return raw
+}
+
 export function LoginForm() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
@@ -30,7 +37,8 @@ export function LoginForm() {
         setError(loginErrorMessage(response.status))
         return
       }
-      router.replace('/dashboard')
+      const next = safeNextPath(searchParams.get('next'))
+      router.replace(next ?? '/dashboard')
       router.refresh()
     } catch {
       setError('No pudimos conectarnos. Revisá tu conexión e intentá de nuevo.')

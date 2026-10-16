@@ -22,7 +22,8 @@
     "smoke": "./scripts/smoke-web.sh",
     "db:migrate": "npm run db:migrate -w @academia/api",
     "db:deploy": "npm run db:deploy -w @academia/api",
-    "db:seed": "npm run db:seed -w @academia/api"
+    "db:seed": "npm run db:seed -w @academia/api",
+    "db:seed:spanish2go": "npm run db:seed:spanish2go -w @academia/api"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.0",

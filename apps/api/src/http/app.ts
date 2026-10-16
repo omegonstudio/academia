@@ -78,6 +78,18 @@ import {
   createEmailTemplatesRouter,
   type EmailTemplatesDependencies,
 } from './routes/email-templates.js';
+import {
+  createOnlineCoursesRouter,
+  type OnlineCoursesDependencies,
+} from './routes/online-courses.js';
+import {
+  createPublicOnlineCoursesRouter,
+  type PublicOnlineCoursesDependencies,
+} from './routes/public-online-courses.js';
+import {
+  createStudentOnlineCoursesRouter,
+  type StudentOnlineCoursesDependencies,
+} from './routes/student-online-courses.js';
 
 export interface AppDependencies {
   logger: Logger;
@@ -90,6 +102,7 @@ export interface AppDependencies {
   students: StudentsDependencies;
   studentRegistry: StudentRegistryDependencies;
   studentHub: StudentHubDependencies;
+  studentOnlineCourses: StudentOnlineCoursesDependencies;
   teacherHub: TeacherHubDependencies;
   teacherRegistry: TeacherRegistryDependencies;
   studentTeacherAssignment: StudentTeacherAssignmentDependencies;
@@ -98,6 +111,8 @@ export interface AppDependencies {
   scheduleOptions: ScheduleOptionsDependencies;
   classSessions: ClassSessionsDependencies;
   materials: MaterialsDependencies;
+  onlineCourses: OnlineCoursesDependencies;
+  publicOnlineCourses: PublicOnlineCoursesDependencies;
   finance: FinanceDependencies;
   administrativePermissions: AdministrativePermissionsDependencies;
   notifications: NotificationsDependencies;
@@ -123,6 +138,7 @@ export function createApp({
   students,
   studentRegistry,
   studentHub,
+  studentOnlineCourses,
   teacherHub,
   teacherRegistry,
   studentTeacherAssignment,
@@ -131,6 +147,8 @@ export function createApp({
   scheduleOptions,
   classSessions,
   materials,
+  onlineCourses,
+  publicOnlineCourses,
   finance,
   administrativePermissions,
   notifications,
@@ -172,6 +190,7 @@ export function createApp({
   app.use(createTeachersRouter(teachers));
   app.use(createStudentsRouter(students));
   app.use(createStudentHubRouter(studentHub));
+  app.use(createStudentOnlineCoursesRouter(studentOnlineCourses));
   app.use(createStudentRegistryRouter(studentRegistry));
   // Teacher Hub before registry so `/teachers/me` is not captured by `:id`.
   app.use(createTeacherHubRouter(teacherHub));
@@ -182,6 +201,9 @@ export function createApp({
   app.use(createScheduleOptionsRouter(scheduleOptions));
   app.use(createClassSessionsRouter(classSessions));
   app.use(createMaterialsRouter(materials));
+  // Public catalogue before admin `/online-courses/:id`.
+  app.use(createPublicOnlineCoursesRouter(publicOnlineCourses));
+  app.use(createOnlineCoursesRouter(onlineCourses));
   app.use(createFinanceRouter(finance));
   app.use(createAdministrativePermissionsRouter(administrativePermissions));
   app.use(createNotificationsRouter(notifications));

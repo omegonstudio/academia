@@ -36,6 +36,8 @@ import { createInMemoryClassNoteStore } from '../domain/class-notes/in-memory-cl
 import type { InMemoryClassNoteStore } from '../domain/class-notes/in-memory-class-note-store.js';
 import { createInMemoryMaterialStore } from '../domain/materials/in-memory-material-store.js';
 import type { InMemoryMaterialStore } from '../domain/materials/in-memory-material-store.js';
+import { createInMemoryOnlineCourseStore } from '../domain/online-courses/in-memory-online-course-store.js';
+import type { InMemoryOnlineCourseStore } from '../domain/online-courses/in-memory-online-course-store.js';
 import { createInMemoryFinanceStore } from '../domain/finance/in-memory-finance-store.js';
 import type { InMemoryFinanceStore } from '../domain/finance/in-memory-finance-store.js';
 import { createInMemoryNotificationStore } from '../domain/notifications/in-memory-notification-store.js';
@@ -111,6 +113,7 @@ export interface TestApp {
   attendances: InMemoryAttendanceStore;
   classNotes: InMemoryClassNoteStore;
   materials: InMemoryMaterialStore;
+  onlineCourses: InMemoryOnlineCourseStore;
   finance: InMemoryFinanceStore;
   storage: ObjectStoragePort & {
     objects: Map<string, { body: Buffer; contentType: string }>;
@@ -510,12 +513,23 @@ export async function buildTestApp({
     },
   });
   const materials = createInMemoryMaterialStore();
+  const onlineCourses = createInMemoryOnlineCourseStore();
   const finance = createInMemoryFinanceStore();
   const notificationStore = createInMemoryNotificationStore();
   const emailTemplateStore = createInMemoryEmailTemplateStore();
   const storage = createInMemoryObjectStorage();
   const authService = createAuthService(users);
   const sessionCodec = createSessionCodec(TEST_SECRET, 3600);
+
+  const materialSizeLimits = {
+    maxPdfBytes: MATERIAL_DEFAULT_MAX_PDF_BYTES,
+    maxImageBytes: MATERIAL_DEFAULT_MAX_IMAGE_BYTES,
+    maxAudioBytes: MATERIAL_DEFAULT_MAX_AUDIO_BYTES,
+  };
+  const materialUrlTtls = {
+    uploadUrlTtlSeconds: 900,
+    downloadUrlTtlSeconds: 120,
+  };
 
   const authOptions = {
     authService,
@@ -569,6 +583,13 @@ export async function buildTestApp({
       attendances,
       academy: { businessTimezone: DEFAULT_ACADEMY_TIMEZONE },
       finance,
+    },
+    studentOnlineCourses: {
+      authenticate: authOptions,
+      onlineCourses,
+      students: studentRegistry,
+      storage,
+      urlTtls: materialUrlTtls,
     },
     teacherHub: {
       authenticate: authOptions,
@@ -626,15 +647,19 @@ export async function buildTestApp({
       teachers: teacherRegistry,
       students: studentRegistry,
       permissionGrants,
-      sizeLimits: {
-        maxPdfBytes: MATERIAL_DEFAULT_MAX_PDF_BYTES,
-        maxImageBytes: MATERIAL_DEFAULT_MAX_IMAGE_BYTES,
-        maxAudioBytes: MATERIAL_DEFAULT_MAX_AUDIO_BYTES,
-      },
-      urlTtls: {
-        uploadUrlTtlSeconds: 900,
-        downloadUrlTtlSeconds: 120,
-      },
+      sizeLimits: materialSizeLimits,
+      urlTtls: materialUrlTtls,
+    },
+    publicOnlineCourses: {
+      onlineCourses,
+    },
+    onlineCourses: {
+      authenticate: authOptions,
+      onlineCourses,
+      permissionGrants,
+      storage,
+      sizeLimits: materialSizeLimits,
+      urlTtls: materialUrlTtls,
     },
     finance: {
       authenticate: authOptions,
@@ -679,6 +704,7 @@ export async function buildTestApp({
     attendances,
     classNotes,
     materials,
+    onlineCourses,
     finance,
     storage,
     administrativePermissions,

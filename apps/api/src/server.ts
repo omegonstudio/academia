@@ -21,6 +21,7 @@ import { createClassSessionStore } from './domain/classes/class-session-store.js
 import { createAttendanceStore } from './domain/attendance/attendance-store.js';
 import { createClassNoteStore } from './domain/class-notes/class-note-store.js';
 import { createMaterialStore } from './domain/materials/material-store.js';
+import { createOnlineCourseStore } from './domain/online-courses/online-course-store.js';
 import { createFinanceStore } from './domain/finance/prisma-finance-store.js';
 import { createSessionCodec } from './domain/identity/session.js';
 import { createUserRepository } from './domain/identity/user-repository.js';
@@ -84,6 +85,7 @@ async function main(): Promise<void> {
   const attendances = createAttendanceStore(database);
   const classNotes = createClassNoteStore(database);
   const materials = createMaterialStore(database);
+  const onlineCourses = createOnlineCourseStore(database);
   const finance = createFinanceStore(database);
   const objectStorage = createS3CompatibleStorage({
     endpoint: env.S3_ENDPOINT,
@@ -188,6 +190,16 @@ async function main(): Promise<void> {
         forceStubs: env.NODE_ENV === 'test',
       },
     },
+    studentOnlineCourses: {
+      authenticate: authOptions,
+      onlineCourses,
+      students: studentProfiles,
+      storage: objectStorage,
+      urlTtls: {
+        uploadUrlTtlSeconds: env.MATERIAL_UPLOAD_URL_TTL_SECONDS,
+        downloadUrlTtlSeconds: env.MATERIAL_DOWNLOAD_URL_TTL_SECONDS,
+      },
+    },
     teacherHub: {
       authenticate: authOptions,
       teachers: teacherProfiles,
@@ -250,6 +262,27 @@ async function main(): Promise<void> {
       teachers: teacherProfiles,
       students: studentProfiles,
       permissionGrants,
+      sizeLimits: {
+        maxPdfBytes: env.MATERIAL_MAX_PDF_BYTES,
+        maxImageBytes: env.MATERIAL_MAX_IMAGE_BYTES,
+        maxAudioBytes: env.MATERIAL_MAX_AUDIO_BYTES,
+      },
+      urlTtls: {
+        uploadUrlTtlSeconds: env.MATERIAL_UPLOAD_URL_TTL_SECONDS,
+        downloadUrlTtlSeconds: env.MATERIAL_DOWNLOAD_URL_TTL_SECONDS,
+      },
+      logError: (payload, message) => {
+        logger.error(payload, message);
+      },
+    },
+    publicOnlineCourses: {
+      onlineCourses,
+    },
+    onlineCourses: {
+      authenticate: authOptions,
+      onlineCourses,
+      permissionGrants,
+      storage: objectStorage,
       sizeLimits: {
         maxPdfBytes: env.MATERIAL_MAX_PDF_BYTES,
         maxImageBytes: env.MATERIAL_MAX_IMAGE_BYTES,
