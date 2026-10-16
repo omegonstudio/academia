@@ -1,4 +1,6 @@
 import type { Logger } from 'pino';
+import { renderEmailTemplate } from './email-template-render.js';
+import type { EmailTemplateStore } from './email-template-store.js';
 import type {
   EmailSender,
   NotificationPublisher,
@@ -11,8 +13,32 @@ export function createNotificationPublisher(options: {
   email: EmailSender;
   logger: Logger;
   appPublicUrl: string;
+  emailTemplates?: EmailTemplateStore;
 }): NotificationPublisher {
-  const { store, email, logger, appPublicUrl } = options;
+  const { store, email, logger, appPublicUrl, emailTemplates } = options;
+
+  async function resolveEmailCopy(input: NotifyInput): Promise<{
+    subject: string;
+    text: string;
+  }> {
+    const loginUrl = `${appPublicUrl.replace(/\/$/, '')}/login`;
+
+    if (input.templateVars && emailTemplates) {
+      const template = await emailTemplates.findByType(input.type);
+      if (template) {
+        const vars = { loginUrl, ...input.templateVars };
+        return {
+          subject: renderEmailTemplate(template.subject, vars),
+          text: `${renderEmailTemplate(template.body, vars)}\n`,
+        };
+      }
+    }
+
+    return {
+      subject: input.title,
+      text: `${input.body}\n\nIngresá a: ${loginUrl}\n`,
+    };
+  }
 
   async function notifyOne(input: NotifyInput) {
     const record = await store.create({
@@ -23,14 +49,12 @@ export function createNotificationPublisher(options: {
       payload: input.payload,
     });
 
-    const loginHint = appPublicUrl.replace(/\/$/, '');
-    const text = `${input.body}\n\nIngresá a: ${loginHint}/login\n`;
-
     try {
+      const copy = await resolveEmailCopy(input);
       const result = await email.send({
         to: input.email,
-        subject: input.title,
-        text,
+        subject: copy.subject,
+        text: copy.text,
       });
       if (!result.sent) {
         logger.info(

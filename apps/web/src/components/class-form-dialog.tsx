@@ -23,6 +23,7 @@ import {
 import {
   courseServiceTypeLabels,
   createClassSessionBrowser,
+  getGoogleMeetStatusBrowser,
   personFullName,
 } from '@/lib/api-browser'
 import { CALENDAR_DISPLAY_TIMEZONE } from '@/lib/calendar'
@@ -32,6 +33,7 @@ type ClassForm = {
   date: string
   startTime: string
   meetingUrl: string
+  createGoogleMeet: boolean
 }
 
 const initialForm: ClassForm = {
@@ -39,6 +41,7 @@ const initialForm: ClassForm = {
   date: '',
   startTime: '',
   meetingUrl: '',
+  createGoogleMeet: false,
 }
 
 function formatSummaryDate(value: string) {
@@ -73,6 +76,7 @@ export function ClassFormDialog({
   )
   const [submitError, setSubmitError] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [meetConfigured, setMeetConfigured] = useState(false)
 
   const activeGroups = useMemo(
     () => groups.filter((group) => group.isActive),
@@ -104,8 +108,23 @@ export function ClassFormDialog({
     return () => window.removeEventListener('keydown', onKey)
   }, [isSubmitting, onClose])
 
+  useEffect(() => {
+    void (async () => {
+      const status = await getGoogleMeetStatusBrowser()
+      if (status.ok) {
+        setMeetConfigured(status.data.configured)
+      }
+    })()
+  }, [])
+
   function update<K extends keyof ClassForm>(key: K, value: ClassForm[K]) {
-    setForm((current) => ({ ...current, [key]: value }))
+    setForm((current) => {
+      const next = { ...current, [key]: value }
+      if (key === 'createGoogleMeet' && value === true) {
+        next.meetingUrl = ''
+      }
+      return next
+    })
     setErrors((current) => ({ ...current, [key]: undefined }))
     if (submitError) setSubmitError('')
   }
@@ -115,7 +134,15 @@ export function ClassFormDialog({
     if (!form.groupId) next.groupId = 'Grupo obligatorio'
     if (!form.date) next.date = 'Fecha obligatoria'
     if (!form.startTime) next.startTime = 'Hora de inicio obligatoria'
-    if (form.meetingUrl && !/^https:\/\//i.test(form.meetingUrl)) {
+    if (form.createGoogleMeet && !meetConfigured) {
+      next.createGoogleMeet =
+        'Google Meet no está configurado en el servidor.'
+    }
+    if (
+      !form.createGoogleMeet &&
+      form.meetingUrl &&
+      !/^https:\/\//i.test(form.meetingUrl)
+    ) {
       next.meetingUrl = 'La URL debe comenzar con https://'
     }
     if (group && !group.scheduleOptionId) {
@@ -151,9 +178,11 @@ export function ClassFormDialog({
     const result = await createClassSessionBrowser({
       groupId: group.id,
       startAt,
-      ...(form.meetingUrl.trim()
-        ? { meetingUrl: form.meetingUrl.trim() }
-        : {}),
+      ...(form.createGoogleMeet
+        ? { createGoogleMeet: true }
+        : form.meetingUrl.trim()
+          ? { meetingUrl: form.meetingUrl.trim() }
+          : {}),
     })
     setIsSubmitting(false)
     if (!result.ok) {
@@ -267,20 +296,56 @@ export function ClassFormDialog({
             </Field>
           </div>
           <Field
-            label="Enlace de videollamada"
-            htmlFor="class-meeting"
-            error={errors.meetingUrl}
-            hint="Opcional · debe ser https://"
+            label="Google Meet"
+            htmlFor="class-google-meet"
+            error={errors.createGoogleMeet}
+            hint={
+              meetConfigured
+                ? 'Crea un evento en Google Calendar con enlace Meet para la fecha y hora elegidas, y avisa al alumno por mail.'
+                : 'Para habilitar esta opción, configurá las credenciales GOOGLE_MEET_* en el servidor API.'
+            }
           >
-            <Input
-              id="class-meeting"
-              type="url"
-              placeholder="https://..."
-              value={form.meetingUrl}
-              onChange={(event) => update('meetingUrl', event.target.value)}
-              aria-invalid={Boolean(errors.meetingUrl)}
-            />
+            <label
+              htmlFor="class-google-meet"
+              className="flex cursor-pointer items-start gap-3 rounded-xl border border-border bg-surface-muted/30 px-3 py-3 text-sm"
+            >
+              <input
+                id="class-google-meet"
+                type="checkbox"
+                className="mt-0.5 size-4 accent-primary"
+                checked={form.createGoogleMeet}
+                disabled={!meetConfigured}
+                onChange={(event) =>
+                  update('createGoogleMeet', event.target.checked)
+                }
+              />
+              <span>
+                <span className="font-medium text-foreground">
+                  Generar enlace de Google Meet
+                </span>
+                <span className="mt-0.5 block text-muted-foreground">
+                  Usa la fecha y hora de esta clase.
+                </span>
+              </span>
+            </label>
           </Field>
+          {!form.createGoogleMeet && (
+            <Field
+              label="Enlace de videollamada"
+              htmlFor="class-meeting"
+              error={errors.meetingUrl}
+              hint="Opcional · debe ser https://"
+            >
+              <Input
+                id="class-meeting"
+                type="url"
+                placeholder="https://..."
+                value={form.meetingUrl}
+                onChange={(event) => update('meetingUrl', event.target.value)}
+                aria-invalid={Boolean(errors.meetingUrl)}
+              />
+            </Field>
+          )}
           <Card className="border-primary/20 bg-primary/5 p-5">
             <p className="text-sm font-semibold">Resumen</p>
             <div className="mt-3 grid gap-2 text-sm text-muted-foreground sm:grid-cols-2">
@@ -307,6 +372,12 @@ export function ClassFormDialog({
               <p>
                 <strong className="text-foreground">Duración:</strong>{' '}
                 {durationMinutes ? `${durationMinutes} minutos` : '—'}
+              </p>
+              <p className="sm:col-span-2">
+                <strong className="text-foreground">Reunión:</strong>{' '}
+                {form.createGoogleMeet
+                  ? 'Google Meet (automático)'
+                  : form.meetingUrl.trim() || 'Sin enlace'}
               </p>
             </div>
           </Card>

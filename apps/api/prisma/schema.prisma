@@ -135,6 +135,7 @@ model User {
   chargesCreated         Charge[]                 @relation("ChargeCreatedBy")
   paymentsCreated        Payment[]                @relation("PaymentCreatedBy")
   notifications          Notification[]
+  emailTemplatesUpdated  NotificationEmailTemplate[] @relation("EmailTemplateUpdatedBy")
 
   @@index([role])
   @@map("users")
@@ -159,6 +160,24 @@ model Notification {
   @@index([userId, createdAt(sort: Desc)])
   @@index([userId, readAt])
   @@map("notifications")
+}
+
+/// Director-editable email copy for notification types (Resend body/subject).
+model NotificationEmailTemplate {
+  id String @id @default(uuid()) @db.Uuid
+
+  /// USER_CREATED | TEACHER_ASSIGNED | CLASS_MEETING_LINK
+  type    String @unique @db.VarChar(64)
+  subject String @db.VarChar(200)
+  body    String @db.VarChar(4000)
+
+  updatedByUserId String? @map("updated_by_user_id") @db.Uuid
+  updatedBy       User?   @relation("EmailTemplateUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("notification_email_templates")
 }
 
 /// A grantable (module, action) pair. Catalog rows are seeded by migration.

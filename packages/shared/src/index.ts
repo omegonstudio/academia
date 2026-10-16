@@ -409,3 +409,16 @@ export {
   type NotificationResponse,
   type MarkNotificationsReadResponse,
 } from './notifications.js';
+export {
+  EMAIL_TEMPLATE_PLACEHOLDERS,
+  emailTemplateSchema,
+  emailTemplateListResponseSchema,
+  updateEmailTemplateRequestSchema,
+  emailTemplateResponseSchema,
+  googleMeetStatusResponseSchema,
+  type EmailTemplate,
+  type EmailTemplateListResponse,
+  type UpdateEmailTemplateRequest,
+  type EmailTemplateResponse,
+  type GoogleMeetStatusResponse,
+} from './email-templates.js';

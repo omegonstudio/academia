@@ -74,6 +74,10 @@ import {
   createNotificationsRouter,
   type NotificationsDependencies,
 } from './routes/notifications.js';
+import {
+  createEmailTemplatesRouter,
+  type EmailTemplatesDependencies,
+} from './routes/email-templates.js';
 
 export interface AppDependencies {
   logger: Logger;
@@ -97,6 +101,7 @@ export interface AppDependencies {
   finance: FinanceDependencies;
   administrativePermissions: AdministrativePermissionsDependencies;
   notifications: NotificationsDependencies;
+  emailTemplates: EmailTemplatesDependencies;
   /** When true, mounts GET /openapi.json and Swagger UI at /docs. */
   docsEnabled?: boolean;
 }
@@ -129,6 +134,7 @@ export function createApp({
   finance,
   administrativePermissions,
   notifications,
+  emailTemplates,
   docsEnabled = true,
 }: AppDependencies): Express {
   const app = express();
@@ -179,6 +185,7 @@ export function createApp({
   app.use(createFinanceRouter(finance));
   app.use(createAdministrativePermissionsRouter(administrativePermissions));
   app.use(createNotificationsRouter(notifications));
+  app.use(createEmailTemplatesRouter(emailTemplates));
 
   if (docsEnabled) {
     app.use(createDocsRouter());

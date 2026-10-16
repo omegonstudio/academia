@@ -15,9 +15,16 @@ export interface NotifyInput {
   userId: string;
   email: string;
   type: NotificationType;
+  /** Fallback subject when no email template is stored for `type`. */
   title: string;
+  /** Fallback body when no email template is stored for `type`. */
   body: string;
   payload?: Record<string, unknown>;
+  /**
+   * When set, the publisher loads the Director-edited template for `type`
+   * and renders `{{placeholders}}` (plus built-in `loginUrl`).
+   */
+  templateVars?: Record<string, string>;
 }
 
 export interface NotificationStore {

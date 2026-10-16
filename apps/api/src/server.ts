@@ -29,7 +29,12 @@ import { parseAllowedOrigins } from './http/middleware/cors.js';
 import { createPrismaClient, isDatabaseReachable } from './lib/prisma.js';
 import { logger } from './lib/logger.js';
 import { createS3CompatibleStorage } from './storage/s3-compatible-storage.js';
+import {
+  createGoogleMeetService,
+  parseGoogleMeetCredentials,
+} from './domain/classes/google-meet-service.js';
 import { createNotificationAudience } from './domain/notifications/notification-audience.js';
+import { createEmailTemplateStore } from './domain/notifications/email-template-store.js';
 import { createNotificationPublisher } from './domain/notifications/notification-publisher.js';
 import { createNotificationStore } from './domain/notifications/notification-store.js';
 import { createResendEmailSender } from './domain/notifications/resend-email-sender.js';
@@ -90,6 +95,7 @@ async function main(): Promise<void> {
     forcePathStyle: env.S3_FORCE_PATH_STYLE,
   });
   const notificationStore = createNotificationStore(database);
+  const emailTemplates = createEmailTemplateStore(database);
   const notificationAudience = createNotificationAudience(database);
   const notificationPublisher = createNotificationPublisher({
     store: notificationStore,
@@ -104,6 +110,11 @@ async function main(): Promise<void> {
       env.APP_PUBLIC_URL ||
       process.env['NEXT_PUBLIC_APP_URL'] ||
       'http://localhost:3000',
+    emailTemplates,
+  });
+  const googleMeet = createGoogleMeetService({
+    credentials: parseGoogleMeetCredentials(env),
+    logger,
   });
   const startedAt = Date.now();
 
@@ -230,6 +241,7 @@ async function main(): Promise<void> {
       finance,
       notifications: notificationPublisher,
       audience: notificationAudience,
+      googleMeet,
     },
     materials: {
       authenticate: authOptions,
@@ -278,6 +290,11 @@ async function main(): Promise<void> {
     notifications: {
       authenticate: authOptions,
       notifications: notificationStore,
+    },
+    emailTemplates: {
+      authenticate: authOptions,
+      emailTemplates,
+      googleMeet,
     },
     docsEnabled: isApiDocsEnabled(env),
   });

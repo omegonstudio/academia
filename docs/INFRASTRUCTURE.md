@@ -212,8 +212,20 @@ gate (TLS, Spaces, Resend, MP/Stripe webhooks, GitHub Environment secrets).
 | `NOTIFICATIONS_ENABLED` | `true` for demos | `true` |
 | `RESEND_API_KEY` / `RESEND_FROM_EMAIL` | DEV sender | PROD sender |
 | `APP_PUBLIC_URL` | Vercel DEV URL | production HTTPS origin |
+| `GOOGLE_MEET_CLIENT_ID` / `_SECRET` / `_REFRESH_TOKEN` | optional (DEV calendar) | optional (PROD calendar) |
+| `GOOGLE_MEET_CALENDAR_ID` | optional (`primary`) | optional (`primary`) |
 | `MERCADOPAGO_*` / `STRIPE_*` | sandbox/test | **live** only |
 | `SENTRY_DSN` | optional | recommended |
+
+Director/SuperAdmin can edit student-facing email copy under **Configuración**
+(`GET`/`PATCH /email-templates`). Placeholders: `{{displayName}}`,
+`{{studentName}}`, `{{teacherName}}`, `{{roleLabel}}`, `{{when}}`,
+`{{meetingUrl}}`, `{{loginUrl}}`.
+
+Google Meet: when credentials are set, creating a class with
+`createGoogleMeet: true` creates a Calendar event + Meet link for the class
+interval and notifies enrolled students (and the teacher) with the
+`CLASS_MEETING_LINK` template.
 
 Empty payment credentials keep stub providers (local/CI). Webhook signature
 checks run only when the corresponding webhook secret is non-empty.

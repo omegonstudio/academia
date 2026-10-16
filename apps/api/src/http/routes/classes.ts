@@ -60,6 +60,11 @@ import {
 } from '../../domain/classes/class-session-service.js';
 import type { StudentStore } from '../../domain/students/student-service.js';
 import type { TeacherStore } from '../../domain/teachers/teacher-service.js';
+import {
+  GoogleMeetCreateError,
+  GoogleMeetNotConfiguredError,
+  type GoogleMeetService,
+} from '../../domain/classes/google-meet-service.js';
 import { runAutoChargeForClassSession } from '../../domain/finance/auto-charge-runner.js';
 import type { FinanceStore } from '../../domain/finance/finance-store.js';
 import type { NotificationAudienceResolver } from '../../domain/notifications/notification-audience.js';
@@ -89,6 +94,7 @@ export interface ClassSessionsDependencies {
   finance?: FinanceStore;
   notifications?: NotificationPublisher;
   audience?: NotificationAudienceResolver;
+  googleMeet?: GoogleMeetService;
 }
 
 function pathId(raw: string | string[] | undefined): string | undefined {
@@ -173,6 +179,45 @@ async function maybeNotifyMeetingLink(
   });
 }
 
+async function resolveMeetingUrlWithGoogleMeet(
+  googleMeet: GoogleMeetService | undefined,
+  academy: AcademyBusinessConfig,
+  classSession: { startAt: string; endAt: string },
+  createGoogleMeet: boolean | undefined,
+  meetingUrl: string | null | undefined,
+): Promise<string | null | undefined> {
+  if (!createGoogleMeet) {
+    return meetingUrl;
+  }
+  if (!googleMeet?.isConfigured()) {
+    throw new BadRequestError(
+      'Google Meet is not configured on this server.',
+    );
+  }
+  try {
+    const meet = await googleMeet.createMeeting({
+      summary: 'Clase Academia',
+      description: 'Enlace generado automáticamente desde Academia.',
+      startAtIso: classSession.startAt,
+      endAtIso: classSession.endAt,
+      timeZone: academy.businessTimezone,
+    });
+    return meet.meetingUrl;
+  } catch (error) {
+    if (error instanceof GoogleMeetNotConfiguredError) {
+      throw new BadRequestError(
+        'Google Meet is not configured on this server.',
+      );
+    }
+    if (error instanceof GoogleMeetCreateError) {
+      throw new BadRequestError(
+        'Could not create a Google Meet link for this class.',
+      );
+    }
+    throw error;
+  }
+}
+
 export function createClassSessionsRouter({
   authenticate: authOptions,
   classSessions,
@@ -185,6 +230,7 @@ export function createClassSessionsRouter({
   finance,
   notifications,
   audience,
+  googleMeet,
 }: ClassSessionsDependencies): Router {
   const router = Router();
 
@@ -291,11 +337,33 @@ export function createClassSessionsRouter({
             'Valid groupId and startAt (ISO datetime) are required.',
           );
         }
-        const classSession = await createClassSession(
+        const { createGoogleMeet, meetingUrl: requestedMeetingUrl, ...rest } =
+          parsed.data;
+        let classSession = await createClassSession(
           classSessions,
-          parsed.data,
+          {
+            ...rest,
+            ...(requestedMeetingUrl !== undefined
+              ? { meetingUrl: requestedMeetingUrl }
+              : {}),
+          },
           actor,
         );
+        if (createGoogleMeet) {
+          const meetingUrl = await resolveMeetingUrlWithGoogleMeet(
+            googleMeet,
+            academy,
+            classSession,
+            true,
+            undefined,
+          );
+          classSession = await updateClassSession(
+            classSessions,
+            classSession.id,
+            { meetingUrl: meetingUrl ?? null },
+            actor,
+          );
+        }
         if (finance) {
           await runAutoChargeForClassSession(finance, {
             classSessionId: classSession.id,
@@ -383,19 +451,37 @@ export function createClassSessionsRouter({
         const parsed = updateClassSessionRequestSchema.safeParse(req.body);
         if (!parsed.success) {
           throw new BadRequestError(
-            'Provide at least one of startAt, isActive, or meetingUrl.',
+            'Provide at least one of startAt, isActive, meetingUrl, or createGoogleMeet.',
           );
         }
+        const { createGoogleMeet, ...patchInput } = parsed.data;
+        const existing = await classSessions.findById(id);
         const previousMeetingUrl =
-          parsed.data.meetingUrl !== undefined
-            ? ((await classSessions.findById(id))?.meetingUrl ?? null)
+          parsed.data.meetingUrl !== undefined || createGoogleMeet
+            ? (existing?.meetingUrl ?? null)
             : undefined;
-        const classSession = await updateClassSession(
-          classSessions,
-          id,
-          parsed.data,
-          actor,
-        );
+
+        let classSession =
+          Object.keys(patchInput).length > 0
+            ? await updateClassSession(classSessions, id, patchInput, actor)
+            : await getClassSession(classSessions, id, { mode: 'all' });
+
+        if (createGoogleMeet) {
+          const meetingUrl = await resolveMeetingUrlWithGoogleMeet(
+            googleMeet,
+            academy,
+            classSession,
+            true,
+            undefined,
+          );
+          classSession = await updateClassSession(
+            classSessions,
+            id,
+            { meetingUrl: meetingUrl ?? null },
+            actor,
+          );
+        }
+
         await maybeNotifyMeetingLink(
           notifications,
           audience,

@@ -24,6 +24,7 @@ Use this before the first (and every) deploy from `main` to DigitalOcean.
 - [ ] Server `.env` (mode `600`) with **PROD-only** values — see `.env.example` production checklist.
 - [ ] Spaces PROD bucket + keys (not MinIO sample keys).
 - [ ] Resend domain verified; `NOTIFICATIONS_ENABLED=true`.
+- [ ] (Optional) Google Meet: `GOOGLE_MEET_CLIENT_ID` / `_SECRET` / `_REFRESH_TOKEN` (+ Calendar API enabled).
 - [ ] Mercado Pago + Stripe **live** tokens + webhook secrets pointing at:
   - `https://<prod>/api/finance/webhooks/mercado-pago`
   - `https://<prod>/api/finance/webhooks/stripe`

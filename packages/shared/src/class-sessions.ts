@@ -52,12 +52,22 @@ export const classSessionResponseSchema = z.object({
 
 export type ClassSessionResponse = z.infer<typeof classSessionResponseSchema>;
 
-export const createClassSessionRequestSchema = z.object({
-  groupId: z.string().uuid(),
-  /** Instant when the class starts. endAt is derived from Course.serviceType. */
-  startAt: z.string().datetime(),
-  meetingUrl: meetingUrlSchema.optional(),
-});
+export const createClassSessionRequestSchema = z
+  .object({
+    groupId: z.string().uuid(),
+    /** Instant when the class starts. endAt is derived from Course.serviceType. */
+    startAt: z.string().datetime(),
+    meetingUrl: meetingUrlSchema.optional(),
+    /**
+     * When true, the API creates a Google Calendar event with Meet for this
+     * start/end and sets meetingUrl. Requires Google Meet credentials.
+     */
+    createGoogleMeet: z.boolean().optional(),
+  })
+  .refine((value) => !(value.createGoogleMeet && value.meetingUrl), {
+    message: 'Use createGoogleMeet or meetingUrl, not both.',
+    path: ['createGoogleMeet'],
+  });
 
 export type CreateClassSessionRequest = z.infer<
   typeof createClassSessionRequestSchema
@@ -69,14 +79,20 @@ export const updateClassSessionRequestSchema = z
     isActive: z.boolean().optional(),
     /** Set to null to clear an existing meeting URL. */
     meetingUrl: meetingUrlSchema.nullable().optional(),
+    createGoogleMeet: z.boolean().optional(),
   })
   .refine(
     (value) =>
       value.startAt !== undefined ||
       value.isActive !== undefined ||
-      value.meetingUrl !== undefined,
+      value.meetingUrl !== undefined ||
+      value.createGoogleMeet === true,
     { message: 'At least one field is required.' },
-  );
+  )
+  .refine((value) => !(value.createGoogleMeet && value.meetingUrl), {
+    message: 'Use createGoogleMeet or meetingUrl, not both.',
+    path: ['createGoogleMeet'],
+  });
 
 export type UpdateClassSessionRequest = z.infer<
   typeof updateClassSessionRequestSchema

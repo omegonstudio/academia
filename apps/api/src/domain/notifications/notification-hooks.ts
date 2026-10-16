@@ -18,6 +18,10 @@ export async function notifyUserCreated(
     title: 'Bienvenido/a a Academia',
     body: `Hola ${input.displayName}: tu cuenta de ${input.roleLabel} fue creada. Ya podés iniciar sesión.`,
     payload: { roleLabel: input.roleLabel },
+    templateVars: {
+      displayName: input.displayName,
+      roleLabel: input.roleLabel,
+    },
   });
 }
 
@@ -38,6 +42,11 @@ export async function notifyTeacherAssigned(
       title: 'Se te asignó un/a docente',
       body: `${input.teacher.name} quedó asignado/a como tu docente.`,
       payload: { teacherUserId: input.teacher.userId },
+      templateVars: {
+        studentName: input.student.name,
+        teacherName: input.teacher.name,
+        displayName: input.student.name,
+      },
     },
     {
       userId: input.teacher.userId,
@@ -46,6 +55,7 @@ export async function notifyTeacherAssigned(
       title: 'Nuevo/a estudiante asignado/a',
       body: `${input.student.name} fue asignado/a a tu cartera.`,
       payload: { studentUserId: input.student.userId },
+      // Teacher copy stays code-default (Director templates target the student).
     },
   ]);
 }
@@ -54,7 +64,7 @@ export async function notifyTeacherAssigned(
 export async function notifyClassMeetingLink(
   publisher: NotificationPublisher | undefined,
   input: {
-    recipients: Array<{ userId: string; email: string }>;
+    recipients: Array<{ userId: string; email: string; displayName?: string }>;
     startAtIso: string;
     meetingUrl: string;
     classSessionId: string;
@@ -76,6 +86,11 @@ export async function notifyClassMeetingLink(
         classSessionId: input.classSessionId,
         meetingUrl: input.meetingUrl,
         startAt: input.startAtIso,
+      },
+      templateVars: {
+        displayName: recipient.displayName?.trim() || recipient.email,
+        when,
+        meetingUrl: input.meetingUrl,
       },
     })),
   );

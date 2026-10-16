@@ -21,6 +21,9 @@ import {
   createChargeRequestSchema,
   createClassNoteRequestSchema,
   createClassSessionRequestSchema,
+  emailTemplateListResponseSchema,
+  emailTemplateResponseSchema,
+  googleMeetStatusResponseSchema,
   createCourseRequestSchema,
   createGroupRequestSchema,
   createMaterialRequestSchema,
@@ -69,6 +72,7 @@ import {
   updateAttendanceRequestSchema,
   updateClassNoteRequestSchema,
   updateClassSessionRequestSchema,
+  updateEmailTemplateRequestSchema,
   updateCourseRequestSchema,
   updateFinanceSettingsRequestSchema,
   updateGroupRequestSchema,
@@ -91,6 +95,9 @@ import {
   type CreateChargeRequest,
   type CreateClassNoteRequest,
   type CreateClassSessionRequest,
+  type EmailTemplate,
+  type EmailTemplateListResponse,
+  type GoogleMeetStatusResponse,
   type CreateCourseRequest,
   type CreateGroupRequest,
   type CreateMaterialLinkRequest,
@@ -130,6 +137,7 @@ import {
   type UpdateAttendanceRequest,
   type UpdateClassNoteRequest,
   type UpdateClassSessionRequest,
+  type UpdateEmailTemplateRequest,
   type UpdateCourseRequest,
   type UpdateGroupRequest,
   type UpdateMaterialRequest,
@@ -1733,6 +1741,12 @@ export async function createClassSessionBrowser(
               'El grupo necesita una franja horaria asignada antes de crear clases.';
           } else if (apiMessage.includes('inactive')) {
             message = 'El grupo o el curso no está activo.';
+          } else if (apiMessage.includes('Google Meet is not configured')) {
+            message =
+              'Google Meet no está configurado en el servidor. Pedile a la dirección que complete GOOGLE_MEET_*.';
+          } else if (apiMessage.includes('Could not create a Google Meet')) {
+            message =
+              'No pudimos crear el enlace de Google Meet. Probá de nuevo o pegá la URL a mano.';
           }
         } catch {
           /* keep mapped message */
@@ -3286,6 +3300,117 @@ export async function provisionAdministrativeBrowser(
       };
     }
     return { ok: true, data: parsed.data.user };
+  } catch {
+    return {
+      ok: false,
+      status: 503,
+      message: 'No pudimos conectar con el servidor.',
+    };
+  }
+}
+
+export async function getGoogleMeetStatusBrowser(): Promise<
+  BrowserApiResult<GoogleMeetStatusResponse>
+> {
+  try {
+    const response = await browserFetch('/google-meet/status');
+    if (!response.ok) {
+      return {
+        ok: false,
+        status: response.status,
+        message: 'No pudimos consultar el estado de Google Meet.',
+      };
+    }
+    const parsed = googleMeetStatusResponseSchema.safeParse(
+      await response.json(),
+    );
+    if (!parsed.success) {
+      return {
+        ok: false,
+        status: 500,
+        message: 'Respuesta inválida del servidor.',
+      };
+    }
+    return { ok: true, data: parsed.data };
+  } catch {
+    return {
+      ok: false,
+      status: 503,
+      message: 'No pudimos conectar con el servidor.',
+    };
+  }
+}
+
+export async function listEmailTemplatesBrowser(): Promise<
+  BrowserApiResult<EmailTemplateListResponse>
+> {
+  try {
+    const response = await browserFetch('/email-templates');
+    if (!response.ok) {
+      return {
+        ok: false,
+        status: response.status,
+        message:
+          response.status === 403
+            ? 'No tenés permiso para editar plantillas de email.'
+            : 'No pudimos cargar las plantillas de email.',
+      };
+    }
+    const parsed = emailTemplateListResponseSchema.safeParse(
+      await response.json(),
+    );
+    if (!parsed.success) {
+      return {
+        ok: false,
+        status: 500,
+        message: 'Respuesta inválida del servidor.',
+      };
+    }
+    return { ok: true, data: parsed.data };
+  } catch {
+    return {
+      ok: false,
+      status: 503,
+      message: 'No pudimos conectar con el servidor.',
+    };
+  }
+}
+
+export async function updateEmailTemplateBrowser(
+  body: UpdateEmailTemplateRequest,
+): Promise<BrowserApiResult<EmailTemplate>> {
+  const validated = updateEmailTemplateRequestSchema.safeParse(body);
+  if (!validated.success) {
+    return {
+      ok: false,
+      status: 400,
+      message: 'Revisá el asunto y el cuerpo del mail.',
+    };
+  }
+  try {
+    const response = await browserFetch('/email-templates', {
+      method: 'PATCH',
+      body: JSON.stringify(validated.data),
+    });
+    if (!response.ok) {
+      return {
+        ok: false,
+        status: response.status,
+        message:
+          response.status === 403
+            ? 'No tenés permiso para editar plantillas de email.'
+            : 'No pudimos guardar la plantilla.',
+      };
+    }
+    const parsed = emailTemplateResponseSchema.safeParse(await response.json());
+    if (!parsed.success) {
+      return {
+        ok: false,
+        status: 500,
+        message: 'Respuesta inválida del servidor.',
+      };
+    }
+    return { ok: true, data: parsed.data.template };
   } catch {
     return {
       ok: false,

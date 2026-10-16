@@ -80,6 +80,62 @@ describe('createNotificationPublisher', () => {
     expect(email.send).toHaveBeenCalledOnce();
   });
 
+  it('renders Director email templates when templateVars are set', async () => {
+    const store = memoryStore();
+    const email: EmailSender = {
+      send: vi.fn(async () => ({ sent: true })),
+    };
+    const logger = {
+      info: vi.fn(),
+      warn: vi.fn(),
+    } as unknown as import('pino').Logger;
+    const emailTemplates = {
+      async list() {
+        return [];
+      },
+      async findByType(type: string) {
+        if (type !== 'CLASS_MEETING_LINK') return null;
+        return {
+          type: 'CLASS_MEETING_LINK' as const,
+          subject: 'Meet: {{when}}',
+          body: 'Hola {{displayName}} — {{meetingUrl}} — {{loginUrl}}',
+          updatedAt: new Date(),
+        };
+      },
+      async upsert() {
+        throw new Error('unused');
+      },
+    };
+
+    const publisher = createNotificationPublisher({
+      store,
+      email,
+      logger,
+      appPublicUrl: 'http://localhost:3000',
+      emailTemplates,
+    });
+
+    await publisher.notify({
+      userId: 'u1',
+      email: 'a@test.com',
+      type: 'CLASS_MEETING_LINK',
+      title: 'Fallback title',
+      body: 'Fallback body',
+      templateVars: {
+        displayName: 'Ana',
+        when: 'hoy',
+        meetingUrl: 'https://meet.google.com/x',
+      },
+    });
+
+    expect(store.rows[0]?.title).toBe('Fallback title');
+    expect(email.send).toHaveBeenCalledWith({
+      to: 'a@test.com',
+      subject: 'Meet: hoy',
+      text: 'Hola Ana — https://meet.google.com/x — http://localhost:3000/login\n',
+    });
+  });
+
   it('does not throw when email fails', async () => {
     const store = memoryStore();
     const email: EmailSender = {

@@ -174,6 +174,15 @@ export const envSchema = z.object({
   APP_PUBLIC_URL: z.string().default(''),
 
   // -------------------------------------------------------------------------
+  // Google Meet (Calendar API) — optional; empty disables createGoogleMeet
+  // -------------------------------------------------------------------------
+  GOOGLE_MEET_CLIENT_ID: z.string().default(''),
+  GOOGLE_MEET_CLIENT_SECRET: z.string().default(''),
+  GOOGLE_MEET_REFRESH_TOKEN: z.string().default(''),
+  /** Calendar that owns Meet events. Defaults to `primary` when Meet is on. */
+  GOOGLE_MEET_CALENDAR_ID: z.string().default(''),
+
+  // -------------------------------------------------------------------------
   // Payments (empty → stub providers; set for live/sandbox)
   // -------------------------------------------------------------------------
   MERCADOPAGO_ACCESS_TOKEN: z.string().default(''),
