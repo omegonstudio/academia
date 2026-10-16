@@ -1,6 +1,6 @@
-import { randomUUID } from 'node:crypto';
+import { createHmac, randomUUID } from 'node:crypto';
 import request from 'supertest';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { hashPassword } from '../../lib/password.js';
 import {
   buildTestApp,
@@ -372,5 +372,191 @@ describe('Finance HTTP API (Stage 6B-2)', () => {
       .get(`/finance/settlements/${settlement.body.settlement.id}`)
       .set('Cookie', teaCookie!);
     expect(forbidden.status).toBe(403);
+  });
+});
+
+describe('Mercado Pago native webhook HTTP', () => {
+  const MP_SECRET = 'mp_http_whsec';
+  const MP_TOKEN = 'TEST-http-token';
+  let fixture: TestApp;
+
+  beforeEach(async () => {
+    fixture = await buildTestApp({
+      paymentCredentials: {
+        mercadopagoAccessToken: MP_TOKEN,
+        mercadopagoWebhookSecret: MP_SECRET,
+        stripeSecretKey: '',
+        stripeWebhookSecret: '',
+        appPublicUrl: 'http://localhost:3000',
+        apiPublicUrl: 'https://abc.ngrok-free.app',
+        requireWebhookSignature: true,
+      },
+    });
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  function sign(dataId: string, requestId: string, ts: string): string {
+    const manifest = `id:${dataId};request-id:${requestId};ts:${ts};`;
+    const v1 = createHmac('sha256', MP_SECRET).update(manifest).digest('hex');
+    return `ts=${ts},v1=${v1}`;
+  }
+
+  async function seedPendingMpPayment(): Promise<{
+    cookie: string;
+    paymentId: string;
+    chargeId: string;
+  }> {
+    fixture.users.seed({
+      id: 'director-mp-1',
+      email: 'dir-mp@academia.test',
+      name: 'Dir',
+      role: 'DIRECTOR',
+      isActive: true,
+      passwordHash: await hashPassword('director-password-12'),
+    });
+    const login = await request(fixture.app)
+      .post('/auth/login')
+      .send({ email: 'dir-mp@academia.test', password: 'director-password-12' });
+    const cookie = cookieFrom(login.headers['set-cookie'], SESSION_COOKIE)!;
+
+    const student = await fixture.studentRegistry.createWithNewUser({
+      email: 'mp-student@academia.test',
+      passwordHash: await hashPassword('student-password-12'),
+      firstName: 'Mp',
+      lastName: 'Stu',
+      level: 'A1',
+      isActive: true,
+    });
+    const teacher = await fixture.teacherRegistry.createWithNewUser({
+      email: 'mp-teacher@academia.test',
+      passwordHash: await hashPassword('teacher-password-12'),
+      firstName: 'Mp',
+      lastName: 'Tea',
+      level: 'C1',
+      availability: 'AVAILABLE',
+      isActive: true,
+    });
+    const classSessionId = randomUUID();
+    const courseId = randomUUID();
+    const groupId = randomUUID();
+    fixture.finance.seedClassSession({
+      classSessionId,
+      groupId,
+      courseId,
+      serviceType: 'ONE_TO_ONE_60',
+      teacherId: teacher.id,
+      courseAmountMinor: 12500n,
+      courseCurrency: 'ARS',
+      studentEnrolled: true,
+      studentId: student.id,
+    });
+    const chargeRes = await request(fixture.app)
+      .post('/finance/charges')
+      .set('Cookie', cookie)
+      .send({
+        kind: 'CLASS_SESSION',
+        classSessionId,
+        studentId: student.id,
+      });
+    const chargeId = chargeRes.body.charge.id as string;
+    const pay = await request(fixture.app)
+      .post('/finance/payments')
+      .set('Cookie', cookie)
+      .send({
+        chargeId,
+        provider: 'MERCADOPAGO',
+        idempotencyKey: `mp-http-${chargeId}`,
+        providerPaymentId: 'pref_http_1',
+      });
+    return { cookie, paymentId: pay.body.payment.id as string, chargeId };
+  }
+
+  it('rejects invalid signature with 401', async () => {
+    const { chargeId } = await seedPendingMpPayment();
+    const res = await request(fixture.app)
+      .post('/finance/webhooks/mercado-pago')
+      .set('x-signature', 'ts=1,v1=deadbeef')
+      .set('x-request-id', 'req-1')
+      .send({
+        id: 1,
+        type: 'payment',
+        data: { id: '555' },
+        // ensure we are not treated as legacy inbox
+        external_reference: chargeId,
+      });
+    expect(res.status).toBe(401);
+  });
+
+  it('rejects missing signature when secret is configured', async () => {
+    await seedPendingMpPayment();
+    const res = await request(fixture.app)
+      .post('/finance/webhooks/mercado-pago')
+      .send({ id: 1, type: 'payment', data: { id: '555' } });
+    expect(res.status).toBe(401);
+  });
+
+  it('rejects legacy inbox when live MP credentials are set', async () => {
+    const { paymentId } = await seedPendingMpPayment();
+    const res = await request(fixture.app)
+      .post('/finance/webhooks/mercado-pago')
+      .send({
+        providerEventId: 'legacy-1',
+        type: 'payment.succeeded',
+        paymentId,
+      });
+    expect(res.status).toBe(400);
+  });
+
+  it('approves after provider fetch with valid signature', async () => {
+    const { cookie, paymentId, chargeId } = await seedPendingMpPayment();
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          id: 777001,
+          status: 'approved',
+          transaction_amount: 125,
+          currency_id: 'ARS',
+          external_reference: chargeId,
+        }),
+      }),
+    );
+    const ts = '1700000000';
+    const dataId = '777001';
+    const requestId = 'req-ok';
+    const res = await request(fixture.app)
+      .post('/finance/webhooks/mercado-pago')
+      .set('x-signature', sign(dataId, requestId, ts))
+      .set('x-request-id', requestId)
+      .send({
+        id: 42,
+        type: 'payment',
+        action: 'payment.updated',
+        data: { id: dataId },
+      });
+    expect(res.status).toBe(200);
+    expect(res.body.processed).toBe(true);
+
+    const got = await request(fixture.app)
+      .get(`/finance/payments/${paymentId}`)
+      .set('Cookie', cookie);
+    expect(got.body.payment.status).toBe('SUCCEEDED');
+  });
+
+  it('blocks anonymous succeed on MERCADOPAGO payments', async () => {
+    const { cookie, paymentId } = await seedPendingMpPayment();
+    const anon = await request(fixture.app).post(
+      `/finance/payments/${paymentId}/succeed`,
+    );
+    expect(anon.status).toBe(401);
+    const director = await request(fixture.app)
+      .post(`/finance/payments/${paymentId}/succeed`)
+      .set('Cookie', cookie);
+    expect(director.status).toBe(400);
   });
 });

@@ -4,13 +4,16 @@ import {
   emailTemplateResponseSchema,
   googleMeetStatusResponseSchema,
   updateEmailTemplateRequestSchema,
+  zoomStatusResponseSchema,
   type EmailTemplateListResponse,
   type EmailTemplateResponse,
   type GoogleMeetStatusResponse,
   type SessionUser,
+  type ZoomStatusResponse,
 } from '@academia/shared';
 import { Router } from 'express';
 import type { GoogleMeetService } from '../../domain/classes/google-meet-service.js';
+import type { ZoomMeetingService } from '../../domain/classes/zoom-meeting-service.js';
 import type { EmailTemplateStore } from '../../domain/notifications/email-template-store.js';
 import { BadRequestError, ForbiddenError } from '../errors.js';
 import {
@@ -22,6 +25,7 @@ export interface EmailTemplatesDependencies {
   authenticate: AuthenticateOptions;
   emailTemplates: EmailTemplateStore;
   googleMeet?: GoogleMeetService;
+  zoomMeeting?: ZoomMeetingService;
 }
 
 function assertDirectorOrSuperAdmin(user: SessionUser): void {
@@ -48,6 +52,7 @@ export function createEmailTemplatesRouter({
   authenticate: authOptions,
   emailTemplates,
   googleMeet,
+  zoomMeeting,
 }: EmailTemplatesDependencies): Router {
   const router = Router();
 
@@ -116,6 +121,24 @@ export function createEmailTemplatesRouter({
               : null,
           };
           googleMeetStatusResponseSchema.parse(body);
+          res.status(200).json(body);
+        } catch (error) {
+          next(error);
+        }
+      })();
+    },
+  );
+
+  router.get(
+    '/zoom/status',
+    authenticate(authOptions),
+    (_req, res, next) => {
+      void (async () => {
+        try {
+          const body: ZoomStatusResponse = {
+            configured: zoomMeeting?.isConfigured() ?? false,
+          };
+          zoomStatusResponseSchema.parse(body);
           res.status(200).json(body);
         } catch (error) {
           next(error);

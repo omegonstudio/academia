@@ -98,4 +98,25 @@ describe('Email templates + Google Meet status', () => {
     expect(status.status).toBe(200);
     expect(status.body.configured).toBe(false);
   });
+
+  it('reports Zoom as not configured by default', async () => {
+    fixture.users.seed({
+      id: 'teacher-zoom-status-1',
+      email: 'profe-zoom@academia.test',
+      name: 'Profe Zoom',
+      role: 'TEACHER',
+      isActive: true,
+      passwordHash: await hashPassword('teacher-password-12'),
+    });
+    const cookie = (await loginAs(
+      'profe-zoom@academia.test',
+      'teacher-password-12',
+    ))!;
+
+    const status = await request(fixture.app)
+      .get('/zoom/status')
+      .set('Cookie', cookie);
+    expect(status.status).toBe(200);
+    expect(status.body).toEqual({ configured: false });
+  });
 });

@@ -31,6 +31,7 @@ import type { InMemoryScheduleOptionStore } from '../domain/schedules/in-memory-
 import { createInMemoryClassSessionStore } from '../domain/classes/in-memory-class-session-store.js';
 import type { InMemoryClassSessionStore } from '../domain/classes/in-memory-class-session-store.js';
 import type { GoogleMeetService } from '../domain/classes/google-meet-service.js';
+import type { ZoomMeetingService } from '../domain/classes/zoom-meeting-service.js';
 import { createInMemoryAttendanceStore } from '../domain/attendance/in-memory-attendance-store.js';
 import type { InMemoryAttendanceStore } from '../domain/attendance/in-memory-attendance-store.js';
 import { createInMemoryClassNoteStore } from '../domain/class-notes/in-memory-class-note-store.js';
@@ -41,6 +42,7 @@ import { createInMemoryOnlineCourseStore } from '../domain/online-courses/in-mem
 import type { InMemoryOnlineCourseStore } from '../domain/online-courses/in-memory-online-course-store.js';
 import { createInMemoryFinanceStore } from '../domain/finance/in-memory-finance-store.js';
 import type { InMemoryFinanceStore } from '../domain/finance/in-memory-finance-store.js';
+import type { PaymentProviderCredentials } from '../domain/finance/payment-provider.js';
 import { createInMemoryNotificationStore } from '../domain/notifications/in-memory-notification-store.js';
 import { createInMemoryEmailTemplateStore } from '../domain/notifications/in-memory-email-template-store.js';
 import { createInMemoryObjectStorage } from '../storage/in-memory-object-storage.js';
@@ -69,6 +71,10 @@ export interface TestAppOptions {
   docsEnabled?: boolean;
   /** Optional mock for Google Meet / Calendar route tests. */
   googleMeet?: GoogleMeetService;
+  /** Optional mock for Zoom Meetings route tests. */
+  zoomMeeting?: ZoomMeetingService;
+  /** Optional PSP credentials (Mercado Pago / Stripe HTTP tests). */
+  paymentCredentials?: PaymentProviderCredentials;
 }
 
 export interface InMemoryRoleProvisionStore extends RoleProvisionStore {
@@ -283,6 +289,8 @@ export async function buildTestApp({
   configurationIssues = [],
   docsEnabled = true,
   googleMeet,
+  zoomMeeting,
+  paymentCredentials,
 }: TestAppOptions = {}): Promise<TestApp> {
   const users = createInMemoryUserRepository();
   const directors = createInMemoryRoleProvisionStore(users, 'DIRECTOR');
@@ -587,6 +595,7 @@ export async function buildTestApp({
       attendances,
       academy: { businessTimezone: DEFAULT_ACADEMY_TIMEZONE },
       finance,
+      paymentCredentials,
     },
     studentOnlineCourses: {
       authenticate: authOptions,
@@ -644,6 +653,7 @@ export async function buildTestApp({
       permissionGrants,
       finance,
       googleMeet,
+      zoomMeeting,
     },
     materials: {
       authenticate: authOptions,
@@ -672,6 +682,7 @@ export async function buildTestApp({
       permissionGrants,
       students: studentRegistry,
       teachers: teacherRegistry,
+      paymentCredentials,
     },
     administrativePermissions: {
       authenticate: authOptions,
@@ -687,6 +698,7 @@ export async function buildTestApp({
       authenticate: authOptions,
       emailTemplates: emailTemplateStore,
       googleMeet,
+      zoomMeeting,
     },
     docsEnabled,
   });

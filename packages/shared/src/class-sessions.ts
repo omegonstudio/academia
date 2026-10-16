@@ -64,6 +64,12 @@ export const classSessionResponseSchema = z.object({
    * `createGoogleMeet` (do not create a second class).
    */
   meetCreationFailed: z.boolean().optional(),
+  /**
+   * Present on POST /classes when the class was persisted but Zoom
+   * provisioning failed. Client should open the class and retry via PATCH
+   * `createZoom` (do not create a second class).
+   */
+  zoomCreationFailed: z.boolean().optional(),
 });
 
 export type ClassSessionResponse = z.infer<typeof classSessionResponseSchema>;
@@ -80,10 +86,23 @@ export const createClassSessionRequestSchema = z
      * start/end and sets meetingUrl. Requires Google Meet credentials.
      */
     createGoogleMeet: z.boolean().optional(),
+    /**
+     * When true, the API creates a Zoom meeting for this start/end and sets
+     * meetingUrl + zoomMeetingId. Requires Zoom credentials.
+     */
+    createZoom: z.boolean().optional(),
   })
   .refine((value) => !(value.createGoogleMeet && value.meetingUrl), {
     message: 'Use createGoogleMeet or meetingUrl, not both.',
     path: ['createGoogleMeet'],
+  })
+  .refine((value) => !(value.createZoom && value.meetingUrl), {
+    message: 'Use createZoom or meetingUrl, not both.',
+    path: ['createZoom'],
+  })
+  .refine((value) => !(value.createZoom && value.createGoogleMeet), {
+    message: 'Use createZoom or createGoogleMeet, not both.',
+    path: ['createZoom'],
   });
 
 export type CreateClassSessionRequest = z.infer<
@@ -107,6 +126,13 @@ export const updateClassSessionRequestSchema = z
      * meetingUrl + googleCalendarEventId. Keeps meetingDescription.
      */
     removeGoogleMeet: z.boolean().optional(),
+    createZoom: z.boolean().optional(),
+    /**
+     * When true and zoomMeetingId is set, deletes the Zoom meeting (best-effort)
+     * and clears meetingUrl + zoomMeetingId. Does not clear a manual URL when
+     * there is no managed Zoom id. Keeps meetingDescription.
+     */
+    removeZoom: z.boolean().optional(),
   })
   .refine(
     (value) =>
@@ -117,16 +143,38 @@ export const updateClassSessionRequestSchema = z
       value.googleCalendarEventId !== undefined ||
       value.zoomMeetingId !== undefined ||
       value.createGoogleMeet === true ||
-      value.removeGoogleMeet === true,
+      value.removeGoogleMeet === true ||
+      value.createZoom === true ||
+      value.removeZoom === true,
     { message: 'At least one field is required.' },
   )
   .refine((value) => !(value.createGoogleMeet && value.meetingUrl), {
     message: 'Use createGoogleMeet or meetingUrl, not both.',
     path: ['createGoogleMeet'],
   })
+  .refine((value) => !(value.createZoom && value.meetingUrl), {
+    message: 'Use createZoom or meetingUrl, not both.',
+    path: ['createZoom'],
+  })
+  .refine((value) => !(value.createZoom && value.createGoogleMeet), {
+    message: 'Use createZoom or createGoogleMeet, not both.',
+    path: ['createZoom'],
+  })
   .refine((value) => !(value.createGoogleMeet && value.removeGoogleMeet), {
     message: 'Use createGoogleMeet or removeGoogleMeet, not both.',
     path: ['removeGoogleMeet'],
+  })
+  .refine((value) => !(value.createZoom && value.removeZoom), {
+    message: 'Use createZoom or removeZoom, not both.',
+    path: ['removeZoom'],
+  })
+  .refine((value) => !(value.createZoom && value.removeGoogleMeet), {
+    message: 'Use createZoom or removeGoogleMeet, not both.',
+    path: ['createZoom'],
+  })
+  .refine((value) => !(value.createGoogleMeet && value.removeZoom), {
+    message: 'Use createGoogleMeet or removeZoom, not both.',
+    path: ['createGoogleMeet'],
   });
 
 export type UpdateClassSessionRequest = z.infer<

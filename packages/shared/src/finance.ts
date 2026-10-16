@@ -392,8 +392,9 @@ export const settlementListQuerySchema = z.object({
 export type SettlementListQuery = z.infer<typeof settlementListQuerySchema>;
 
 /**
- * Stub webhook inbox payload (no live SDK). Signature verification is TODO
- * when provider credentials are introduced.
+ * Legacy/internal webhook inbox payload (Stripe + offline Mercado Pago stubs).
+ * Live Mercado Pago uses native notifications (`data.id`) and fetches the
+ * Payment resource server-side — see `POST /finance/webhooks/mercado-pago`.
  */
 export const financeWebhookRequestSchema = z.object({
   providerEventId: z.string().trim().min(1).max(191),

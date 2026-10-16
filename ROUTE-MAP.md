@@ -102,10 +102,11 @@ cableados a API real (Fase 3). Sin DEV bypass. `lib/academy-data.ts` eliminado (
 | `[x]`  | `POST /groups/:id/students` | `requirePermission(groups, update)`. Enroll Student activo; máx. 15; sin auto-assignment Teacher. |
 | `[x]`  | `DELETE /groups/:id/students/:studentId` | `requirePermission(groups, update)`. Baja lógica del enrollment. |
 | `[x]`  | `GET /classes` | Auth. `classes.read` → todas; TEACHER → Groups propios; STUDENT → Groups con Enrollment activo. `?groupId=` opcional. |
-| `[x]`  | `POST /classes` | Auth. `classes.create` (admin) o TEACHER del Group. `groupId` + `startAt` + `meetingUrl?` + `meetingDescription?` + `createGoogleMeet?`; duración de Course.serviceType. Overlap → 409. |
-| `[x]`  | `GET /classes/:id` | Auth. Misma regla ownership que list; IDOR → 403. Incluye meetingUrl, googleCalendarEventId, meetingDescription. |
-| `[x]`  | `PATCH /classes/:id` | Auth. `classes.update` (admin) o TEACHER del Group. `startAt` / `isActive` / `meetingUrl` / `meetingDescription` / `createGoogleMeet` / `removeGoogleMeet`. Overlap → 409 al reschedule. Soft-delete / remove Meet sync Calendar best-effort. |
-| `[x]`  | `DELETE /classes/:id` | Auth. `classes.delete` (admin) o TEACHER del Group. Baja lógica (`isActive=false`). |
+| `[x]`  | `POST /classes` | Auth. `classes.create` (admin) o TEACHER del Group. `groupId` + `startAt` + `meetingUrl?` + `meetingDescription?` + `createGoogleMeet?` + `createZoom?` (XOR entre sí y con `meetingUrl`); duración de Course.serviceType. Overlap → 409. Fallo Meet/Zoom post-insert → 201 + `meetCreationFailed` / `zoomCreationFailed`. |
+| `[x]`  | `GET /classes/:id` | Auth. Misma regla ownership que list; IDOR → 403. Incluye meetingUrl, googleCalendarEventId, zoomMeetingId, meetingDescription. |
+| `[x]`  | `PATCH /classes/:id` | Auth. `classes.update` (admin) o TEACHER del Group. `startAt` / `isActive` / `meetingUrl` / `meetingDescription` / `createGoogleMeet` / `removeGoogleMeet` / `createZoom` / `removeZoom`. Overlap → 409 al reschedule. Sync Meet/Zoom best-effort. |
+| `[x]`  | `DELETE /classes/:id` | Auth. `classes.delete` (admin) o TEACHER del Group. Baja lógica (`isActive=false`); limpia Meet/Zoom gestionados best-effort. |
+| `[x]`  | `GET /zoom/status` | Auth (cualquier sesión). `{ configured }` vía `ZoomMeetingService.isConfigured()`; sin secretos ni account id. |
 | `[x]`  | `POST /groups/:id/classes/generate` | `requirePermission(classes, create)` solamente (sin bypass por ownership de Teacher). `{ from, to }`; ScheduleOption + academy timezone; `generatedCount` / `skippedCount` / `conflictCount`; `meetingUrl=null`; `UNIQUE(groupId, startAt)`. |
 | `[x]`  | `GET /classes/calendar` | Auth. Mismo ownership que list; `?from&to` civil (academy timezone); active by `startAt`; nested group/course/teacher + meetingUrl; máx. 93 días. |
 | `[x]`  | `GET /classes/:id/attendance` | Auth. Misma ownership de ClassSession; admin/Teacher → todos; STUDENT → solo su fila. Student: `{id,firstName,lastName}`. |
@@ -324,7 +325,8 @@ Payment MANUAL still explicit).
 | `[x]` | `GET/POST /finance/payments`, succeed MANUAL, refunds | Freeze on SUCCEEDED |
 | `[x]` | `GET /finance/allocations` (+ `:id`) | read-only immutable |
 | `[x]` | `GET/POST /finance/settlements`, mark-paid | OPEN → MARKED_PAID |
-| `[x]` | `POST /finance/webhooks/mercado-pago\|stripe` | idempotent WebhookEvent; signature verified when provider webhook secrets are set |
+| `[x]` | `POST\|GET /finance/webhooks/mercado-pago` | Native MP notification → fetch Payment → validate amount/currency/`external_reference`; `x-signature` required when secret set (always in production); idempotent WebhookEvent |
+| `[x]` | `POST /finance/webhooks/stripe` | Idempotent WebhookEvent; signature verified when Stripe webhook secret is set |
 | `[x]` | `POST /classes` + generate | side-effect: auto Charge ONE_TO_ONE when priced + enrolled |
 | `[x]` | `POST /groups/:id/students` | side-effect: auto monthly Charge GROUP_120 |
 

@@ -56,6 +56,10 @@ import {
 } from '../../domain/finance/finance-settings-service.js';
 import type { FinanceStore } from '../../domain/finance/finance-store.js';
 import {
+  parseMercadoPagoNotification,
+  processMercadoPagoNativeWebhook,
+} from '../../domain/finance/mercadopago-webhook.js';
+import {
   resolvePaymentProvider,
   verifyMercadoPagoWebhookSignature,
   verifyStripeWebhookSignature,
@@ -756,41 +760,122 @@ export function createFinanceRouter({
     },
   );
 
-  // --- Webhooks (no session; signature verified when secrets are configured)
+  // --- Webhooks (no session; Mercado Pago: native notifications + resource fetch)
+  // IPN may use GET with ?topic=payment&id=; Webhooks use POST JSON.
 
-  router.post('/finance/webhooks/mercado-pago', (req, res, next) => {
+  const handleMercadoPagoWebhook = (
+    req: import('express').Request,
+    res: import('express').Response,
+    next: import('express').NextFunction,
+  ) => {
     void (async () => {
       try {
-        const secret = paymentCredentials?.mercadopagoWebhookSecret ?? '';
-        if (secret.length > 0) {
-          const dataId = String(
-            (req.body as { data?: { id?: string } })?.data?.id ??
-              (req.body as { providerEventId?: string })?.providerEventId ??
-              '',
-          );
-          const ok = verifyMercadoPagoWebhookSignature({
+        const credentials = paymentCredentials ?? {
+          mercadopagoAccessToken: '',
+          mercadopagoWebhookSecret: '',
+          stripeSecretKey: '',
+          stripeWebhookSecret: '',
+          appPublicUrl: '',
+        };
+        const secret = credentials.mercadopagoWebhookSecret ?? '';
+        const requireSignature =
+          credentials.requireWebhookSignature === true || secret.length > 0;
+
+        const query = req.query as Record<string, unknown>;
+        const bodyRecord =
+          req.body && typeof req.body === 'object'
+            ? (req.body as Record<string, unknown>)
+            : {};
+        const isLegacyInbox =
+          typeof bodyRecord['providerEventId'] === 'string' &&
+          typeof bodyRecord['type'] === 'string' &&
+          bodyRecord['data'] === undefined;
+
+        // Legacy internal inbox (offline tests / stubs). Blocked with live MP token.
+        if (isLegacyInbox) {
+          if (
+            credentials.mercadopagoAccessToken.length > 0 &&
+            credentials.forceStubs !== true
+          ) {
+            throw new BadRequestError(
+              'Live Mercado Pago credentials require a native payment notification.',
+            );
+          }
+          const parsed = financeWebhookRequestSchema.safeParse(req.body);
+          if (!parsed.success) {
+            throw new BadRequestError(
+              'Valid providerEventId and type are required.',
+            );
+          }
+          const result = await processProviderWebhook(finance, {
+            provider: 'MERCADOPAGO',
+            providerEventId: parsed.data.providerEventId,
+            type: parsed.data.type,
+            paymentId: parsed.data.paymentId,
+            payload: parsed.data.payload,
+          });
+          const body: FinanceWebhookResponse = {
+            received: true,
+            duplicate: result.duplicate,
+            processed: result.processed,
+          };
+          res.status(200).json(body);
+          return;
+        }
+
+        const dataId = String(
+          (req.body as { data?: { id?: string | number } })?.data?.id ??
+            query['data.id'] ??
+            query['id'] ??
+            '',
+        );
+
+        let signatureVerified = false;
+        if (requireSignature) {
+          if (!secret) {
+            res.status(503).json({
+              received: false,
+              error: 'Mercado Pago webhook secret is required.',
+            });
+            return;
+          }
+          signatureVerified = verifyMercadoPagoWebhookSignature({
             secret,
             dataId,
             requestId: req.header('x-request-id') ?? undefined,
             signatureHeader: req.header('x-signature') ?? undefined,
           });
-          if (!ok) {
-            throw new BadRequestError('Invalid Mercado Pago webhook signature.');
+          if (!signatureVerified) {
+            res.status(401).json({
+              received: false,
+              error: 'Invalid Mercado Pago webhook signature.',
+            });
+            return;
           }
         }
-        const parsed = financeWebhookRequestSchema.safeParse(req.body);
-        if (!parsed.success) {
+
+        const native = parseMercadoPagoNotification({
+          body: req.body,
+          query,
+        });
+        if (!native || (!native.data?.id && !native.resourceId)) {
           throw new BadRequestError(
-            'Valid providerEventId and type are required.',
+            'Valid Mercado Pago payment notification (data.id) is required.',
           );
         }
-        const result = await processProviderWebhook(finance, {
-          provider: 'MERCADOPAGO',
-          providerEventId: parsed.data.providerEventId,
-          type: parsed.data.type,
-          paymentId: parsed.data.paymentId,
-          payload: parsed.data.payload,
+
+        const result = await processMercadoPagoNativeWebhook(finance, {
+          notification: native,
+          credentials,
+          signatureVerified: requireSignature ? signatureVerified : true,
         });
+        if (result.httpStatus !== 200) {
+          res.status(result.httpStatus).json({
+            received: false,
+            error: result.reason ?? 'Webhook rejected.',
+          });
+          return;
+        }
         const body: FinanceWebhookResponse = {
           received: true,
           duplicate: result.duplicate,
@@ -801,7 +886,10 @@ export function createFinanceRouter({
         mapFinanceError(error);
       }
     })().catch(next);
-  });
+  };
+
+  router.post('/finance/webhooks/mercado-pago', handleMercadoPagoWebhook);
+  router.get('/finance/webhooks/mercado-pago', handleMercadoPagoWebhook);
 
   router.post('/finance/webhooks/stripe', (req, res, next) => {
     void (async () => {

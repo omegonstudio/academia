@@ -418,11 +418,13 @@ export {
   updateEmailTemplateRequestSchema,
   emailTemplateResponseSchema,
   googleMeetStatusResponseSchema,
+  zoomStatusResponseSchema,
   type EmailTemplate,
   type EmailTemplateListResponse,
   type UpdateEmailTemplateRequest,
   type EmailTemplateResponse,
   type GoogleMeetStatusResponse,
+  type ZoomStatusResponse,
 } from './email-templates.js';
 export {
   ONLINE_COURSE_STATUSES,

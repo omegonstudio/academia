@@ -199,4 +199,18 @@ describe('evaluateConfiguration', () => {
 
     expect(evaluateConfiguration(env)).toEqual([]);
   });
+
+  it('requires Mercado Pago webhook secret when token is set in production', () => {
+    const issues = evaluateConfiguration(
+      productionEnv({
+        S3_ACCESS_KEY: 'prod-spaces-access-key',
+        S3_SECRET_KEY: 'prod-spaces-secret-key-value',
+        MERCADOPAGO_ACCESS_TOKEN: 'APP_USR-production-example',
+        MERCADOPAGO_WEBHOOK_SECRET: '',
+      }),
+    );
+    expect(issues.some((issue) => /MERCADOPAGO_WEBHOOK_SECRET/.test(issue))).toBe(
+      true,
+    );
+  });
 });

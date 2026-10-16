@@ -281,10 +281,11 @@ Schemas: `class-sessions.ts` · Router: `classes.ts` · Domain: `class-session-s
 | UI action | HTTP | Endpoint | Request | Response | Auth | Status |
 | --------- | ---- | -------- | ------- | -------- | ---- | ------ |
 | Listar | GET | `/classes` | query `groupId?` | `{ classSessions }` (incluye inactivas) | ownership/read | 200 / 403 |
-| Crear individual | POST | `/classes` | `{ groupId, startAt, meetingUrl?, meetingDescription?, createGoogleMeet? }` | `{ classSession, meetCreationFailed? }` — si Meet falla tras insert, 201 + `meetCreationFailed: true` (reintentar con PATCH) | create actor | 201 / 400 / 403 / 404 / **409** overlap |
-| Ver | GET | `/classes/:id` | — | `{ classSession }` | ownership | 200 / 403 / 404 |
-| Editar | PATCH | `/classes/:id` | ≥1 de `startAt`, `isActive`, `meetingUrl\|null`, `meetingDescription`, `createGoogleMeet`, `removeGoogleMeet` | `{ classSession }` | update actor | 200 / 400 / 403 / 404 / **409** |
+| Crear individual | POST | `/classes` | `{ groupId, startAt, meetingUrl?, meetingDescription?, createGoogleMeet?, createZoom? }` (XOR Meet/Zoom/URL) | `{ classSession, meetCreationFailed?, zoomCreationFailed? }` — fallo post-insert → 201 + flag; reintentar con PATCH | create actor | 201 / 400 / 403 / 404 / **409** overlap |
+| Ver | GET | `/classes/:id` | — | `{ classSession }` (+ `zoomMeetingId`) | ownership | 200 / 403 / 404 |
+| Editar | PATCH | `/classes/:id` | ≥1 de `startAt`, `isActive`, `meetingUrl\|null`, `meetingDescription`, `createGoogleMeet`, `removeGoogleMeet`, `createZoom`, `removeZoom` | `{ classSession }` | update actor | 200 / 400 / 403 / 404 / **409** |
 | Cancelar (soft) | DELETE | `/classes/:id` | — | `{ classSession }` `isActive:false` | delete actor | 200 / 403 / 404 |
+| Estado Zoom | GET | `/zoom/status` | — | `{ configured }` | sesión autenticada | 200 / 401 |
 | Generar semanal | POST | `/groups/:id/classes/generate` | `{ from, to }` civil `YYYY-MM-DD` (máx 90 días) | `{ groupId, from, to, generatedCount, skippedCount, conflictCount, classSessions }` | `classes.create` | 200 / 400 / 404 |
 
 ### Reglas de dominio (ClassSession)

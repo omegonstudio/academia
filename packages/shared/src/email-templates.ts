@@ -54,3 +54,10 @@ export const googleMeetStatusResponseSchema = z.object({
 export type GoogleMeetStatusResponse = z.infer<
   typeof googleMeetStatusResponseSchema
 >;
+
+/** Zoom S2S readiness — never includes secrets, tokens, or account id. */
+export const zoomStatusResponseSchema = z.object({
+  configured: z.boolean(),
+});
+
+export type ZoomStatusResponse = z.infer<typeof zoomStatusResponseSchema>;

@@ -170,8 +170,14 @@ export const envSchema = z.object({
   NOTIFICATIONS_ENABLED: booleanFromEnv,
   RESEND_API_KEY: z.string().default(''),
   RESEND_FROM_EMAIL: z.string().default(''),
-  /** Public web origin for email links. */
+  /** Public web origin for email links and checkout back_urls. */
   APP_PUBLIC_URL: z.string().default(''),
+  /**
+   * Public API origin for Mercado Pago `notification_url` (ngrok / ingress).
+   * Example: `https://abc.ngrok-free.app` → webhook
+   * `/finance/webhooks/mercado-pago`. Do not point at PostgreSQL.
+   */
+  API_PUBLIC_URL: z.string().default(''),
 
   // -------------------------------------------------------------------------
   // Google Meet (Calendar API) — optional; empty disables createGoogleMeet
@@ -196,6 +202,11 @@ export const envSchema = z.object({
   // -------------------------------------------------------------------------
   MERCADOPAGO_ACCESS_TOKEN: z.string().default(''),
   MERCADOPAGO_WEBHOOK_SECRET: z.string().default(''),
+  /**
+   * Explicit opt-in to use a live (APP_USR) Mercado Pago token while
+   * NODE_ENV !== production. Default false — sandbox must use TEST- tokens.
+   */
+  MERCADOPAGO_ALLOW_LIVE_IN_DEV: booleanFromEnv,
   STRIPE_SECRET_KEY: z.string().default(''),
   STRIPE_WEBHOOK_SECRET: z.string().default(''),
 
@@ -258,6 +269,14 @@ export function evaluateConfiguration(env: Env): string[] {
         'MERCADOPAGO_ACCESS_TOKEN looks like a sandbox/test token in production',
       );
     }
+    if (
+      env.MERCADOPAGO_ACCESS_TOKEN.length > 0 &&
+      env.MERCADOPAGO_WEBHOOK_SECRET.length === 0
+    ) {
+      issues.push(
+        'MERCADOPAGO_WEBHOOK_SECRET is required when Mercado Pago is enabled in production',
+      );
+    }
   }
 
   if (
@@ -271,6 +290,13 @@ export function evaluateConfiguration(env: Env): string[] {
   }
 
   return issues;
+}
+
+/** Live Checkout Pro credentials start with APP_USR- and are not TEST-. */
+export function looksLikeMercadoPagoLiveAccessToken(token: string): boolean {
+  if (!token) return false;
+  if (/^TEST-/i.test(token)) return false;
+  return /^APP_USR-/i.test(token);
 }
 
 export function parseEnv(source: NodeJS.ProcessEnv = process.env): Env {

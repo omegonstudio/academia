@@ -196,6 +196,10 @@ async function main(): Promise<void> {
           env.APP_PUBLIC_URL ||
           process.env['NEXT_PUBLIC_APP_URL'] ||
           'http://localhost:3000',
+        apiPublicUrl: env.API_PUBLIC_URL || undefined,
+        requireWebhookSignature: env.NODE_ENV === 'production',
+        allowLiveMercadoPagoInDev: env.MERCADOPAGO_ALLOW_LIVE_IN_DEV,
+        nodeEnv: env.NODE_ENV,
         forceStubs: env.NODE_ENV === 'test',
       },
     },
@@ -263,6 +267,7 @@ async function main(): Promise<void> {
       notifications: notificationPublisher,
       audience: notificationAudience,
       googleMeet,
+      zoomMeeting,
     },
     materials: {
       authenticate: authOptions,
@@ -320,6 +325,10 @@ async function main(): Promise<void> {
           env.APP_PUBLIC_URL ||
           process.env['NEXT_PUBLIC_APP_URL'] ||
           'http://localhost:3000',
+        apiPublicUrl: env.API_PUBLIC_URL || undefined,
+        requireWebhookSignature: env.NODE_ENV === 'production',
+        allowLiveMercadoPagoInDev: env.MERCADOPAGO_ALLOW_LIVE_IN_DEV,
+        nodeEnv: env.NODE_ENV,
         forceStubs: env.NODE_ENV === 'test',
       },
     },
@@ -337,6 +346,7 @@ async function main(): Promise<void> {
       authenticate: authOptions,
       emailTemplates,
       googleMeet,
+      zoomMeeting,
     },
     docsEnabled: isApiDocsEnabled(env),
   });

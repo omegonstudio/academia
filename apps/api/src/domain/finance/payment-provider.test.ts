@@ -1,6 +1,7 @@
 import { createHmac } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import {
+  assertMercadoPagoTokenAllowed,
   resolvePaymentProvider,
   verifyMercadoPagoWebhookSignature,
   verifyStripeWebhookSignature,
@@ -25,6 +26,35 @@ describe('resolvePaymentProvider', () => {
       idempotencyKey: 'k1',
     });
     expect(ref.providerPaymentId).toMatch(/^mp_stub_/);
+  });
+});
+
+describe('assertMercadoPagoTokenAllowed', () => {
+  it('blocks APP_USR tokens outside production without opt-in', () => {
+    expect(() =>
+      assertMercadoPagoTokenAllowed('APP_USR-live-example', {
+        mercadopagoAccessToken: 'APP_USR-live-example',
+        mercadopagoWebhookSecret: '',
+        stripeSecretKey: '',
+        stripeWebhookSecret: '',
+        appPublicUrl: 'http://localhost:3000',
+        nodeEnv: 'development',
+        allowLiveMercadoPagoInDev: false,
+      }),
+    ).toThrow(/blocked outside production/);
+  });
+
+  it('allows TEST- tokens in development', () => {
+    expect(() =>
+      assertMercadoPagoTokenAllowed('TEST-sandbox-example', {
+        mercadopagoAccessToken: 'TEST-sandbox-example',
+        mercadopagoWebhookSecret: '',
+        stripeSecretKey: '',
+        stripeWebhookSecret: '',
+        appPublicUrl: 'http://localhost:3000',
+        nodeEnv: 'development',
+      }),
+    ).not.toThrow();
   });
 });
 

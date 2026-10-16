@@ -1011,6 +1011,18 @@ Checkout Session APIs and verify webhooks when secrets are present. Empty
 credentials keep stubs for local/CI. Production rejects sandbox-looking keys via
 `evaluateConfiguration`.
 
+**Mercado Pago (refined).** Checkout Pro Preferences store `external_reference =
+chargeId` and optional `notification_url` from `API_PUBLIC_URL` (ngrok / public
+API origin — not the web app URL). Webhook path
+`POST|GET /finance/webhooks/mercado-pago` accepts native MP notifications,
+validates `x-signature` when `MERCADOPAGO_WEBHOOK_SECRET` is set (required in
+production if the access token is set), fetches `GET /v1/payments/{id}`, and only
+then updates the ledger (amount, currency, reference). Body status alone is never
+trusted. Idempotency: `WebhookEvent (provider, providerEventId)` + in-process lock
++ Payment transition guards. Test tokens prefer `sandbox_init_point`. Stripe
+keeps the existing Checkout Session + inbox payload path (unchanged in this
+increment).
+
 **Why.** Preserves the Payment Domain boundary while enabling go-live without
 rewriting finance flows. MANUAL remains admin-only.
 
@@ -1042,5 +1054,12 @@ Google Meet lifecycle (when configured):
 
 Notifications still fire when `meetingUrl` is newly set.
 
-**Zoom** automated provisioning remains Future backlog (manual Zoom https URLs
-are already valid via `meetingUrl`).
+**Zoom** automated provisioning (Server-to-Server OAuth) mirrors Meet:
+- Flags `createZoom` / `removeZoom`; persist `zoomMeetingId` + `meetingUrl`.
+- POST failure after insert → **201** + `zoomCreationFailed: true`; retry via PATCH.
+- Update/delete remote are best-effort; local class mutation wins.
+- `removeZoom` only clears when `zoomMeetingId` is set (manual `zoom.us` URLs stay).
+- XOR: at most one of managed Meet, managed Zoom, or manual `meetingUrl`.
+- Status: `GET /zoom/status` → `{ configured }` (no secrets / account id).
+
+Frontend provider selector remains a follow-up; API is ready when `ZOOM_*` is set.

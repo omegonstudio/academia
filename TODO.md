@@ -183,7 +183,8 @@ Operate real live classes.
 - [ ] Timezones avanzados (por usuario/group; UI de configuración).
 - [ ] Broader recurrence / RRULE (beyond weekly generate).
 - [ ] GiST/EXCLUDE constraint on teacher ranges (requires denormalized `teacherId` on ClassSession — deferred; see #33).
-- [x] Google Meet create/update/delete + `meetingDescription` (Calendar event id persisted; Zoom/Teams auto still Future).
+- [x] Google Meet create/update/delete + `meetingDescription` (Calendar event id persisted).
+- [x] Zoom meeting create/update/delete + `zoomMeetingId` (S2S OAuth; XOR with Meet / manual URL; UI selector still pending).
 - [x] UI for weekly generate (`ClassGenerationDialog` → `POST /groups/:id/classes/generate`).
 - [ ] Browser E2E (Playwright/Cypress) — out of unit/API smoke scope.
 ### Acceptance criteria — core met; stage not complete
@@ -301,11 +302,26 @@ Track payments and settlements using the academy's **configurable** revenue spli
 - [x] Domain + PostgreSQL integration tests; smoke ONE_TO_ONE → MANUAL → allocation.
 - [x] Payment remains explicit (never auto-created).
 
+### Discovered (2026-10-16) — student finance empty with classes present
+- **Verified:** `GET /students/me/finance` + UI work; empty copy only when API returns
+  `charges=[]` and `payments=[]` (errors show as Alert, not as empty).
+- **Verified (PG):** student `agustin.devfs@gmail.com` (“yo omegon”) has active
+  `GROUP_120` enrollment + class sessions but **0 charges**; DB has **0**
+  enrollment-period charges at all (all existing charges are ONE_TO_ONE /
+  `class_session_id`).
+- **Rule:** GROUP_120 auto-charge runs on enroll (current month) and silently
+  no-ops if Course has no list price; ONE_TO_ONE charges on ClassSession create —
+  having classes ≠ having charges.
+- **Gap (future):** no backfill when Course price is set *after* enroll; Director
+  can create Charge via `POST /finance/charges` (`ENROLLMENT_PERIOD` /
+  `CLASS_SESSION`). ARS → MP; USD/EUR → Stripe (Debate is USD today).
+
 ### Explicitly out of MVP (future)
 - Automated teacher payouts.
 - Partial refunds; chargebacks.
 - FX / multi-currency list prices.
 - Invoices; taxes; full accounting ledger; advanced reconciliation.
+- Backfill / repair job for GROUP_120 months when price was missing at enroll.
 
 ### Acceptance criteria (product — met by design in 6A; implemented in 6B/6C)
 - Director (and SuperAdmin) can select exactly one of the four allowed splits;
@@ -525,7 +541,8 @@ estados loading/vacío/error.
 ### Pendiente (post-MVP hub)
 - [ ] Progress / analytics.
 - [x] Student finance portal — DONE (self-scoped).
-- [x] Student checkout MVP — DONE (PENDING + webhook stub).
+- [x] Student checkout MVP — DONE (PENDING + webhook).
+- [x] Mercado Pago end-to-end (dev): Preference + `notification_url` via `API_PUBLIC_URL` / ngrok; native webhook fetch+verify; sandbox checkout URL; tests mocked (live sandbox payment still manual with ngrok).
 
 ## Stage 8 — Teacher UX
 
@@ -554,7 +571,8 @@ SEO/accessibility baselines already exist. This stage deepens them.
 ### Done (go-live slice)
 - [x] Hosted DEV/PROD env separation documented (Vercel web-only + API/DB/storage separated).
 - [x] Notifications: in-app + Resend email on user create, teacher assignment, class meeting link.
-- [x] Live payment providers (Mercado Pago Preference + Stripe Checkout Session) when credentials set; stubs otherwise; webhook signature verification when secrets set.
+- [x] Live payment providers (Mercado Pago Preference + Stripe Checkout Session) when credentials set; stubs otherwise.
+- [x] Mercado Pago native webhooks: signature + GET `/v1/payments/{id}` before ledger update; production requires `MERCADOPAGO_WEBHOOK_SECRET` when token is set.
 - [x] Sentry optional via `SENTRY_DSN` (`@sentry/node`).
 - [x] Production deployment checklist (`docs/DEPLOY-CHECKLIST.md`).
 
@@ -612,5 +630,5 @@ These must remain visible in the roadmap but are not MVP:
 - [ ] Automated payouts.
 - [ ] Advanced CRM.
 - [ ] Advanced certification.
-- [ ] Automated Zoom meeting provisioning (Google Meet create/update/delete + description already shipped).
+- [x] Automated Zoom meeting provisioning (API lifecycle + `/zoom/status`; frontend selector pending).
 - [ ] Advanced analytics.

@@ -68,6 +68,15 @@ import {
   GoogleMeetPastStartError,
   type GoogleMeetService,
 } from '../../domain/classes/google-meet-service.js';
+import {
+  assertZoomMeetingStartNotInPast,
+  ZoomMeetingApiError,
+  ZoomMeetingAuthError,
+  ZoomMeetingNetworkError,
+  ZoomMeetingNotConfiguredError,
+  ZoomMeetingPastStartError,
+  type ZoomMeetingService,
+} from '../../domain/classes/zoom-meeting-service.js';
 import { runAutoChargeForClassSession } from '../../domain/finance/auto-charge-runner.js';
 import type { FinanceStore } from '../../domain/finance/finance-store.js';
 import type { NotificationAudienceResolver } from '../../domain/notifications/notification-audience.js';
@@ -99,6 +108,7 @@ export interface ClassSessionsDependencies {
   notifications?: NotificationPublisher;
   audience?: NotificationAudienceResolver;
   googleMeet?: GoogleMeetService;
+  zoomMeeting?: ZoomMeetingService;
 }
 
 function pathId(raw: string | string[] | undefined): string | undefined {
@@ -245,6 +255,65 @@ async function syncGoogleMeetBestEffort(
   }
 }
 
+async function createZoomMeetingForSession(
+  zoomMeeting: ZoomMeetingService | undefined,
+  academy: AcademyBusinessConfig,
+  classSession: {
+    startAt: string;
+    endAt: string;
+    meetingDescription: string | null;
+  },
+): Promise<{ meetingUrl: string; meetingId: string }> {
+  if (!zoomMeeting?.isConfigured()) {
+    throw new BadRequestError('Zoom is not configured on this server.');
+  }
+  try {
+    return await zoomMeeting.createMeeting({
+      topic: 'Clase Academia',
+      agenda: classSession.meetingDescription ?? '',
+      startAtIso: classSession.startAt,
+      endAtIso: classSession.endAt,
+      timeZone: academy.businessTimezone,
+    });
+  } catch (error) {
+    if (error instanceof ZoomMeetingNotConfiguredError) {
+      throw new BadRequestError('Zoom is not configured on this server.');
+    }
+    if (error instanceof ZoomMeetingPastStartError) {
+      throw new BadRequestError(
+        'Cannot create a Zoom meeting for a class that starts in the past.',
+      );
+    }
+    if (
+      error instanceof ZoomMeetingAuthError ||
+      error instanceof ZoomMeetingNetworkError ||
+      error instanceof ZoomMeetingApiError
+    ) {
+      throw new BadRequestError(
+        'Could not create a Zoom meeting for this class.',
+      );
+    }
+    throw error;
+  }
+}
+
+/** Best-effort Zoom sync — never fails the local class mutation. */
+async function syncZoomMeetingBestEffort(
+  zoomMeeting: ZoomMeetingService | undefined,
+  action: () => Promise<void>,
+  context: Record<string, unknown>,
+): Promise<void> {
+  if (!zoomMeeting?.isConfigured()) return;
+  try {
+    await action();
+  } catch (error) {
+    logger.warn(
+      { err: error, ...context },
+      'Zoom meeting sync failed (best-effort)',
+    );
+  }
+}
+
 export function createClassSessionsRouter({
   authenticate: authOptions,
   classSessions,
@@ -258,6 +327,7 @@ export function createClassSessionsRouter({
   notifications,
   audience,
   googleMeet,
+  zoomMeeting,
 }: ClassSessionsDependencies): Router {
   const router = Router();
 
@@ -364,8 +434,12 @@ export function createClassSessionsRouter({
             'Valid groupId and startAt (ISO datetime) are required.',
           );
         }
-        const { createGoogleMeet, meetingUrl: requestedMeetingUrl, ...rest } =
-          parsed.data;
+        const {
+          createGoogleMeet,
+          createZoom,
+          meetingUrl: requestedMeetingUrl,
+          ...rest
+        } = parsed.data;
 
         // Fail closed before insert for predictable client errors (no orphan).
         if (createGoogleMeet) {
@@ -385,6 +459,21 @@ export function createClassSessionsRouter({
             throw error;
           }
         }
+        if (createZoom) {
+          if (!zoomMeeting?.isConfigured()) {
+            throw new BadRequestError('Zoom is not configured on this server.');
+          }
+          try {
+            assertZoomMeetingStartNotInPast(rest.startAt);
+          } catch (error) {
+            if (error instanceof ZoomMeetingPastStartError) {
+              throw new BadRequestError(
+                'Cannot create a Zoom meeting for a class that starts in the past.',
+              );
+            }
+            throw error;
+          }
+        }
 
         let classSession = await createClassSession(
           classSessions,
@@ -397,6 +486,7 @@ export function createClassSessionsRouter({
           actor,
         );
         let meetCreationFailed = false;
+        let zoomCreationFailed = false;
         if (createGoogleMeet) {
           try {
             const meet = await createGoogleMeetForSession(
@@ -424,6 +514,33 @@ export function createClassSessionsRouter({
               'Google Meet create failed after class insert; class kept for retry',
             );
           }
+        } else if (createZoom) {
+          try {
+            const zoom = await createZoomMeetingForSession(
+              zoomMeeting,
+              academy,
+              classSession,
+            );
+            classSession = await updateClassSession(
+              classSessions,
+              classSession.id,
+              {
+                meetingUrl: zoom.meetingUrl,
+                zoomMeetingId: zoom.meetingId,
+              },
+              actor,
+            );
+          } catch (error) {
+            zoomCreationFailed = true;
+            logger.warn(
+              {
+                err: error,
+                classSessionId: classSession.id,
+                action: 'create',
+              },
+              'Zoom create failed after class insert; class kept for retry',
+            );
+          }
         }
         if (finance) {
           await runAutoChargeForClassSession(finance, {
@@ -435,6 +552,7 @@ export function createClassSessionsRouter({
         const body: ClassSessionResponse = {
           classSession,
           ...(meetCreationFailed ? { meetCreationFailed: true } : {}),
+          ...(zoomCreationFailed ? { zoomCreationFailed: true } : {}),
         };
         res.status(201).json(body);
       } catch (error) {
@@ -515,12 +633,14 @@ export function createClassSessionsRouter({
         const parsed = updateClassSessionRequestSchema.safeParse(req.body);
         if (!parsed.success) {
           throw new BadRequestError(
-            'Provide at least one of startAt, isActive, meetingUrl, meetingDescription, createGoogleMeet, or removeGoogleMeet.',
+            'Provide at least one of startAt, isActive, meetingUrl, meetingDescription, createGoogleMeet, removeGoogleMeet, createZoom, or removeZoom.',
           );
         }
         const {
           createGoogleMeet,
           removeGoogleMeet,
+          createZoom,
+          removeZoom,
           ...patchInput
         } = parsed.data;
         const existing = await classSessions.findById(id);
@@ -530,9 +650,40 @@ export function createClassSessionsRouter({
         const previousMeetingUrl =
           parsed.data.meetingUrl !== undefined ||
           createGoogleMeet ||
-          removeGoogleMeet
+          removeGoogleMeet ||
+          createZoom ||
+          removeZoom
             ? existing.meetingUrl
             : undefined;
+
+        if (createGoogleMeet && existing.zoomMeetingId) {
+          throw new BadRequestError(
+            'Remove the Zoom meeting before creating Google Meet.',
+          );
+        }
+        if (createZoom && existing.googleCalendarEventId) {
+          throw new BadRequestError(
+            'Remove the Google Meet before creating a Zoom meeting.',
+          );
+        }
+        if (
+          createGoogleMeet &&
+          existing.meetingUrl &&
+          !existing.googleCalendarEventId
+        ) {
+          throw new BadRequestError(
+            'Clear the manual meeting URL before creating Google Meet.',
+          );
+        }
+        if (
+          createZoom &&
+          existing.meetingUrl &&
+          !existing.zoomMeetingId
+        ) {
+          throw new BadRequestError(
+            'Clear the manual meeting URL before creating a Zoom meeting.',
+          );
+        }
 
         const clearMeetFields =
           removeGoogleMeet === true ||
@@ -550,10 +701,32 @@ export function createClassSessionsRouter({
               { classSessionId: id, action: 'delete' },
             );
           }
-          // Clear local link fields (manual URL and/or Calendar-backed Meet).
+          // Clear local Meet link fields (manual URL and/or Calendar-backed Meet).
           // meetingDescription is intentionally left untouched.
           patchInput.meetingUrl = null;
           patchInput.googleCalendarEventId = null;
+        }
+
+        const clearZoomFields =
+          (removeZoom === true && existing.zoomMeetingId !== null) ||
+          (parsed.data.meetingUrl === null &&
+            existing.zoomMeetingId !== null);
+
+        if (clearZoomFields) {
+          if (existing.zoomMeetingId) {
+            await syncZoomMeetingBestEffort(
+              zoomMeeting,
+              () =>
+                zoomMeeting!.deleteMeeting({
+                  meetingId: existing.zoomMeetingId!,
+                }),
+              { classSessionId: id, action: 'delete' },
+            );
+          }
+          // Only clears when a managed Zoom id exists (or meetingUrl null with id).
+          // removeZoom with a manual-only URL is a no-op for link fields.
+          patchInput.meetingUrl = null;
+          patchInput.zoomMeetingId = null;
         }
 
         let classSession =
@@ -576,6 +749,24 @@ export function createClassSessionsRouter({
             {
               meetingUrl: meet.meetingUrl,
               googleCalendarEventId: meet.eventId,
+            },
+            actor,
+          );
+        } else if (
+          createZoom &&
+          !classSession.zoomMeetingId
+        ) {
+          const zoom = await createZoomMeetingForSession(
+            zoomMeeting,
+            academy,
+            classSession,
+          );
+          classSession = await updateClassSession(
+            classSessions,
+            id,
+            {
+              meetingUrl: zoom.meetingUrl,
+              zoomMeetingId: zoom.meetingId,
             },
             actor,
           );
@@ -605,30 +796,76 @@ export function createClassSessionsRouter({
               }),
             { classSessionId: id, action: 'update' },
           );
+        } else if (
+          classSession.zoomMeetingId &&
+          (parsed.data.startAt !== undefined ||
+            parsed.data.meetingDescription !== undefined)
+        ) {
+          const meetingId = classSession.zoomMeetingId;
+          await syncZoomMeetingBestEffort(
+            zoomMeeting,
+            () =>
+              zoomMeeting!.updateMeeting({
+                meetingId,
+                ...(parsed.data.meetingDescription !== undefined
+                  ? {
+                      agenda: classSession.meetingDescription ?? '',
+                    }
+                  : {}),
+                ...(parsed.data.startAt !== undefined
+                  ? {
+                      startAtIso: classSession.startAt,
+                      endAtIso: classSession.endAt,
+                      timeZone: academy.businessTimezone,
+                    }
+                  : {}),
+              }),
+            { classSessionId: id, action: 'update' },
+          );
         }
 
-        if (
-          parsed.data.isActive === false &&
-          existing.googleCalendarEventId
-        ) {
-          await syncGoogleMeetBestEffort(
-            googleMeet,
-            () =>
-              googleMeet!.deleteMeeting({
-                eventId: existing.googleCalendarEventId!,
-              }),
-            { classSessionId: id, action: 'delete-inactive' },
-          );
-          if (classSession.googleCalendarEventId) {
-            classSession = await updateClassSession(
-              classSessions,
-              id,
-              {
-                meetingUrl: null,
-                googleCalendarEventId: null,
-              },
-              actor,
+        if (parsed.data.isActive === false) {
+          if (existing.googleCalendarEventId) {
+            await syncGoogleMeetBestEffort(
+              googleMeet,
+              () =>
+                googleMeet!.deleteMeeting({
+                  eventId: existing.googleCalendarEventId!,
+                }),
+              { classSessionId: id, action: 'delete-inactive' },
             );
+            if (classSession.googleCalendarEventId) {
+              classSession = await updateClassSession(
+                classSessions,
+                id,
+                {
+                  meetingUrl: null,
+                  googleCalendarEventId: null,
+                },
+                actor,
+              );
+            }
+          }
+          if (existing.zoomMeetingId) {
+            await syncZoomMeetingBestEffort(
+              zoomMeeting,
+              () =>
+                zoomMeeting!.deleteMeeting({
+                  meetingId: existing.zoomMeetingId!,
+                }),
+              { classSessionId: id, action: 'delete-inactive' },
+            );
+            if (classSession.zoomMeetingId) {
+              classSession = await updateClassSession(
+                classSessions,
+                id,
+                {
+                  meetingUrl: null,
+                  zoomMeetingId: null,
+                },
+                actor,
+              );
+            }
           }
         }
 
@@ -689,19 +926,34 @@ export function createClassSessionsRouter({
             { classSessionId: id, action: 'delete-soft' },
           );
         }
+        if (existing?.zoomMeetingId) {
+          await syncZoomMeetingBestEffort(
+            zoomMeeting,
+            () =>
+              zoomMeeting!.deleteMeeting({
+                meetingId: existing.zoomMeetingId!,
+              }),
+            { classSessionId: id, action: 'delete-soft' },
+          );
+        }
 
         let classSession = await deleteClassSession(
           classSessions,
           id,
           actor,
         );
-        if (existing?.googleCalendarEventId || existing?.meetingUrl) {
+        if (
+          existing?.googleCalendarEventId ||
+          existing?.zoomMeetingId ||
+          existing?.meetingUrl
+        ) {
           classSession = await updateClassSession(
             classSessions,
             id,
             {
               meetingUrl: null,
               googleCalendarEventId: null,
+              zoomMeetingId: null,
             },
             actor,
           );
