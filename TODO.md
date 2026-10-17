@@ -184,7 +184,7 @@ Operate real live classes.
 - [ ] Broader recurrence / RRULE (beyond weekly generate).
 - [ ] GiST/EXCLUDE constraint on teacher ranges (requires denormalized `teacherId` on ClassSession — deferred; see #33).
 - [x] Google Meet create/update/delete + `meetingDescription` (Calendar event id persisted).
-- [x] Zoom meeting create/update/delete + `zoomMeetingId` (S2S OAuth; XOR with Meet / manual URL; UI selector still pending).
+- [x] Zoom meeting create/update/delete + `zoomMeetingId` (S2S OAuth; XOR with Meet / manual URL; UI selector Meet/Zoom/none; Calendar link event via `createLinkEvent`).
 - [x] UI for weekly generate (`ClassGenerationDialog` → `POST /groups/:id/classes/generate`).
 - [ ] Browser E2E (Playwright/Cypress) — out of unit/API smoke scope.
 ### Acceptance criteria — core met; stage not complete
@@ -631,5 +631,5 @@ These must remain visible in the roadmap but are not MVP:
 - [ ] Automated payouts.
 - [ ] Advanced CRM.
 - [ ] Advanced certification.
-- [x] Automated Zoom meeting provisioning (API lifecycle + `/zoom/status`; frontend selector pending).
+- [x] Automated Zoom meeting provisioning (API lifecycle + `/zoom/status` + UI selector + Calendar sync).
 - [ ] Advanced analytics.

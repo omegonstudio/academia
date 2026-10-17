@@ -102,7 +102,11 @@ export default function CalendarPage() {
 
   function handleCreated(
     session: ClassSession,
-    meta?: { meetCreationFailed?: boolean },
+    meta?: {
+      meetCreationFailed?: boolean
+      zoomCreationFailed?: boolean
+      calendarSyncFailed?: boolean
+    },
   ) {
     setIsClassDialogOpen(false)
     const day = civilDateInTimeZone(session.startAt)
@@ -112,6 +116,22 @@ export default function CalendarPage() {
     if (meta?.meetCreationFailed) {
       setSuccess(
         'Clase creada, pero no se pudo generar el Google Meet. Reintentá el Meet desde el detalle.',
+      )
+      window.setTimeout(() => setSuccess(''), 8000)
+      router.push(`/dashboard/classes/${session.id}`)
+      return
+    }
+    if (meta?.zoomCreationFailed) {
+      setSuccess(
+        'Clase creada, pero no se pudo generar la reunión de Zoom. Reintentá desde el detalle.',
+      )
+      window.setTimeout(() => setSuccess(''), 8000)
+      router.push(`/dashboard/classes/${session.id}`)
+      return
+    }
+    if (meta?.calendarSyncFailed) {
+      setSuccess(
+        'Clase y Zoom creados, pero falló el evento de Google Calendar. Podés reintentarlo desde el detalle.',
       )
       window.setTimeout(() => setSuccess(''), 8000)
       router.push(`/dashboard/classes/${session.id}`)
@@ -277,6 +297,7 @@ function CalendarSessionRow({ item }: { item: ClassSessionCalendarEvent }) {
         <p className="truncate font-semibold">{item.group.course.name}</p>
         <p className="truncate text-sm text-muted-foreground">
           {teacherLabel} · {item.group.name}
+          {item.meetingUrl ? ' · Reunión disponible' : ''}
         </p>
       </div>
       <Badge tone="info">{serviceTypeLabel(item.group.course.serviceType)}</Badge>

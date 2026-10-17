@@ -281,7 +281,7 @@ Schemas: `class-sessions.ts` · Router: `classes.ts` · Domain: `class-session-s
 | UI action | HTTP | Endpoint | Request | Response | Auth | Status |
 | --------- | ---- | -------- | ------- | -------- | ---- | ------ |
 | Listar | GET | `/classes` | query `groupId?` | `{ classSessions }` (incluye inactivas) | ownership/read | 200 / 403 |
-| Crear individual | POST | `/classes` | `{ groupId, startAt, meetingUrl?, meetingDescription?, createGoogleMeet?, createZoom? }` (XOR Meet/Zoom/URL) | `{ classSession, meetCreationFailed?, zoomCreationFailed? }` — fallo post-insert → 201 + flag; reintentar con PATCH | create actor | 201 / 400 / 403 / 404 / **409** overlap |
+| Crear individual | POST | `/classes` | `{ groupId, startAt, meetingUrl?, meetingDescription?, createGoogleMeet?, createZoom? }` (XOR Meet/Zoom/URL) | `{ classSession, meetCreationFailed?, zoomCreationFailed?, calendarSyncFailed? }` — fallo post-insert → 201 + flag; reintentar con PATCH | create actor | 201 / 400 / 403 / 404 / **409** overlap |
 | Ver | GET | `/classes/:id` | — | `{ classSession }` (+ `zoomMeetingId`) | ownership | 200 / 403 / 404 |
 | Editar | PATCH | `/classes/:id` | ≥1 de `startAt`, `isActive`, `meetingUrl\|null`, `meetingDescription`, `createGoogleMeet`, `removeGoogleMeet`, `createZoom`, `removeZoom` | `{ classSession }` | update actor | 200 / 400 / 403 / 404 / **409** |
 | Cancelar (soft) | DELETE | `/classes/:id` | — | `{ classSession }` `isActive:false` | delete actor | 200 / 403 / 404 |
@@ -634,7 +634,7 @@ Referencia UI: **`academia-front`** (demo).
 | Free-form class duration / endTime en create | **No** — duración derivada (correcto de dominio) |
 | Finance HTTP (settings %, charges, payments) | **Backend Gap** (dominio WIP, sin routes) |
 | Auto Charge generation | Diferido Stage 6 |
-| Meeting provisioning Zoom/Meet | Future backlog |
+| Meeting provisioning Zoom/Meet | Shipped (flags + status endpoints + UI selector) |
 | `/auth/me` expuesto fields de permisos efectivos | **UNKNOWN** — hoy solo `{ user }`; UI debe inferir nav por `role` o fallar en 403 |
 | Endpoint que expone `ACADEMY_TIMEZONE` al front | **Backend Gap** menor (o documentar env build-time) |
 

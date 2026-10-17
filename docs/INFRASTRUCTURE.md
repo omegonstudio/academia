@@ -255,8 +255,9 @@ Zoom (Server-to-Server OAuth): `ZOOM_ACCOUNT_ID`, `ZOOM_CLIENT_ID`,
 `ZOOM_CLIENT_SECRET`, and `ZOOM_HOST_USER_ID` are **API-host only** (Compose
 `api` service / GitHub Secrets — never `NEXT_PUBLIC_*`, never the web image).
 All four must be non-empty or the Zoom meeting service stays disabled; partial
-values do not enable calls. Product wiring into class routes remains a later
-stage; empty Zoom env must not block API boot or Google Meet.
+values do not enable calls. Empty Zoom env must not block API boot or Google
+Meet. Class routes use `createZoom` / `removeZoom`; when `GOOGLE_MEET_*` is also
+set, Zoom classes get a Calendar link event (Zoom URL, no Hangouts Meet).
 
 Empty payment credentials keep stub providers (local/CI). Webhook signature
 checks run only when the corresponding webhook secret is non-empty.

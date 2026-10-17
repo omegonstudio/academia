@@ -25,9 +25,12 @@ import {
   courseServiceTypeLabels,
   createClassSessionBrowser,
   getGoogleMeetStatusBrowser,
+  getZoomStatusBrowser,
   personFullName,
 } from '@/lib/api-browser'
 import { CALENDAR_DISPLAY_TIMEZONE } from '@/lib/calendar'
+
+type MeetingPlatform = 'none' | 'meet' | 'zoom' | 'manual'
 
 type ClassForm = {
   groupId: string
@@ -35,7 +38,7 @@ type ClassForm = {
   startTime: string
   meetingUrl: string
   meetingDescription: string
-  createGoogleMeet: boolean
+  meetingPlatform: MeetingPlatform
 }
 
 const initialForm: ClassForm = {
@@ -44,7 +47,7 @@ const initialForm: ClassForm = {
   startTime: '',
   meetingUrl: '',
   meetingDescription: '',
-  createGoogleMeet: false,
+  meetingPlatform: 'none',
 }
 
 function formatSummaryDate(value: string) {
@@ -67,19 +70,27 @@ export function ClassFormDialog({
   courses: Course[]
   teachers: Teacher[]
   onClose: () => void
-  onCreated: (item: ClassSession, meta?: { meetCreationFailed?: boolean }) => void
+  onCreated: (
+    item: ClassSession,
+    meta?: {
+      meetCreationFailed?: boolean
+      zoomCreationFailed?: boolean
+      calendarSyncFailed?: boolean
+    },
+  ) => void
   initialDate?: string
 }) {
   const [form, setForm] = useState<ClassForm>(() => ({
     ...initialForm,
     date: initialDate ?? '',
   }))
-  const [errors, setErrors] = useState<Partial<Record<keyof ClassForm, string>>>(
-    {},
-  )
+  const [errors, setErrors] = useState<
+    Partial<Record<keyof ClassForm, string>>
+  >({})
   const [submitError, setSubmitError] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [meetConfigured, setMeetConfigured] = useState(false)
+  const [zoomConfigured, setZoomConfigured] = useState(false)
 
   const activeGroups = useMemo(
     () => groups.filter((group) => group.isActive),
@@ -114,18 +125,22 @@ export function ClassFormDialog({
 
   useEffect(() => {
     void (async () => {
-      const status = await getGoogleMeetStatusBrowser()
-      if (status.ok) {
-        setMeetConfigured(status.data.configured)
-      }
+      const [meet, zoom] = await Promise.all([
+        getGoogleMeetStatusBrowser(),
+        getZoomStatusBrowser(),
+      ])
+      if (meet.ok) setMeetConfigured(meet.data.configured)
+      if (zoom.ok) setZoomConfigured(zoom.data.configured)
     })()
   }, [])
 
   function update<K extends keyof ClassForm>(key: K, value: ClassForm[K]) {
     setForm((current) => {
       const next = { ...current, [key]: value }
-      if (key === 'createGoogleMeet' && value === true) {
-        next.meetingUrl = ''
+      if (key === 'meetingPlatform') {
+        if (value === 'meet' || value === 'zoom') {
+          next.meetingUrl = ''
+        }
       }
       return next
     })
@@ -138,12 +153,15 @@ export function ClassFormDialog({
     if (!form.groupId) next.groupId = 'Grupo obligatorio'
     if (!form.date) next.date = 'Fecha obligatoria'
     if (!form.startTime) next.startTime = 'Hora de inicio obligatoria'
-    if (form.createGoogleMeet && !meetConfigured) {
-      next.createGoogleMeet =
+    if (form.meetingPlatform === 'meet' && !meetConfigured) {
+      next.meetingPlatform =
         'Google Meet no está configurado en el servidor.'
     }
+    if (form.meetingPlatform === 'zoom' && !zoomConfigured) {
+      next.meetingPlatform = 'Zoom no está configurado en el servidor.'
+    }
     if (
-      form.createGoogleMeet &&
+      (form.meetingPlatform === 'meet' || form.meetingPlatform === 'zoom') &&
       form.date &&
       form.startTime &&
       isCivilDateInput(form.date)
@@ -155,15 +173,15 @@ export function ClassFormDialog({
           CALENDAR_DISPLAY_TIMEZONE,
         ).getTime()
         if (startAtMs < Date.now()) {
-          next.createGoogleMeet =
-            'No se puede crear un Meet para una clase en el pasado.'
+          next.meetingPlatform =
+            'No se puede crear una reunión automática para una clase en el pasado.'
         }
       } catch {
         /* date/time errors are handled in submit */
       }
     }
     if (
-      !form.createGoogleMeet &&
+      form.meetingPlatform === 'manual' &&
       form.meetingUrl &&
       !/^https:\/\//i.test(form.meetingUrl)
     ) {
@@ -204,57 +222,70 @@ export function ClassFormDialog({
       groupId: group.id,
       startAt,
       ...(description ? { meetingDescription: description } : {}),
-      ...(form.createGoogleMeet
+      ...(form.meetingPlatform === 'meet'
         ? { createGoogleMeet: true }
-        : form.meetingUrl.trim()
-          ? { meetingUrl: form.meetingUrl.trim() }
-          : {}),
+        : form.meetingPlatform === 'zoom'
+          ? { createZoom: true }
+          : form.meetingPlatform === 'manual' && form.meetingUrl.trim()
+            ? { meetingUrl: form.meetingUrl.trim() }
+            : {}),
     })
     setIsSubmitting(false)
     if (!result.ok) {
       setSubmitError(result.message)
       return
     }
-    onCreated(
-      result.data,
-      result.meetCreationFailed ? { meetCreationFailed: true } : undefined,
-    )
+    onCreated(result.data, {
+      ...(result.meetCreationFailed ? { meetCreationFailed: true } : {}),
+      ...(result.zoomCreationFailed ? { zoomCreationFailed: true } : {}),
+      ...(result.calendarSyncFailed ? { calendarSyncFailed: true } : {}),
+    })
   }
 
+  const platformLabel =
+    form.meetingPlatform === 'meet'
+      ? 'Google Meet (automático)'
+      : form.meetingPlatform === 'zoom'
+        ? 'Zoom (automático)'
+        : form.meetingPlatform === 'manual'
+          ? form.meetingUrl.trim() || 'Enlace manual'
+          : 'Sin reunión automática'
+
   return (
-    <div
-      className="fixed inset-0 z-50 isolate flex items-end justify-center bg-foreground/50 p-0 sm:items-center sm:p-5"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="class-dialog-title"
-    >
-      <div className="max-h-[calc(100vh-1.5rem)] w-full overflow-y-auto rounded-t-3xl border border-border bg-surface p-5 shadow-2xl sm:max-w-2xl sm:rounded-3xl sm:p-7">
-        <div className="flex items-start justify-between gap-4">
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-4 sm:items-center">
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="class-form-title"
+        className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-border bg-surface p-5 shadow-xl sm:p-6"
+      >
+        <div className="mb-5 flex items-start justify-between gap-3">
           <div>
-            <h2 id="class-dialog-title" className="text-xl font-semibold">
+            <h2 id="class-form-title" className="text-lg font-semibold">
               Nueva clase
             </h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              Programá una clase. La duración sale del tipo de servicio del
-              curso.
+              Programá una clase para un grupo activo.
             </p>
           </div>
-          <Button
+          <button
             type="button"
-            variant="ghost"
-            size="sm"
+            className="rounded-lg p-2 text-muted-foreground hover:bg-surface-muted"
             onClick={onClose}
             disabled={isSubmitting}
             aria-label="Cerrar"
           >
-            <X />
-          </Button>
+            <X className="size-5" />
+          </button>
         </div>
-        <form onSubmit={submit} className="mt-6 flex flex-col gap-5">
-          {submitError && <Alert>{submitError}</Alert>}
-          {Object.keys(errors).length > 0 && !submitError && (
-            <Alert>Revisá los campos indicados para continuar.</Alert>
-          )}
+
+        {submitError ? (
+          <div className="mb-4">
+            <Alert tone="danger">{submitError}</Alert>
+          </div>
+        ) : null}
+
+        <form className="space-y-5" onSubmit={submit}>
           <Field label="Grupo" htmlFor="class-group" error={errors.groupId}>
             <Select
               id="class-group"
@@ -262,44 +293,36 @@ export function ClassFormDialog({
               onChange={(event) => update('groupId', event.target.value)}
               aria-invalid={Boolean(errors.groupId)}
             >
-              <option value="">Seleccioná un grupo</option>
-              {activeGroups.map((item) => (
-                <option key={item.id} value={item.id}>
-                  {item.name}
-                </option>
-              ))}
+              <option value="">Elegí un grupo</option>
+              {activeGroups.map((item) => {
+                const itemCourse = courseById.get(item.courseId)
+                return (
+                  <option key={item.id} value={item.id}>
+                    {item.name}
+                    {itemCourse
+                      ? ` · ${itemCourse.name} (${courseServiceTypeLabels[itemCourse.serviceType]})`
+                      : ''}
+                  </option>
+                )
+              })}
             </Select>
           </Field>
+
           {group && (
-            <Card className="grid gap-3 bg-surface-muted/45 p-4 sm:grid-cols-2">
-              <div>
-                <p className="text-xs text-muted-foreground">Curso</p>
-                <p className="mt-1 text-sm font-semibold">
+            <Card className="border-border/80 bg-surface-muted/20 p-4 text-sm text-muted-foreground">
+              <div className="grid gap-1 sm:grid-cols-2">
+                <p>
+                  <strong className="text-foreground">Curso:</strong>{' '}
                   {course?.name ?? '—'}
                 </p>
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground">Profesor</p>
-                <p className="mt-1 text-sm font-semibold">
+                <p>
+                  <strong className="text-foreground">Profesor:</strong>{' '}
                   {teacher ? personFullName(teacher) : 'Sin asignar'}
-                </p>
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground">Modalidad</p>
-                <p className="mt-1 text-sm font-semibold">
-                  {course
-                    ? courseServiceTypeLabels[course.serviceType]
-                    : '—'}
-                </p>
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground">Duración</p>
-                <p className="mt-1 text-sm font-semibold">
-                  {durationMinutes ? `${durationMinutes} min` : '—'}
                 </p>
               </div>
             </Card>
           )}
+
           <div className="grid gap-5 sm:grid-cols-2">
             <Field label="Fecha" htmlFor="class-date" error={errors.date}>
               <Input
@@ -324,41 +347,38 @@ export function ClassFormDialog({
               />
             </Field>
           </div>
+
           <Field
-            label="Google Meet"
-            htmlFor="class-google-meet"
-            error={errors.createGoogleMeet}
-            hint={
-              meetConfigured
-                ? 'Crea un evento en Google Calendar con enlace Meet para la fecha y hora elegidas, y avisa al alumno por mail.'
-                : 'Para habilitar esta opción, configurá las credenciales GOOGLE_MEET_* en el servidor API.'
-            }
+            label="Reunión"
+            htmlFor="class-meeting-platform"
+            error={errors.meetingPlatform}
+            hint="Meet y Zoom son excluyentes. Zoom también crea un evento en Google Calendar si está configurado."
           >
-            <label
-              htmlFor="class-google-meet"
-              className="flex cursor-pointer items-start gap-3 rounded-xl border border-border bg-surface-muted/30 px-3 py-3 text-sm"
+            <Select
+              id="class-meeting-platform"
+              value={form.meetingPlatform}
+              onChange={(event) =>
+                update(
+                  'meetingPlatform',
+                  event.target.value as MeetingPlatform,
+                )
+              }
+              aria-invalid={Boolean(errors.meetingPlatform)}
             >
-              <input
-                id="class-google-meet"
-                type="checkbox"
-                className="mt-0.5 size-4 accent-primary"
-                checked={form.createGoogleMeet}
-                disabled={!meetConfigured}
-                onChange={(event) =>
-                  update('createGoogleMeet', event.target.checked)
-                }
-              />
-              <span>
-                <span className="font-medium text-foreground">
-                  Generar enlace de Google Meet
-                </span>
-                <span className="mt-0.5 block text-muted-foreground">
-                  Usa la fecha y hora de esta clase.
-                </span>
-              </span>
-            </label>
+              <option value="none">Sin reunión automática</option>
+              <option value="meet" disabled={!meetConfigured}>
+                Google Meet
+                {!meetConfigured ? ' (no configurado)' : ''}
+              </option>
+              <option value="zoom" disabled={!zoomConfigured}>
+                Zoom
+                {!zoomConfigured ? ' (no configurado)' : ''}
+              </option>
+              <option value="manual">Enlace manual (https://)</option>
+            </Select>
           </Field>
-          {!form.createGoogleMeet && (
+
+          {form.meetingPlatform === 'manual' && (
             <Field
               label="Enlace de videollamada"
               htmlFor="class-meeting"
@@ -375,22 +395,26 @@ export function ClassFormDialog({
               />
             </Field>
           )}
+
           <Field
-            label="Descripción del Meet"
+            label="Descripción de la reunión"
             htmlFor="class-meet-description"
-            hint="Este texto aparece en la descripción del evento de Google Calendar (podés pegar URLs)."
+            hint="Aparece en Zoom (agenda) y/o en el evento de Google Calendar."
           >
             <Textarea
               id="class-meet-description"
               rows={4}
               maxLength={4000}
-              placeholder={'Ej.\nMaterial: https://...\nNotas para el alumno…'}
+              placeholder={
+                'Ej.\nMaterial: https://...\nNotas para el alumno…'
+              }
               value={form.meetingDescription}
               onChange={(event) =>
                 update('meetingDescription', event.target.value)
               }
             />
           </Field>
+
           <Card className="border-primary/20 bg-primary/5 p-5">
             <p className="text-sm font-semibold">Resumen</p>
             <div className="mt-3 grid gap-2 text-sm text-muted-foreground sm:grid-cols-2">
@@ -420,12 +444,11 @@ export function ClassFormDialog({
               </p>
               <p className="sm:col-span-2">
                 <strong className="text-foreground">Reunión:</strong>{' '}
-                {form.createGoogleMeet
-                  ? 'Google Meet (automático)'
-                  : form.meetingUrl.trim() || 'Sin enlace'}
+                {platformLabel}
               </p>
             </div>
           </Card>
+
           <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
             <Button
               type="button"

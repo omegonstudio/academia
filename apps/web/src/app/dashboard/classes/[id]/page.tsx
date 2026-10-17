@@ -50,6 +50,7 @@ import {
   getGoogleMeetStatusBrowser,
   getGroupBrowser,
   getTeacherBrowser,
+  getZoomStatusBrowser,
   listClassSessionAttendanceBrowser,
   listClassSessionNotesBrowser,
   listGroupEnrollmentsBrowser,
@@ -110,8 +111,11 @@ export default function ClassDetailPage({
     meetingDescription: '',
     createGoogleMeet: false,
     removeGoogleMeet: false,
+    createZoom: false,
+    removeZoom: false,
   })
   const [meetConfigured, setMeetConfigured] = useState(false)
+  const [zoomConfigured, setZoomConfigured] = useState(false)
   const [attendanceBusyId, setAttendanceBusyId] = useState<string | null>(null)
   const [noteDraft, setNoteDraft] = useState('')
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null)
@@ -143,18 +147,24 @@ export default function ClassDetailPage({
       meetingDescription: classSession.meetingDescription ?? '',
       createGoogleMeet: false,
       removeGoogleMeet: false,
+      createZoom: false,
+      removeZoom: false,
     })
 
-    const [groupResult, attendanceResult, notesResult, meetStatus] =
+    const [groupResult, attendanceResult, notesResult, meetStatus, zoomStatus] =
       await Promise.all([
       getGroupBrowser(classSession.groupId),
       listClassSessionAttendanceBrowser(classSession.id),
       listClassSessionNotesBrowser(classSession.id),
       getGoogleMeetStatusBrowser(),
+      getZoomStatusBrowser(),
     ])
 
     if (meetStatus.ok) {
       setMeetConfigured(meetStatus.data.configured)
+    }
+    if (zoomStatus.ok) {
+      setZoomConfigured(zoomStatus.data.configured)
     }
 
     if (groupResult.ok) {
@@ -245,6 +255,8 @@ export default function ClassDetailPage({
     if (
       !editForm.createGoogleMeet &&
       !editForm.removeGoogleMeet &&
+      !editForm.createZoom &&
+      !editForm.removeZoom &&
       meetingUrl &&
       !/^https:\/\//i.test(meetingUrl)
     ) {
@@ -257,9 +269,34 @@ export default function ClassDetailPage({
       setError('Google Meet no está configurado en el servidor.')
       return
     }
-    if (editForm.createGoogleMeet && new Date(startAt).getTime() < Date.now()) {
+    if (
+      editForm.createZoom &&
+      !session.zoomMeetingId &&
+      !zoomConfigured
+    ) {
       setSaving(false)
-      setError('No se puede crear un Meet para una clase en el pasado.')
+      setError('Zoom no está configurado en el servidor.')
+      return
+    }
+    if (
+      editForm.createZoom &&
+      session.zoomMeetingId &&
+      !session.googleCalendarEventId &&
+      !meetConfigured
+    ) {
+      setSaving(false)
+      setError('Google Calendar no está configurado en el servidor.')
+      return
+    }
+    if (
+      (editForm.createGoogleMeet ||
+        (editForm.createZoom && !session.zoomMeetingId)) &&
+      new Date(startAt).getTime() < Date.now()
+    ) {
+      setSaving(false)
+      setError(
+        'No se puede crear una reunión automática para una clase en el pasado.',
+      )
       return
     }
 
@@ -267,13 +304,17 @@ export default function ClassDetailPage({
     const result = await updateClassSessionBrowser(session.id, {
       startAt,
       meetingDescription: description ? description : null,
-      ...(editForm.removeGoogleMeet
-        ? { removeGoogleMeet: true }
-        : editForm.createGoogleMeet
-          ? { createGoogleMeet: true }
-          : {
-              meetingUrl: meetingUrl ? meetingUrl : null,
-            }),
+      ...(editForm.removeZoom
+        ? { removeZoom: true }
+        : editForm.removeGoogleMeet
+          ? { removeGoogleMeet: true }
+          : editForm.createZoom
+            ? { createZoom: true }
+            : editForm.createGoogleMeet
+              ? { createGoogleMeet: true }
+              : {
+                  meetingUrl: meetingUrl ? meetingUrl : null,
+                }),
     })
     setSaving(false)
     if (!result.ok) {
@@ -287,6 +328,8 @@ export default function ClassDetailPage({
       meetingDescription: result.data.meetingDescription ?? '',
       createGoogleMeet: false,
       removeGoogleMeet: false,
+      createZoom: false,
+      removeZoom: false,
     })
     setEditing(false)
     setSuccess('Clase actualizada correctamente.')
@@ -497,9 +540,9 @@ export default function ClassDetailPage({
                 />
               </Field>
               <Field
-                label="Descripción del Meet"
+                label="Descripción de la reunión"
                 htmlFor="class-edit-meet-description"
-                hint="Este texto aparece en la descripción del evento de Google Calendar (podés pegar URLs)."
+                hint="Aparece en Zoom (agenda) y/o en el evento de Google Calendar."
               >
                 <Textarea
                   id="class-edit-meet-description"
@@ -514,7 +557,42 @@ export default function ClassDetailPage({
                   }
                 />
               </Field>
-              {session.googleCalendarEventId || session.meetingUrl ? (
+              {session.zoomMeetingId ? (
+                <Field
+                  label="Zoom"
+                  htmlFor="class-edit-remove-zoom"
+                  hint="Elimina la reunión de Zoom y el evento de Calendar asociado (si existe)."
+                >
+                  <label
+                    htmlFor="class-edit-remove-zoom"
+                    className="flex cursor-pointer items-start gap-3 rounded-xl border border-border bg-surface-muted/30 px-3 py-3 text-sm"
+                  >
+                    <input
+                      id="class-edit-remove-zoom"
+                      type="checkbox"
+                      className="mt-0.5 size-4 accent-primary"
+                      checked={editForm.removeZoom}
+                      onChange={(event) =>
+                        setEditForm((current) => ({
+                          ...current,
+                          removeZoom: event.target.checked,
+                          createZoom: false,
+                          createGoogleMeet: false,
+                          removeGoogleMeet: false,
+                          meetingUrl: event.target.checked
+                            ? ''
+                            : current.meetingUrl,
+                        }))
+                      }
+                    />
+                    <span className="font-medium text-foreground">
+                      Quitar reunión de Zoom
+                    </span>
+                  </label>
+                </Field>
+              ) : null}
+              {!session.zoomMeetingId &&
+              (session.googleCalendarEventId || session.meetingUrl) ? (
                 <Field
                   label="Google Meet"
                   htmlFor="class-edit-remove-meet"
@@ -538,6 +616,8 @@ export default function ClassDetailPage({
                           ...current,
                           removeGoogleMeet: event.target.checked,
                           createGoogleMeet: false,
+                          createZoom: false,
+                          removeZoom: false,
                           meetingUrl: event.target.checked
                             ? ''
                             : current.meetingUrl,
@@ -551,12 +631,15 @@ export default function ClassDetailPage({
                 </Field>
               ) : null}
               {!editForm.removeGoogleMeet &&
+                !editForm.removeZoom &&
+                !session.zoomMeetingId &&
                 !session.googleCalendarEventId &&
+                !session.meetingUrl &&
                 meetConfigured && (
                   <Field
                     label="Crear Google Meet"
                     htmlFor="class-edit-create-meet"
-                    hint="Crea un evento en Google Calendar con enlace Meet para esta clase."
+                    hint="Crea un evento en Google Calendar con enlace Meet. Excluyente con Zoom."
                   >
                     <label
                       htmlFor="class-edit-create-meet"
@@ -571,6 +654,7 @@ export default function ClassDetailPage({
                           setEditForm((current) => ({
                             ...current,
                             createGoogleMeet: event.target.checked,
+                            createZoom: false,
                             meetingUrl: event.target.checked
                               ? ''
                               : current.meetingUrl,
@@ -583,7 +667,62 @@ export default function ClassDetailPage({
                     </label>
                   </Field>
                 )}
-              {!editForm.createGoogleMeet && !editForm.removeGoogleMeet && (
+              {!editForm.removeGoogleMeet &&
+                !editForm.removeZoom &&
+                ((zoomConfigured &&
+                  !session.zoomMeetingId &&
+                  !session.googleCalendarEventId &&
+                  !session.meetingUrl) ||
+                  (Boolean(session.zoomMeetingId) &&
+                    !session.googleCalendarEventId &&
+                    meetConfigured)) && (
+                  <Field
+                    label={
+                      session.zoomMeetingId
+                        ? 'Sincronizar Google Calendar'
+                        : 'Crear Zoom'
+                    }
+                    htmlFor="class-edit-create-zoom"
+                    hint={
+                      session.zoomMeetingId
+                        ? 'Reintenta el evento de Calendar con el enlace de Zoom (no crea otra reunión).'
+                        : 'Crea una reunión Zoom y, si Calendar está configurado, un evento con el enlace. Excluyente con Meet.'
+                    }
+                  >
+                    <label
+                      htmlFor="class-edit-create-zoom"
+                      className="flex cursor-pointer items-start gap-3 rounded-xl border border-border bg-surface-muted/30 px-3 py-3 text-sm"
+                    >
+                      <input
+                        id="class-edit-create-zoom"
+                        type="checkbox"
+                        className="mt-0.5 size-4 accent-primary"
+                        checked={editForm.createZoom}
+                        onChange={(event) =>
+                          setEditForm((current) => ({
+                            ...current,
+                            createZoom: event.target.checked,
+                            createGoogleMeet: false,
+                            meetingUrl: event.target.checked
+                              ? ''
+                              : current.meetingUrl,
+                          }))
+                        }
+                      />
+                      <span className="font-medium text-foreground">
+                        {session.zoomMeetingId
+                          ? 'Reintentar evento en Google Calendar'
+                          : 'Generar reunión de Zoom'}
+                      </span>
+                    </label>
+                  </Field>
+                )}
+              {!editForm.createGoogleMeet &&
+                !editForm.createZoom &&
+                !editForm.removeGoogleMeet &&
+                !editForm.removeZoom &&
+                !session.zoomMeetingId &&
+                !session.googleCalendarEventId && (
                 <Field
                   label="Enlace de videollamada"
                   htmlFor="class-edit-meeting"
@@ -651,7 +790,7 @@ export default function ClassDetailPage({
               {session.meetingDescription ? (
                 <div className="mt-6 rounded-xl border border-border bg-surface-muted/30 p-4">
                   <p className="text-xs font-medium text-muted-foreground">
-                    Descripción del Meet
+                    Descripción de la reunión
                   </p>
                   <p className="mt-2 whitespace-pre-wrap text-sm text-foreground">
                     {session.meetingDescription}

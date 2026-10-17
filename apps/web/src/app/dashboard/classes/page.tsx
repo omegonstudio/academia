@@ -197,13 +197,33 @@ export default function ClassesPage() {
 
   function handleCreated(
     session: ClassSession,
-    meta?: { meetCreationFailed?: boolean },
+    meta?: {
+      meetCreationFailed?: boolean
+      zoomCreationFailed?: boolean
+      calendarSyncFailed?: boolean
+    },
   ) {
     setIsClassDialogOpen(false)
     setSessions((current) => [...current, session])
     if (meta?.meetCreationFailed) {
       setSuccess(
         'Clase creada, pero no se pudo generar el Google Meet. Reintentá el Meet desde el detalle (no crees otra clase).',
+      )
+      window.setTimeout(() => setSuccess(''), 8000)
+      router.push(`/dashboard/classes/${session.id}`)
+      return
+    }
+    if (meta?.zoomCreationFailed) {
+      setSuccess(
+        'Clase creada, pero no se pudo generar la reunión de Zoom. Reintentá desde el detalle (no crees otra clase).',
+      )
+      window.setTimeout(() => setSuccess(''), 8000)
+      router.push(`/dashboard/classes/${session.id}`)
+      return
+    }
+    if (meta?.calendarSyncFailed) {
+      setSuccess(
+        'Clase y Zoom creados, pero falló el evento de Google Calendar. Reintentá desde el detalle.',
       )
       window.setTimeout(() => setSuccess(''), 8000)
       router.push(`/dashboard/classes/${session.id}`)

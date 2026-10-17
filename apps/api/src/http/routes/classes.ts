@@ -297,6 +297,33 @@ async function createZoomMeetingForSession(
   }
 }
 
+/**
+ * Optional Google Calendar event for a Zoom (or other external) join URL.
+ * Reuses GOOGLE_MEET_* Calendar OAuth — no Hangouts Meet conference.
+ * Returns null when Calendar is not configured.
+ */
+async function createCalendarLinkEventForSession(
+  googleMeet: GoogleMeetService | undefined,
+  academy: AcademyBusinessConfig,
+  classSession: {
+    startAt: string;
+    endAt: string;
+    meetingDescription: string | null;
+  },
+  meetingUrl: string,
+): Promise<string | null> {
+  if (!googleMeet?.isConfigured()) return null;
+  const created = await googleMeet.createLinkEvent({
+    summary: 'Clase Academia',
+    description: classSession.meetingDescription ?? '',
+    meetingUrl,
+    startAtIso: classSession.startAt,
+    endAtIso: classSession.endAt,
+    timeZone: academy.businessTimezone,
+  });
+  return created.eventId;
+}
+
 /** Best-effort Zoom sync — never fails the local class mutation. */
 async function syncZoomMeetingBestEffort(
   zoomMeeting: ZoomMeetingService | undefined,
@@ -487,6 +514,7 @@ export function createClassSessionsRouter({
         );
         let meetCreationFailed = false;
         let zoomCreationFailed = false;
+        let calendarSyncFailed = false;
         if (createGoogleMeet) {
           try {
             const meet = await createGoogleMeetForSession(
@@ -530,6 +558,32 @@ export function createClassSessionsRouter({
               },
               actor,
             );
+            try {
+              const eventId = await createCalendarLinkEventForSession(
+                googleMeet,
+                academy,
+                classSession,
+                zoom.meetingUrl,
+              );
+              if (eventId) {
+                classSession = await updateClassSession(
+                  classSessions,
+                  classSession.id,
+                  { googleCalendarEventId: eventId },
+                  actor,
+                );
+              }
+            } catch (error) {
+              calendarSyncFailed = true;
+              logger.warn(
+                {
+                  err: error,
+                  classSessionId: classSession.id,
+                  action: 'create-calendar-for-zoom',
+                },
+                'Google Calendar link event failed after Zoom create; Zoom kept for retry',
+              );
+            }
           } catch (error) {
             zoomCreationFailed = true;
             logger.warn(
@@ -553,6 +607,7 @@ export function createClassSessionsRouter({
           classSession,
           ...(meetCreationFailed ? { meetCreationFailed: true } : {}),
           ...(zoomCreationFailed ? { zoomCreationFailed: true } : {}),
+          ...(calendarSyncFailed ? { calendarSyncFailed: true } : {}),
         };
         res.status(201).json(body);
       } catch (error) {
@@ -661,7 +716,12 @@ export function createClassSessionsRouter({
             'Remove the Zoom meeting before creating Google Meet.',
           );
         }
-        if (createZoom && existing.googleCalendarEventId) {
+        // Meet-backed Calendar event (no Zoom id) must be removed before Zoom.
+        if (
+          createZoom &&
+          existing.googleCalendarEventId &&
+          !existing.zoomMeetingId
+        ) {
           throw new BadRequestError(
             'Remove the Google Meet before creating a Zoom meeting.',
           );
@@ -685,10 +745,17 @@ export function createClassSessionsRouter({
           );
         }
 
+        if (removeGoogleMeet === true && existing.zoomMeetingId) {
+          throw new BadRequestError(
+            'Use removeZoom for Zoom-managed classes.',
+          );
+        }
+
         const clearMeetFields =
           removeGoogleMeet === true ||
           (parsed.data.meetingUrl === null &&
-            existing.googleCalendarEventId !== null);
+            existing.googleCalendarEventId !== null &&
+            existing.zoomMeetingId === null);
 
         if (clearMeetFields) {
           if (existing.googleCalendarEventId) {
@@ -722,6 +789,18 @@ export function createClassSessionsRouter({
                 }),
               { classSessionId: id, action: 'delete' },
             );
+          }
+          // Calendar event created alongside Zoom (same googleCalendarEventId field).
+          if (existing.googleCalendarEventId && existing.zoomMeetingId) {
+            await syncGoogleMeetBestEffort(
+              googleMeet,
+              () =>
+                googleMeet!.deleteMeeting({
+                  eventId: existing.googleCalendarEventId!,
+                }),
+              { classSessionId: id, action: 'delete-calendar-for-zoom' },
+            );
+            patchInput.googleCalendarEventId = null;
           }
           // Only clears when a managed Zoom id exists (or meetingUrl null with id).
           // removeZoom with a manual-only URL is a no-op for link fields.
@@ -761,31 +840,95 @@ export function createClassSessionsRouter({
             academy,
             classSession,
           );
+          let calendarEventId: string | null = null;
+          try {
+            calendarEventId = await createCalendarLinkEventForSession(
+              googleMeet,
+              academy,
+              classSession,
+              zoom.meetingUrl,
+            );
+          } catch (error) {
+            logger.warn(
+              {
+                err: error,
+                classSessionId: id,
+                action: 'patch-create-calendar-for-zoom',
+              },
+              'Google Calendar link event failed after Zoom create on PATCH',
+            );
+          }
           classSession = await updateClassSession(
             classSessions,
             id,
             {
               meetingUrl: zoom.meetingUrl,
               zoomMeetingId: zoom.meetingId,
+              ...(calendarEventId
+                ? { googleCalendarEventId: calendarEventId }
+                : {}),
             },
             actor,
           );
         } else if (
+          createZoom &&
+          classSession.zoomMeetingId &&
+          !classSession.googleCalendarEventId &&
+          classSession.meetingUrl
+        ) {
+          // Retry Calendar link event after prior calendarSyncFailed (Zoom already exists).
+          try {
+            const eventId = await createCalendarLinkEventForSession(
+              googleMeet,
+              academy,
+              classSession,
+              classSession.meetingUrl,
+            );
+            if (eventId) {
+              classSession = await updateClassSession(
+                classSessions,
+                id,
+                { googleCalendarEventId: eventId },
+                actor,
+              );
+            }
+          } catch (error) {
+            logger.warn(
+              {
+                err: error,
+                classSessionId: id,
+                action: 'patch-retry-calendar-for-zoom',
+              },
+              'Google Calendar link event retry failed on PATCH createZoom',
+            );
+          }
+        }
+
+        const scheduleOrDescriptionChanged =
+          parsed.data.startAt !== undefined ||
+          parsed.data.meetingDescription !== undefined;
+
+        if (
           classSession.googleCalendarEventId &&
-          (parsed.data.startAt !== undefined ||
-            parsed.data.meetingDescription !== undefined)
+          scheduleOrDescriptionChanged
         ) {
           const eventId = classSession.googleCalendarEventId;
+          const descriptionForCalendar = classSession.zoomMeetingId
+            ? [
+                classSession.meetingDescription?.trim() || '',
+                classSession.meetingUrl
+                  ? `Enlace de reunión: ${classSession.meetingUrl}`
+                  : '',
+              ]
+                .filter(Boolean)
+                .join('\n\n')
+            : (classSession.meetingDescription ?? '');
           await syncGoogleMeetBestEffort(
             googleMeet,
             () =>
               googleMeet!.updateMeeting({
                 eventId,
-                ...(parsed.data.meetingDescription !== undefined
-                  ? {
-                      description: classSession.meetingDescription ?? '',
-                    }
-                  : {}),
+                description: descriptionForCalendar,
                 ...(parsed.data.startAt !== undefined
                   ? {
                       startAtIso: classSession.startAt,
@@ -796,10 +939,10 @@ export function createClassSessionsRouter({
               }),
             { classSessionId: id, action: 'update' },
           );
-        } else if (
+        }
+        if (
           classSession.zoomMeetingId &&
-          (parsed.data.startAt !== undefined ||
-            parsed.data.meetingDescription !== undefined)
+          scheduleOrDescriptionChanged
         ) {
           const meetingId = classSession.zoomMeetingId;
           await syncZoomMeetingBestEffort(
@@ -834,17 +977,6 @@ export function createClassSessionsRouter({
                 }),
               { classSessionId: id, action: 'delete-inactive' },
             );
-            if (classSession.googleCalendarEventId) {
-              classSession = await updateClassSession(
-                classSessions,
-                id,
-                {
-                  meetingUrl: null,
-                  googleCalendarEventId: null,
-                },
-                actor,
-              );
-            }
           }
           if (existing.zoomMeetingId) {
             await syncZoomMeetingBestEffort(
@@ -855,17 +987,18 @@ export function createClassSessionsRouter({
                 }),
               { classSessionId: id, action: 'delete-inactive' },
             );
-            if (classSession.zoomMeetingId) {
-              classSession = await updateClassSession(
-                classSessions,
-                id,
-                {
-                  meetingUrl: null,
-                  zoomMeetingId: null,
-                },
-                actor,
-              );
-            }
+          }
+          if (existing.googleCalendarEventId || existing.zoomMeetingId) {
+            classSession = await updateClassSession(
+              classSessions,
+              id,
+              {
+                meetingUrl: null,
+                googleCalendarEventId: null,
+                zoomMeetingId: null,
+              },
+              actor,
+            );
           }
         }
 

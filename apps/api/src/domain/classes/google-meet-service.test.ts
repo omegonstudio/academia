@@ -190,6 +190,51 @@ describe('createGoogleMeetService', () => {
     ).toBe('PATCH');
   });
 
+  it('creates a Calendar link event without Hangouts Meet conference', async () => {
+    const fetchImpl = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ access_token: 'token-1' }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ id: 'evt_link_1' }),
+      });
+
+    const service = createGoogleMeetService({
+      credentials: {
+        clientId: 'id',
+        clientSecret: 'secret',
+        refreshToken: 'refresh',
+        calendarId: 'primary',
+      },
+      logger: { warn: vi.fn() } as unknown as import('pino').Logger,
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    });
+
+    const result = await service.createLinkEvent({
+      summary: 'Clase Academia',
+      description: 'Agenda',
+      meetingUrl: 'https://zoom.us/j/123',
+      startAtIso: '2030-06-01T15:00:00.000Z',
+      endAtIso: '2030-06-01T16:00:00.000Z',
+      timeZone: 'America/Argentina/Buenos_Aires',
+    });
+
+    expect(result).toEqual({ eventId: 'evt_link_1' });
+    const createBody = JSON.parse(
+      (fetchImpl.mock.calls[1]![1] as { body: string }).body,
+    ) as {
+      conferenceData?: unknown;
+      location?: string;
+      description?: string;
+    };
+    expect(createBody.conferenceData).toBeUndefined();
+    expect(createBody.location).toBe('https://zoom.us/j/123');
+    expect(createBody.description).toContain('https://zoom.us/j/123');
+  });
+
   it('deletes an existing Calendar event and treats 404 as success', async () => {
     const fetchImpl = vi
       .fn()

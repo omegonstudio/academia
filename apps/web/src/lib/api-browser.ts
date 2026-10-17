@@ -29,6 +29,7 @@ import {
   emailTemplateListResponseSchema,
   emailTemplateResponseSchema,
   googleMeetStatusResponseSchema,
+  zoomStatusResponseSchema,
   createCourseRequestSchema,
   createGroupRequestSchema,
   createMaterialRequestSchema,
@@ -1785,6 +1786,10 @@ export type CreateClassSessionBrowserResult =
       data: ClassSession;
       /** Class saved but Google Meet was not provisioned — retry via PATCH. */
       meetCreationFailed?: boolean;
+      /** Class saved but Zoom was not provisioned — retry via PATCH. */
+      zoomCreationFailed?: boolean;
+      /** Zoom ok but Google Calendar link event failed. */
+      calendarSyncFailed?: boolean;
     }
   | { ok: false; status: number; message: string };
 
@@ -1829,6 +1834,12 @@ export async function createClassSessionBrowser(
           } else if (apiMessage.includes('Could not create a Google Meet')) {
             message =
               'No pudimos crear el enlace de Google Meet. Abrí la clase y reintentá el Meet desde el detalle (no crees otra clase).';
+          } else if (apiMessage.includes('Zoom is not configured')) {
+            message =
+              'Zoom no está configurado en el servidor. Pedile a la dirección que complete ZOOM_*.';
+          } else if (apiMessage.includes('Could not create a Zoom')) {
+            message =
+              'No pudimos crear la reunión de Zoom. Abrí la clase y reintentá desde el detalle (no crees otra clase).';
           }
         } catch {
           /* keep mapped message */
@@ -1836,7 +1847,7 @@ export async function createClassSessionBrowser(
       }
       if (response.status === 409) {
         message =
-          'Ya existe una clase en ese horario. Abrila desde el listado para reintentar el Meet o editarla.';
+          'Ya existe una clase en ese horario. Abrila desde el listado para reintentar Meet/Zoom o editarla.';
       }
       return { ok: false, status: response.status, message };
     }
@@ -1853,6 +1864,12 @@ export async function createClassSessionBrowser(
       data: parsed.data.classSession,
       ...(parsed.data.meetCreationFailed
         ? { meetCreationFailed: true }
+        : {}),
+      ...(parsed.data.zoomCreationFailed
+        ? { zoomCreationFailed: true }
+        : {}),
+      ...(parsed.data.calendarSyncFailed
+        ? { calendarSyncFailed: true }
         : {}),
     };
   } catch {
@@ -1894,13 +1911,24 @@ export async function updateClassSessionBrowser(
           const apiMessage = bodyJson.error?.message ?? '';
           if (apiMessage.includes('starts in the past')) {
             message =
-              'No se puede crear un Meet para una clase en el pasado.';
+              'No se puede crear una reunión automática para una clase en el pasado.';
           } else if (apiMessage.includes('Google Meet is not configured')) {
             message =
               'Google Meet no está configurado en el servidor.';
           } else if (apiMessage.includes('Could not create a Google Meet')) {
             message =
               'No pudimos crear el enlace de Google Meet. Probá de nuevo más tarde.';
+          } else if (apiMessage.includes('Zoom is not configured')) {
+            message = 'Zoom no está configurado en el servidor.';
+          } else if (apiMessage.includes('Could not create a Zoom')) {
+            message =
+              'No pudimos crear la reunión de Zoom. Probá de nuevo más tarde.';
+          } else if (apiMessage.includes('Remove the Zoom')) {
+            message =
+              'Quitá la reunión de Zoom antes de crear Google Meet.';
+          } else if (apiMessage.includes('Remove the Google Meet')) {
+            message =
+              'Quitá el Google Meet antes de crear una reunión de Zoom.';
           }
         } catch {
           /* keep mapped message */
@@ -3433,6 +3461,36 @@ export async function getGoogleMeetStatusBrowser(): Promise<
     const parsed = googleMeetStatusResponseSchema.safeParse(
       await response.json(),
     );
+    if (!parsed.success) {
+      return {
+        ok: false,
+        status: 500,
+        message: 'Respuesta inválida del servidor.',
+      };
+    }
+    return { ok: true, data: parsed.data };
+  } catch {
+    return {
+      ok: false,
+      status: 503,
+      message: 'No pudimos conectar con el servidor.',
+    };
+  }
+}
+
+export async function getZoomStatusBrowser(): Promise<
+  BrowserApiResult<{ configured: boolean }>
+> {
+  try {
+    const response = await browserFetch('/zoom/status');
+    if (!response.ok) {
+      return {
+        ok: false,
+        status: response.status,
+        message: 'No pudimos consultar el estado de Zoom.',
+      };
+    }
+    const parsed = zoomStatusResponseSchema.safeParse(await response.json());
     if (!parsed.success) {
       return {
         ok: false,

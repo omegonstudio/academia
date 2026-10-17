@@ -1039,38 +1039,35 @@ rewriting finance flows. MANUAL remains admin-only.
 
 ---
 
-## 49. Meeting links: Google Meet CRUD + manual URL; Zoom deferred
+## 49. Meeting links: Google Meet + Zoom + optional Calendar link event
 
-**Decision.** `ClassSession.meetingUrl` may be a manual https URL **or**
-provisioned via Google Calendar Meet when `GOOGLE_MEET_*` credentials are set.
+**Decision.** `ClassSession.meetingUrl` may be a manual https URL, Google Meet
+(via Calendar conference), or Zoom (S2S OAuth). Meet and Zoom are XOR.
 
-Google Meet lifecycle (when configured):
+Google Meet lifecycle (when `GOOGLE_MEET_*` is set):
 - **Create** — `createGoogleMeet: true` on POST/PATCH `/classes` creates a
   Calendar event with Meet, stores `meetingUrl` + `googleCalendarEventId`, and
-  uses optional `meetingDescription` (plain text + URLs) as the event
-  description. Preflight rejects unconfigured Meet / past `startAt` **before**
-  insert. If Calendar create fails **after** insert, POST still returns **201**
-  with `meetCreationFailed: true` and the saved `classSession` (no Meet fields);
-  the client must open that class and retry via PATCH `createGoogleMeet` (do not
-  POST another class for the same slot).
-- **Update** — PATCH `startAt` and/or `meetingDescription` with an existing
-  `googleCalendarEventId` syncs the Calendar event (best-effort; local class
-  mutation still succeeds if Google fails).
-- **Delete** — `removeGoogleMeet: true` **always** clears `meetingUrl` +
-  `googleCalendarEventId` locally (including manual URLs without an event id).
-  Calendar DELETE runs only when `googleCalendarEventId` is present (best-effort).
-  Soft-delete / `isActive: false` likewise delete Calendar when an event id
-  exists and clear Meet link fields; `meetingDescription` may be kept for
-  re-create.
+  uses optional `meetingDescription` as the event description. Preflight rejects
+  unconfigured Meet / past `startAt` **before** insert. If Calendar create fails
+  **after** insert, POST returns **201** with `meetCreationFailed: true`; retry
+  via PATCH `createGoogleMeet` (do not POST another class for the same slot).
+- **Update** — PATCH `startAt` / `meetingDescription` with an existing
+  `googleCalendarEventId` syncs Calendar (best-effort).
+- **Delete** — `removeGoogleMeet` clears local Meet fields; Calendar DELETE is
+  best-effort when an event id exists. Soft-delete / `isActive: false` same.
 
-Notifications still fire when `meetingUrl` is newly set.
-
-**Zoom** automated provisioning (Server-to-Server OAuth) mirrors Meet:
+**Zoom** (when all `ZOOM_*` are set):
 - Flags `createZoom` / `removeZoom`; persist `zoomMeetingId` + `meetingUrl`.
-- POST failure after insert → **201** + `zoomCreationFailed: true`; retry via PATCH.
-- Update/delete remote are best-effort; local class mutation wins.
-- `removeZoom` only clears when `zoomMeetingId` is set (manual `zoom.us` URLs stay).
-- XOR: at most one of managed Meet, managed Zoom, or manual `meetingUrl`.
-- Status: `GET /zoom/status` → `{ configured }` (no secrets / account id).
+- POST Zoom failure after insert → **201** + `zoomCreationFailed: true`; retry PATCH.
+- When Zoom succeeds and `GOOGLE_MEET_*` is also set, Academia creates a
+  **Calendar link event** (no Hangouts Meet) via `createLinkEvent`, stores
+  `googleCalendarEventId`, and puts the Zoom URL in description/location.
+  Failure → **201** + `calendarSyncFailed: true` (Zoom kept). Retry Calendar
+  via PATCH `createZoom` (does not mint a second Zoom meeting).
+- Update/delete remote Zoom + Calendar are best-effort; local mutation wins.
+- `removeZoom` clears Zoom fields and the linked Calendar event when present.
+- Status: `GET /zoom/status` → `{ configured }` (no secrets).
 
-Frontend provider selector remains a follow-up; API is ready when `ZOOM_*` is set.
+**UI.** Create/edit class forms expose Meet / Zoom / manual / none; options
+disabled when the matching status endpoint reports not configured. Students
+cannot create classes or meetings.

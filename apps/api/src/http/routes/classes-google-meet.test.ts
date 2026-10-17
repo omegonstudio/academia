@@ -25,6 +25,7 @@ function createMeetMock(
       meetingUrl: 'https://meet.google.com/test-meet',
       eventId: 'cal-event-1',
     })),
+    createLinkEvent: vi.fn(async () => ({ eventId: 'evt_link' })),
     updateMeeting: vi.fn(async () => undefined),
     deleteMeeting: vi.fn(async () => undefined),
     ...overrides,

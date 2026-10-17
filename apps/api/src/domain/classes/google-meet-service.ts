@@ -32,10 +32,22 @@ export interface GoogleMeetUpdateInput {
   timeZone?: string;
 }
 
+export interface GoogleCalendarLinkEventInput extends GoogleMeetCreateInput {
+  /** External join URL (e.g. Zoom) stored on location + description. */
+  meetingUrl: string;
+}
+
 export interface GoogleMeetService {
   isConfigured(): boolean;
   calendarId(): string | null;
   createMeeting(input: GoogleMeetCreateInput): Promise<GoogleMeetCreateResult>;
+  /**
+   * Calendar event without Hangouts Meet — used to place a Zoom (or other)
+   * join link on the academy Google Calendar.
+   */
+  createLinkEvent(
+    input: GoogleCalendarLinkEventInput,
+  ): Promise<{ eventId: string }>;
   updateMeeting(input: GoogleMeetUpdateInput): Promise<void>;
   deleteMeeting(input: { eventId: string }): Promise<void>;
 }
@@ -224,6 +236,62 @@ export function createGoogleMeetService(options: {
       }
 
       return { meetingUrl, eventId: json.id };
+    },
+
+    async createLinkEvent(input) {
+      if (!credentials) {
+        throw new GoogleMeetNotConfiguredError();
+      }
+
+      assertMeetingStartNotInPast(input.startAtIso);
+
+      const accessToken = await refreshAccessToken(credentials, fetchFn);
+      const calendarId = encodeURIComponent(credentials.calendarId);
+      const url = `https://www.googleapis.com/calendar/v3/calendars/${calendarId}/events`;
+      const descriptionParts = [
+        input.description?.trim() || '',
+        input.meetingUrl ? `Enlace de reunión: ${input.meetingUrl}` : '',
+      ].filter(Boolean);
+
+      const response = await fetchFn(url, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          summary: input.summary,
+          description: descriptionParts.join('\n\n'),
+          location: input.meetingUrl,
+          start: {
+            dateTime: input.startAtIso,
+            timeZone: input.timeZone,
+          },
+          end: {
+            dateTime: input.endAtIso,
+            timeZone: input.timeZone,
+          },
+        }),
+      });
+
+      if (!response.ok) {
+        const detail = await response.text().catch(() => '');
+        logger.warn(
+          { status: response.status, detail: detail.slice(0, 300) },
+          'Google Calendar link-event create failed',
+        );
+        throw new GoogleMeetCreateError(
+          'Google Calendar rejected the link event create request.',
+        );
+      }
+
+      const json = (await response.json()) as { id?: string };
+      if (!json.id) {
+        throw new GoogleMeetCreateError(
+          'Google Calendar event created without an id.',
+        );
+      }
+      return { eventId: json.id };
     },
 
     async updateMeeting(input) {

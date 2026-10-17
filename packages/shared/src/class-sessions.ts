@@ -70,6 +70,12 @@ export const classSessionResponseSchema = z.object({
    * `createZoom` (do not create a second class).
    */
   zoomCreationFailed: z.boolean().optional(),
+  /**
+   * Zoom meeting was created but the optional Google Calendar link event failed.
+   * Class keeps zoomMeetingId + meetingUrl. Retry Calendar via PATCH `createZoom`
+   * (creates the link event only; does not mint a second Zoom meeting).
+   */
+  calendarSyncFailed: z.boolean().optional(),
 });
 
 export type ClassSessionResponse = z.infer<typeof classSessionResponseSchema>;

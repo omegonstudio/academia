@@ -42,6 +42,7 @@ function createMeetMock(
       meetingUrl: 'https://meet.google.com/test-meet',
       eventId: 'cal-event-1',
     })),
+    createLinkEvent: vi.fn(async () => ({ eventId: 'evt_zoom_cal' })),
     updateMeeting: vi.fn(async () => undefined),
     deleteMeeting: vi.fn(async () => undefined),
     ...overrides,
@@ -184,7 +185,74 @@ describe('ClassSession Zoom lifecycle', () => {
     );
     expect(created.body.classSession.zoomMeetingId).toBe('111111111');
     expect(created.body.classSession.meetingDescription).toBe('Agenda Zoom');
+    expect(created.body.classSession.googleCalendarEventId).toBe(
+      'evt_zoom_cal',
+    );
+    expect(zoomMeeting.createMeeting).toHaveBeenCalledOnce();
+    expect(googleMeet.createLinkEvent).toHaveBeenCalledOnce();
+  });
+
+  it('flags calendarSyncFailed when Zoom succeeds but Calendar link fails', async () => {
+    googleMeet = createMeetMock({
+      createLinkEvent: vi.fn(async () => {
+        throw new Error('calendar down');
+      }),
+    });
+    fixture = await buildTestApp({ zoomMeeting, googleMeet });
+
+    const cookie = await loginDirector();
+    const groupId = await createReadyGroup(cookie);
+
+    const created = await request(fixture.app)
+      .post('/classes')
+      .set('Cookie', cookie)
+      .send({
+        groupId,
+        startAt: futureStartAt(26),
+        createZoom: true,
+      });
+    expect(created.status).toBe(201);
+    expect(created.body.zoomCreationFailed).toBeUndefined();
+    expect(created.body.calendarSyncFailed).toBe(true);
+    expect(created.body.classSession.zoomMeetingId).toBe('111111111');
+    expect(created.body.classSession.meetingUrl).toBe(
+      'https://zoom.us/j/111111111',
+    );
     expect(created.body.classSession.googleCalendarEventId).toBeNull();
+  });
+
+  it('retries Calendar link via PATCH createZoom without a second Zoom meeting', async () => {
+    googleMeet = createMeetMock({
+      createLinkEvent: vi
+        .fn()
+        .mockRejectedValueOnce(new Error('transient calendar'))
+        .mockResolvedValueOnce({ eventId: 'evt_retry' }),
+    });
+    fixture = await buildTestApp({ zoomMeeting, googleMeet });
+
+    const cookie = await loginDirector();
+    const groupId = await createReadyGroup(cookie);
+
+    const created = await request(fixture.app)
+      .post('/classes')
+      .set('Cookie', cookie)
+      .send({
+        groupId,
+        startAt: futureStartAt(28),
+        createZoom: true,
+      });
+    expect(created.status).toBe(201);
+    expect(created.body.calendarSyncFailed).toBe(true);
+    const classId = created.body.classSession.id as string;
+    expect(zoomMeeting.createMeeting).toHaveBeenCalledOnce();
+
+    const recovered = await request(fixture.app)
+      .patch(`/classes/${classId}`)
+      .set('Cookie', cookie)
+      .send({ createZoom: true });
+    expect(recovered.status).toBe(200);
+    expect(recovered.body.classSession.googleCalendarEventId).toBe('evt_retry');
+    expect(recovered.body.classSession.zoomMeetingId).toBe('111111111');
     expect(zoomMeeting.createMeeting).toHaveBeenCalledOnce();
   });
 
@@ -383,6 +451,9 @@ describe('ClassSession Zoom lifecycle', () => {
       .set('Cookie', cookie)
       .send({ groupId, startAt: futureStartAt(48), createZoom: true });
     expect(created.status).toBe(201);
+    expect(created.body.classSession.googleCalendarEventId).toBe(
+      'evt_zoom_cal',
+    );
 
     const deleted = await request(fixture.app)
       .delete(`/classes/${created.body.classSession.id}`)
@@ -391,8 +462,12 @@ describe('ClassSession Zoom lifecycle', () => {
     expect(deleted.body.classSession.isActive).toBe(false);
     expect(deleted.body.classSession.meetingUrl).toBeNull();
     expect(deleted.body.classSession.zoomMeetingId).toBeNull();
+    expect(deleted.body.classSession.googleCalendarEventId).toBeNull();
     expect(zoomMeeting.deleteMeeting).toHaveBeenCalledWith({
       meetingId: '111111111',
+    });
+    expect(googleMeet.deleteMeeting).toHaveBeenCalledWith({
+      eventId: 'evt_zoom_cal',
     });
   });
 
