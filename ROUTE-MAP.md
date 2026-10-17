@@ -326,7 +326,7 @@ Payment MANUAL still explicit).
 | `[x]` | `GET /finance/allocations` (+ `:id`) | read-only immutable |
 | `[x]` | `GET/POST /finance/settlements`, mark-paid | OPEN → MARKED_PAID |
 | `[x]` | `POST\|GET /finance/webhooks/mercado-pago` | Native MP notification → fetch Payment → validate amount/currency/`external_reference`; `x-signature` required when secret set (always in production); idempotent WebhookEvent |
-| `[x]` | `POST /finance/webhooks/stripe` | Idempotent WebhookEvent; signature verified when Stripe webhook secret is set |
+| `[x]` | `POST /finance/webhooks/stripe` | Native Stripe Event (`checkout.session.*`) → fetch Session → validate amount/currency/`client_reference_id`; `stripe-signature` when secret set; legacy inbox only without live `STRIPE_SECRET_KEY`; idempotent WebhookEvent |
 | `[x]` | `POST /classes` + generate | side-effect: auto Charge ONE_TO_ONE when priced + enrolled |
 | `[x]` | `POST /groups/:id/students` | side-effect: auto monthly Charge GROUP_120 |
 

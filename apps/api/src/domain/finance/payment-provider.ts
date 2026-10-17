@@ -1,37 +1,6 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import { randomUUID } from 'node:crypto';
-import { appendFileSync } from 'node:fs';
 import type { FinanceCurrency, PaymentProvider } from '@academia/shared';
-
-// #region agent log
-function agentDebugLog(
-  hypothesisId: string,
-  location: string,
-  message: string,
-  data: Record<string, unknown>,
-): void {
-  const line =
-    JSON.stringify({
-      sessionId: '4ec339',
-      runId: 'pay-verify',
-      hypothesisId,
-      location,
-      message,
-      data,
-      timestamp: Date.now(),
-    }) + '\n';
-  for (const p of [
-    '/app/apps/api/.cursor-debug-4ec339.log',
-    '/home/titin/Documentos/omegon/00-OMEGON/academia/.cursor/debug-4ec339.log',
-  ]) {
-    try {
-      appendFileSync(p, line);
-    } catch {
-      /* ignore */
-    }
-  }
-}
-// #endregion
 
 /**
  * Payment provider boundary.
@@ -327,25 +296,6 @@ export class MercadoPagoPaymentProvider implements PaymentProviderPort {
       bodyPayload.notification_url = notificationUrl;
     }
 
-    // #region agent log
-    agentDebugLog('F', 'payment-provider.ts:createPayment', 'MP preference request about to send', {
-      tokenPrefix: this.accessToken.slice(0, 8),
-      tokenLen: this.accessToken.length,
-      currency: input.currency,
-      amountMinor: input.amountMinor.toString(),
-      hasNotificationUrl: Boolean(notificationUrl),
-      unitPrice,
-      successHost: (() => {
-        try {
-          return new URL(successUrl).host;
-        } catch {
-          return 'invalid';
-        }
-      })(),
-      autoReturn: autoReturnAllowed,
-    });
-    // #endregion
-
     const response = await fetch(
       'https://api.mercadopago.com/checkout/preferences',
       {
@@ -357,12 +307,6 @@ export class MercadoPagoPaymentProvider implements PaymentProviderPort {
 
     if (!response.ok) {
       const detail = await response.text().catch(() => '');
-      // #region agent log
-      agentDebugLog('A', 'payment-provider.ts:createPayment:error', 'MP preference HTTP error', {
-        status: response.status,
-        detailSnippet: detail.slice(0, 120),
-      });
-      // #endregion
       throw new Error(
         `Mercado Pago preference failed (${response.status})${
           detail ? `: ${detail.slice(0, 200)}` : ''
@@ -485,6 +429,31 @@ export function majorAmountToMinor(amountMajor: number): bigint {
   return BigInt(Math.round(amountMajor * 100));
 }
 
+export interface StripeCheckoutSessionResource {
+  id: string;
+  status?: string | null;
+  payment_status?: string | null;
+  amount_total?: number | null;
+  currency?: string | null;
+  client_reference_id?: string | null;
+  metadata?: Record<string, string> | null;
+  url?: string | null;
+}
+
+export class StripeResourceNotFoundError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'StripeResourceNotFoundError';
+  }
+}
+
+export class StripeTemporaryError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'StripeTemporaryError';
+  }
+}
+
 export class StripePaymentProvider implements PaymentProviderPort {
   readonly name = 'STRIPE' as const;
 
@@ -492,6 +461,17 @@ export class StripePaymentProvider implements PaymentProviderPort {
     private readonly secretKey: string,
     private readonly appPublicUrl: string,
   ) {}
+
+  private authHeaders(idempotencyKey?: string): Record<string, string> {
+    const headers: Record<string, string> = {
+      Authorization: `Bearer ${this.secretKey}`,
+      'Content-Type': 'application/x-www-form-urlencoded',
+    };
+    if (idempotencyKey) {
+      headers['Idempotency-Key'] = idempotencyKey;
+    }
+    return headers;
+  }
 
   async createPayment(
     input: CreateProviderPaymentInput,
@@ -511,25 +491,32 @@ export class StripePaymentProvider implements PaymentProviderPort {
     params.set('metadata[chargeId]', input.chargeId);
     params.set('metadata[studentId]', input.studentId);
     params.set('line_items[0][quantity]', '1');
-    params.set('line_items[0][price_data][currency]', input.currency.toLowerCase());
+    params.set(
+      'line_items[0][price_data][currency]',
+      input.currency.toLowerCase(),
+    );
     params.set(
       'line_items[0][price_data][unit_amount]',
       input.amountMinor.toString(),
     );
-    params.set('line_items[0][price_data][product_data][name]', 'Academia — cargo');
+    params.set(
+      'line_items[0][price_data][product_data][name]',
+      'Academia — cargo',
+    );
 
     const response = await fetch('https://api.stripe.com/v1/checkout/sessions', {
       method: 'POST',
-      headers: {
-        Authorization: `Bearer ${this.secretKey}`,
-        'Content-Type': 'application/x-www-form-urlencoded',
-        'Idempotency-Key': input.idempotencyKey,
-      },
+      headers: this.authHeaders(input.idempotencyKey),
       body: params.toString(),
     });
 
     if (!response.ok) {
-      throw new Error(`Stripe Checkout Session failed (${response.status})`);
+      const detail = await response.text().catch(() => '');
+      throw new Error(
+        `Stripe Checkout Session failed (${response.status})${
+          detail ? `: ${detail.slice(0, 200)}` : ''
+        }`,
+      );
     }
 
     const body = (await response.json()) as {
@@ -545,11 +532,89 @@ export class StripePaymentProvider implements PaymentProviderPort {
     };
   }
 
+  async fetchCheckoutSession(
+    sessionId: string,
+  ): Promise<StripeCheckoutSessionResource> {
+    const response = await fetch(
+      `https://api.stripe.com/v1/checkout/sessions/${encodeURIComponent(sessionId)}`,
+      { headers: this.authHeaders() },
+    );
+    if (response.status === 404) {
+      throw new StripeResourceNotFoundError(
+        `Stripe Checkout Session not found: ${sessionId}`,
+      );
+    }
+    if (response.status >= 500) {
+      throw new StripeTemporaryError(
+        `Stripe Checkout Session temporarily unavailable (${response.status})`,
+      );
+    }
+    if (!response.ok) {
+      const detail = await response.text().catch(() => '');
+      throw new Error(
+        `Stripe Checkout Session fetch failed (${response.status})${
+          detail ? `: ${detail.slice(0, 200)}` : ''
+        }`,
+      );
+    }
+    return (await response.json()) as StripeCheckoutSessionResource;
+  }
+
   async getPayment(
     providerPaymentId: string,
   ): Promise<ProviderPaymentSnapshot> {
-    return { providerPaymentId, status: 'PENDING' };
+    if (providerPaymentId.startsWith('stripe_stub_')) {
+      return { providerPaymentId, status: 'PENDING' };
+    }
+    const resource = await this.fetchCheckoutSession(providerPaymentId);
+    return mapStripeSessionToSnapshot(resource);
   }
+
+  async getCheckoutUrl(providerPaymentId: string): Promise<string | null> {
+    if (providerPaymentId.startsWith('stripe_stub_')) return null;
+    const resource = await this.fetchCheckoutSession(providerPaymentId);
+    return resource.url ?? null;
+  }
+}
+
+/**
+ * Map a Stripe Checkout Session to our provider snapshot.
+ * Stripe `amount_total` is already in minor units (cents); we expose major
+ * for parity with Mercado Pago (`majorAmountToMinor`).
+ */
+export function mapStripeSessionToSnapshot(
+  resource: StripeCheckoutSessionResource,
+): ProviderPaymentSnapshot {
+  const paymentStatus = (resource.payment_status ?? '').toLowerCase();
+  const sessionStatus = (resource.status ?? '').toLowerCase();
+  let status: ProviderPaymentStatus = 'PENDING';
+  if (paymentStatus === 'paid') {
+    status = 'SUCCEEDED';
+  } else if (sessionStatus === 'expired') {
+    status = 'CANCELLED';
+  } else if (
+    paymentStatus === 'unpaid' &&
+    (sessionStatus === 'complete' || sessionStatus === 'open')
+  ) {
+    status = 'PENDING';
+  }
+
+  const amountTotal =
+    typeof resource.amount_total === 'number' ? resource.amount_total : undefined;
+  const amountMajor =
+    amountTotal !== undefined ? amountTotal / 100 : undefined;
+
+  const fromClientRef = resource.client_reference_id?.trim() || null;
+  const fromMeta = resource.metadata?.['chargeId']?.trim() || null;
+
+  return {
+    providerPaymentId: String(resource.id),
+    status,
+    amountMajor,
+    currency: resource.currency?.toUpperCase(),
+    externalReference: fromClientRef ?? fromMeta,
+    rawStatus: `${sessionStatus}:${paymentStatus}`,
+  };
 }
 
 export function resolvePaymentProvider(

@@ -967,7 +967,7 @@ starts a Payment PENDING for an owned OPEN Charge. Provider is
 Idempotency uses `student-checkout:{studentId}:{chargeId}` plus re-entry on
 existing PENDING. SUCCEEDED + RevenueAllocation only via existing webhook stubs.
 
-**Still out of scope:** live Mercado Pago / Stripe SDKs, student refunds,
+**Still out of scope (at #45; see #48 for live adapters):** student refunds,
 student “mark as paid” UX.
 
 ---
@@ -1019,9 +1019,20 @@ validates `x-signature` when `MERCADOPAGO_WEBHOOK_SECRET` is set (required in
 production if the access token is set), fetches `GET /v1/payments/{id}`, and only
 then updates the ledger (amount, currency, reference). Body status alone is never
 trusted. Idempotency: `WebhookEvent (provider, providerEventId)` + in-process lock
-+ Payment transition guards. Test tokens prefer `sandbox_init_point`. Stripe
-keeps the existing Checkout Session + inbox payload path (unchanged in this
-increment).
++ Payment transition guards. Test tokens prefer `sandbox_init_point`. Localhost
+`back_urls` omit `auto_return` (MP rejects `auto_return` without a public success URL).
+
+**Stripe (refined).** Checkout Sessions store `client_reference_id` /
+`metadata.chargeId` = Charge id. Webhook path `POST /finance/webhooks/stripe`
+accepts native Events (`checkout.session.completed` /
+`async_payment_succeeded` / `expired` / `async_payment_failed`), validates
+`stripe-signature` when `STRIPE_WEBHOOK_SECRET` is set, re-fetches
+`GET /v1/checkout/sessions/{id}`, and only then updates the ledger (amount,
+currency, reference). Body status alone is never trusted. Legacy inbox
+`{ providerEventId, type, paymentId }` remains for CI/stubs and is blocked when
+a live `STRIPE_SECRET_KEY` is configured. Local TEST: Stripe CLI
+`stripe listen --forward-to http://localhost:4000/finance/webhooks/stripe`
+(or ngrok → same path). Publishable key is optional (hosted Checkout redirect).
 
 **Why.** Preserves the Payment Domain boundary while enabling go-live without
 rewriting finance flows. MANUAL remains admin-only.

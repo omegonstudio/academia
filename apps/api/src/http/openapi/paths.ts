@@ -2020,8 +2020,9 @@ export function buildOpenApiPaths(): Record<string, Record<string, Operation>> {
         tags: ['Finance'],
         summary: 'Stripe webhook',
         description:
-          'No session auth. Idempotent inbox via providerEventId. ' +
-          'Signature verified when Stripe webhook secret is set; otherwise accepted for stub/dev.',
+          'No session auth. Prefers native Stripe Events (checkout.session.*) with Session re-fetch and amount/currency validation. ' +
+          'Legacy inbox { providerEventId, type, paymentId } only when STRIPE_SECRET_KEY is empty / stubs. ' +
+          'stripe-signature verified when STRIPE_WEBHOOK_SECRET is set.',
         operationId: 'stripeWebhook',
         requestBody: {
           required: true,

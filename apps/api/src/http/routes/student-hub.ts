@@ -9,38 +9,7 @@ import {
   type StudentFinanceResponse,
   type StudentResponse,
 } from '@academia/shared';
-import { appendFileSync } from 'node:fs';
 import { Router } from 'express';
-
-// #region agent log
-function agentDebugLog(
-  hypothesisId: string,
-  location: string,
-  message: string,
-  data: Record<string, unknown>,
-): void {
-  const line =
-    JSON.stringify({
-      sessionId: '4ec339',
-      runId: 'pay-verify',
-      hypothesisId,
-      location,
-      message,
-      data,
-      timestamp: Date.now(),
-    }) + '\n';
-  for (const p of [
-    '/app/apps/api/.cursor-debug-4ec339.log',
-    '/home/titin/Documentos/omegon/00-OMEGON/academia/.cursor/debug-4ec339.log',
-  ]) {
-    try {
-      appendFileSync(p, line);
-    } catch {
-      /* ignore */
-    }
-  }
-}
-// #endregion
 import type { AcademyBusinessConfig } from '../../domain/academy/academy-config.js';
 import type { AttendanceStore } from '../../domain/attendance/attendance-service.js';
 import {
@@ -105,6 +74,14 @@ function mapStudentFinanceError(error: unknown): never {
       unauthorized
         ? 'Mercado Pago rechazó el Access Token de prueba. Actualizá MERCADOPAGO_ACCESS_TOKEN (credenciales TEST del panel) y recreá el contenedor API.'
         : 'No pudimos crear el checkout en Mercado Pago. Intentá de nuevo o revisá la configuración del proveedor.',
+    );
+  }
+  if (
+    error instanceof Error &&
+    /Stripe Checkout Session failed/i.test(error.message)
+  ) {
+    throw new BadRequestError(
+      'No pudimos crear el checkout en Stripe. Revisá STRIPE_SECRET_KEY (sk_test_) y recreá el contenedor API.',
     );
   }
   throw error;
@@ -318,43 +295,18 @@ export function createStudentHubRouter({
           if (!chargeId || !UUID_RE.test(chargeId)) {
             throw new BadRequestError('Valid chargeId is required.');
           }
-          // #region agent log
-          agentDebugLog('C', 'student-hub.ts:pay', 'checkout start', {
-            chargeId,
-            studentId: record.id,
-            hasMpToken: Boolean(paymentCredentials?.mercadopagoAccessToken),
-            mpTokenPrefix: (paymentCredentials?.mercadopagoAccessToken ?? '').slice(0, 8),
-            allowLive: paymentCredentials?.allowLiveMercadoPagoInDev === true,
-          });
-          // #endregion
           const checkout = await startStudentCheckout(finance, {
             studentId: record.id,
             chargeId,
             createdByUserId: user.id,
             credentials: paymentCredentials,
           });
-          // #region agent log
-          agentDebugLog('B', 'student-hub.ts:pay:success', 'checkout ok', {
-            hasCheckoutUrl: Boolean(checkout.checkoutUrl),
-            paymentStatus: checkout.payment.status,
-            provider: checkout.payment.provider,
-          });
-          // #endregion
           const body: StudentFinanceCheckoutResponse = {
             payment: serializeStudentFinancePayment(checkout.payment),
             checkoutUrl: checkout.checkoutUrl,
           };
           res.status(201).json(body);
         } catch (error) {
-          // #region agent log
-          agentDebugLog('A', 'student-hub.ts:pay:catch', 'checkout failed', {
-            errorName: error instanceof Error ? error.name : 'unknown',
-            errorMessage:
-              error instanceof Error
-                ? error.message.slice(0, 180)
-                : String(error).slice(0, 180),
-          });
-          // #endregion
           mapStudentFinanceError(error);
         }
       })().catch(next);

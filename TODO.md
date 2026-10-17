@@ -543,6 +543,7 @@ estados loading/vacío/error.
 - [x] Student finance portal — DONE (self-scoped).
 - [x] Student checkout MVP — DONE (PENDING + webhook).
 - [x] Mercado Pago end-to-end (dev): Preference + `notification_url` via `API_PUBLIC_URL` / ngrok; native webhook fetch+verify; sandbox checkout URL; tests mocked (live sandbox payment still manual with ngrok).
+- [x] Stripe end-to-end (dev): Checkout Session when `STRIPE_SECRET_KEY` set; native webhook (`checkout.session.*`) fetch+verify Session; Stripe CLI/`whsec_` forward to `POST /finance/webhooks/stripe`; tests mocked (live TEST card still manual).
 
 ## Stage 8 — Teacher UX
 

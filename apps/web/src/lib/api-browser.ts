@@ -624,9 +624,6 @@ export async function payStudentMeFinanceChargeBrowser(
       } catch {
         /* ignore */
       }
-      // #region agent log
-      fetch('http://127.0.0.1:7252/ingest/93706407-f206-4d2e-8561-ff46b8472d6d',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'4ec339'},body:JSON.stringify({sessionId:'4ec339',runId:'pay-verify',hypothesisId:'D',location:'api-browser.ts:payStudentMeFinanceChargeBrowser',message:'pay response',data:{chargeId,httpStatus:response.status,ok:false,hasApiMessage:Boolean(apiMessage)},timestamp:Date.now()})}).catch(()=>{});
-      // #endregion
       return {
         ok: false,
         status: response.status,
@@ -638,9 +635,6 @@ export async function payStudentMeFinanceChargeBrowser(
           ),
       };
     }
-    // #region agent log
-    fetch('http://127.0.0.1:7252/ingest/93706407-f206-4d2e-8561-ff46b8472d6d',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'4ec339'},body:JSON.stringify({sessionId:'4ec339',runId:'pay-verify',hypothesisId:'B',location:'api-browser.ts:payStudentMeFinanceChargeBrowser',message:'pay response ok',data:{chargeId,httpStatus:response.status},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
     const parsed = studentFinanceCheckoutResponseSchema.safeParse(
       await response.json(),
     );

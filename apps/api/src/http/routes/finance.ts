@@ -66,6 +66,10 @@ import {
   type PaymentProviderCredentials,
 } from '../../domain/finance/payment-provider.js';
 import {
+  parseStripeEvent,
+  processStripeNativeWebhook,
+} from '../../domain/finance/stripe-webhook.js';
+import {
   createPayment,
   succeedPayment,
 } from '../../domain/finance/payment-service.js';
@@ -894,33 +898,103 @@ export function createFinanceRouter({
   router.post('/finance/webhooks/stripe', (req, res, next) => {
     void (async () => {
       try {
-        const secret = paymentCredentials?.stripeWebhookSecret ?? '';
-        if (secret.length > 0) {
+        const credentials = paymentCredentials ?? {
+          mercadopagoAccessToken: '',
+          mercadopagoWebhookSecret: '',
+          stripeSecretKey: '',
+          stripeWebhookSecret: '',
+          appPublicUrl: '',
+        };
+        const secret = credentials.stripeWebhookSecret ?? '';
+        const requireSignature =
+          credentials.requireWebhookSignature === true || secret.length > 0;
+
+        const bodyRecord =
+          req.body && typeof req.body === 'object'
+            ? (req.body as Record<string, unknown>)
+            : {};
+        const isLegacyInbox =
+          typeof bodyRecord['providerEventId'] === 'string' &&
+          typeof bodyRecord['type'] === 'string' &&
+          bodyRecord['data'] === undefined;
+
+        // Legacy internal inbox (offline tests / stubs). Blocked with live Stripe key.
+        if (isLegacyInbox) {
+          if (
+            credentials.stripeSecretKey.length > 0 &&
+            credentials.forceStubs !== true
+          ) {
+            throw new BadRequestError(
+              'Live Stripe credentials require a native Checkout Session event.',
+            );
+          }
+          const parsed = financeWebhookRequestSchema.safeParse(req.body);
+          if (!parsed.success) {
+            throw new BadRequestError(
+              'Valid providerEventId and type are required.',
+            );
+          }
+          const result = await processProviderWebhook(finance, {
+            provider: 'STRIPE',
+            providerEventId: parsed.data.providerEventId,
+            type: parsed.data.type,
+            paymentId: parsed.data.paymentId,
+            payload: parsed.data.payload,
+          });
+          const body: FinanceWebhookResponse = {
+            received: true,
+            duplicate: result.duplicate,
+            processed: result.processed,
+          };
+          res.status(200).json(body);
+          return;
+        }
+
+        let signatureVerified = false;
+        if (requireSignature) {
+          if (!secret) {
+            res.status(503).json({
+              received: false,
+              error: 'Stripe webhook secret is required.',
+            });
+            return;
+          }
           const raw =
             (req as { rawBody?: Buffer }).rawBody?.toString('utf8') ??
             JSON.stringify(req.body);
-          const ok = verifyStripeWebhookSignature(
+          signatureVerified = verifyStripeWebhookSignature(
             raw,
             req.header('stripe-signature') ?? undefined,
             secret,
           );
-          if (!ok) {
-            throw new BadRequestError('Invalid Stripe webhook signature.');
+          if (!signatureVerified) {
+            res.status(401).json({
+              received: false,
+              error: 'Invalid Stripe webhook signature.',
+            });
+            return;
           }
         }
-        const parsed = financeWebhookRequestSchema.safeParse(req.body);
-        if (!parsed.success) {
+
+        const native = parseStripeEvent(req.body);
+        if (!native?.type) {
           throw new BadRequestError(
-            'Valid providerEventId and type are required.',
+            'Valid Stripe Event (type + data.object) is required.',
           );
         }
-        const result = await processProviderWebhook(finance, {
-          provider: 'STRIPE',
-          providerEventId: parsed.data.providerEventId,
-          type: parsed.data.type,
-          paymentId: parsed.data.paymentId,
-          payload: parsed.data.payload,
+
+        const result = await processStripeNativeWebhook(finance, {
+          event: native,
+          credentials,
+          signatureVerified: requireSignature ? signatureVerified : true,
         });
+        if (result.httpStatus !== 200) {
+          res.status(result.httpStatus).json({
+            received: false,
+            error: result.reason ?? 'Webhook rejected.',
+          });
+          return;
+        }
         const body: FinanceWebhookResponse = {
           received: true,
           duplicate: result.duplicate,

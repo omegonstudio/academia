@@ -236,6 +236,134 @@ describe('Finance HTTP API (Stage 6B-2)', () => {
     expect(kinds).toEqual(expect.arrayContaining(['ORIGINAL', 'REVERSAL']));
   });
 
+  it('processes native Stripe checkout.session.completed via Session fetch', async () => {
+    const whsec = 'whsec_finance_http_test';
+    const sk = 'sk_test_finance_http_test';
+    fixture = await buildTestApp({
+      paymentCredentials: {
+        mercadopagoAccessToken: '',
+        mercadopagoWebhookSecret: '',
+        stripeSecretKey: sk,
+        stripeWebhookSecret: whsec,
+        appPublicUrl: 'http://localhost:3000',
+        forceStubs: false,
+      },
+    });
+
+    const cookie = await seedDirector();
+    const student = await fixture.studentRegistry.createWithNewUser({
+      email: 'alumno-stripe-native@academia.test',
+      passwordHash: await hashPassword('student-password-12'),
+      firstName: 'Stripe',
+      lastName: 'Native',
+      level: 'B1',
+      isActive: true,
+    });
+    const teacher = await fixture.teacherRegistry.createWithNewUser({
+      email: 'docente-stripe-native@academia.test',
+      passwordHash: await hashPassword('teacher-password-12'),
+      firstName: 'Doc',
+      lastName: 'Stripe',
+      level: 'C1',
+      availability: 'AVAILABLE',
+      isActive: true,
+    });
+
+    const courseId = randomUUID();
+    const groupId = randomUUID();
+    const classSessionId = randomUUID();
+    fixture.finance.seedClassSession({
+      classSessionId,
+      groupId,
+      courseId,
+      serviceType: 'ONE_TO_ONE_60',
+      teacherId: teacher.id,
+      courseAmountMinor: 3000n,
+      courseCurrency: 'USD',
+      studentEnrolled: true,
+      studentId: student.id,
+    });
+
+    const chargeRes = await request(fixture.app)
+      .post('/finance/charges')
+      .set('Cookie', cookie)
+      .send({
+        kind: 'CLASS_SESSION',
+        classSessionId,
+        studentId: student.id,
+      });
+    const chargeId = chargeRes.body.charge.id as string;
+
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        id: 'cs_test_http_1',
+        url: 'https://checkout.stripe.com/c/pay/cs_test_http_1',
+        status: 'complete',
+        payment_status: 'paid',
+        amount_total: 3000,
+        currency: 'usd',
+        client_reference_id: chargeId,
+      }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const pay = await request(fixture.app)
+      .post('/finance/payments')
+      .set('Cookie', cookie)
+      .send({
+        chargeId,
+        provider: 'STRIPE',
+        idempotencyKey: `stripe-native-http-${randomUUID()}`,
+      });
+    expect(pay.status).toBe(201);
+    const paymentId = pay.body.payment.id as string;
+    expect(pay.body.payment.providerPaymentId).toBe('cs_test_http_1');
+
+    const eventBody = {
+      id: 'evt_http_1',
+      type: 'checkout.session.completed',
+      data: { object: { id: 'cs_test_http_1' } },
+    };
+    const raw = JSON.stringify(eventBody);
+    const ts = String(Math.floor(Date.now() / 1000));
+    const v1 = createHmac('sha256', whsec)
+      .update(`${ts}.${raw}`)
+      .digest('hex');
+
+    const first = await request(fixture.app)
+      .post('/finance/webhooks/stripe')
+      .set('stripe-signature', `t=${ts},v1=${v1}`)
+      .set('Content-Type', 'application/json')
+      .send(eventBody);
+    expect(first.status).toBe(200);
+    expect(first.body).toMatchObject({
+      received: true,
+      duplicate: false,
+      processed: true,
+    });
+
+    const second = await request(fixture.app)
+      .post('/finance/webhooks/stripe')
+      .set('stripe-signature', `t=${ts},v1=${v1}`)
+      .set('Content-Type', 'application/json')
+      .send(eventBody);
+    expect(second.body.duplicate).toBe(true);
+
+    const got = await request(fixture.app)
+      .get(`/finance/payments/${paymentId}`)
+      .set('Cookie', cookie);
+    expect(got.body.payment.status).toBe('SUCCEEDED');
+
+    const allocs = await request(fixture.app)
+      .get('/finance/allocations')
+      .query({ paymentId })
+      .set('Cookie', cookie);
+    expect(allocs.body.allocations).toHaveLength(1);
+
+    vi.unstubAllGlobals();
+  });
+
   it('processes stripe webhook idempotently', async () => {
     const cookie = await seedDirector();
     const student = await fixture.studentRegistry.createWithNewUser({
