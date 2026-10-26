@@ -123,19 +123,43 @@ export const envSchema = z.object({
 
   // -------------------------------------------------------------------------
   // Object storage (S3-compatible: MinIO in development, Spaces in production)
+  // Optional as a set: all empty → in-memory stubs (hosted DEV without materials).
   // -------------------------------------------------------------------------
-  S3_ENDPOINT: z.string().url('S3_ENDPOINT must be a URL'),
+  S3_ENDPOINT: z
+    .string()
+    .default('')
+    .superRefine((value, ctx) => {
+      if (value.length === 0) return;
+      try {
+        void new URL(value);
+      } catch {
+        ctx.addIssue({ code: 'custom', message: 'S3_ENDPOINT must be a URL' });
+      }
+    }),
   /**
    * Optional browser/host-facing endpoint for presigned URLs.
    * In Compose, the API talks to MinIO as `http://minio:9000` while the host
    * browser must use `http://127.0.0.1:9000`. When unset, signed URLs use
    * S3_ENDPOINT (correct for DigitalOcean Spaces).
    */
-  S3_PUBLIC_ENDPOINT: z.string().url().optional(),
-  S3_BUCKET: z.string().min(1, 'S3_BUCKET is required'),
+  S3_PUBLIC_ENDPOINT: z
+    .string()
+    .default('')
+    .superRefine((value, ctx) => {
+      if (value.length === 0) return;
+      try {
+        void new URL(value);
+      } catch {
+        ctx.addIssue({
+          code: 'custom',
+          message: 'S3_PUBLIC_ENDPOINT must be a URL',
+        });
+      }
+    }),
+  S3_BUCKET: z.string().default(''),
   S3_REGION: z.string().min(1).default('us-east-1'),
-  S3_ACCESS_KEY: z.string().min(1, 'S3_ACCESS_KEY is required'),
-  S3_SECRET_KEY: z.string().min(1, 'S3_SECRET_KEY is required'),
+  S3_ACCESS_KEY: z.string().default(''),
+  S3_SECRET_KEY: z.string().default(''),
   S3_FORCE_PATH_STYLE: booleanFromEnv,
 
   MATERIAL_MAX_PDF_BYTES: z.coerce
@@ -217,6 +241,28 @@ export const envSchema = z.object({
 export type Env = z.infer<typeof envSchema>;
 
 /**
+ * True when the four required S3 fields are all non-empty.
+ * Partial configuration is rejected by `evaluateConfiguration`.
+ */
+export function isObjectStorageConfigured(env: Env): boolean {
+  return (
+    env.S3_ENDPOINT.length > 0 &&
+    env.S3_BUCKET.length > 0 &&
+    env.S3_ACCESS_KEY.length > 0 &&
+    env.S3_SECRET_KEY.length > 0
+  );
+}
+
+function objectStorageFieldCount(env: Env): number {
+  return [
+    env.S3_ENDPOINT,
+    env.S3_BUCKET,
+    env.S3_ACCESS_KEY,
+    env.S3_SECRET_KEY,
+  ].filter((value) => value.length > 0).length;
+}
+
+/**
  * Secrets that must never reach a production deployment. The sample value in
  * `.env.example` is included so a copied template cannot be promoted silently.
  */
@@ -241,6 +287,13 @@ const REJECTED_PRODUCTION_S3_KEYS = new Set([
 export function evaluateConfiguration(env: Env): string[] {
   const issues: string[] = [];
 
+  const s3FieldsSet = objectStorageFieldCount(env);
+  if (s3FieldsSet > 0 && s3FieldsSet < 4) {
+    issues.push(
+      'Object storage requires S3_ENDPOINT, S3_BUCKET, S3_ACCESS_KEY and S3_SECRET_KEY together (or all empty)',
+    );
+  }
+
   if (env.NODE_ENV === 'production') {
     if (REJECTED_PRODUCTION_SECRETS.has(env.AUTH_SECRET)) {
       issues.push('AUTH_SECRET still holds the development sample value');
@@ -249,8 +302,9 @@ export function evaluateConfiguration(env: Env): string[] {
       issues.push('LOAD_SEED_DATA must be false in production');
     }
     if (
-      REJECTED_PRODUCTION_S3_KEYS.has(env.S3_ACCESS_KEY) ||
-      REJECTED_PRODUCTION_S3_KEYS.has(env.S3_SECRET_KEY)
+      isObjectStorageConfigured(env) &&
+      (REJECTED_PRODUCTION_S3_KEYS.has(env.S3_ACCESS_KEY) ||
+        REJECTED_PRODUCTION_S3_KEYS.has(env.S3_SECRET_KEY))
     ) {
       issues.push('S3 credentials still hold development sample values');
     }

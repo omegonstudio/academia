@@ -15,10 +15,15 @@ Legend:
 
 | Status | Route       | Notes                                                              |
 | ------ | ----------- | ------------------------------------------------------------------ |
-| `[x]`  | `/`         | Landing one-page. Anchors `#cursos`, `#metodo`, `#academia`, `#contacto`. Enlace a `/cursos` (catálogo LMS). |
+| `[x]`  | `/`         | Home pública Spanish2Go: propuesta de valor + secciones oferta + cursos destacados (`GET /public/online-courses`) + CTA asesoría. |
+| `[x]`  | `/profesores-no-nativos` | Página pública formación/comunidad para profes no nativos (copy documentado). En sitemap. |
 | `[x]`  | `/cursos` | Catálogo público de cursos online (`GET /public/online-courses`). Solo PUBLISHED + isActive. En sitemap. |
 | `[x]`  | `/cursos/[slug]` | Landing pública de curso online (`GET /public/online-courses/:slug`). No está en `privateRoutePrefixes`. Slugs PUBLISHED+isActive enumerados en `sitemap.xml`. |
-| `[x]`  | —           | **Decisión producto (Fase 4):** no se restauran `/about`, `/courses`, `/teachers`, `/contact` como páginas; contenido en anchors de `/`. Catálogo LMS vive en `/cursos` (no en `/courses`). |
+| `[x]`  | `/pildoras-educativas` | Recursos cortos / ebooks documentados (el término “píldoras” no aparece en el sitio original; sin descargas inventadas). En sitemap. |
+| `[x]`  | `/mentorias` | Mentorías / 1:1 documentadas + CTA a `/asesoria`. Sin disponibilidad ficticia. En sitemap. |
+| `[x]`  | `/blabla2go` | Club de encuentros Blabla2Go (formato documentado). En sitemap. |
+| `[x]`  | `/asesoria` | CTA asesoría gratuita 30 min vía mailto/tel público; sin booking automático. En sitemap. |
+| `[x]`  | —           | **Decisión:** no se restauran rutas legacy EN `/about|/courses|/teachers|/contact`. Catálogo LMS vive en `/cursos` (no en `/courses`). |
 
 Auth & shell: HttpOnly session (`GET /auth/me`). Módulos operativos del dashboard
 cableados a API real (Fase 3). Sin DEV bypass. `lib/academy-data.ts` eliminado (Fase 4).
@@ -121,8 +126,9 @@ cableados a API real (Fase 3). Sin DEV bypass. `lib/academy-data.ts` eliminado (
 
 The browser reaches these as `/api/*`, proxied at request time by the Next.js
 route `app/api/[...path]` using `API_INTERNAL_URL`. In production Compose the
-API publishes no host port. On hosted DEV, Vercel runs only `apps/web` and
-`API_INTERNAL_URL` points at the separate API DEV host.
+API publishes no host port. On hosted DEV, Vercel Services run `web` + `api`;
+`API_INTERNAL_URL` is injected by a service binding to the internal Express
+service (Neon for PostgreSQL DEV).
 
 | Status | Route | Notes |
 | --- | --- | --- |

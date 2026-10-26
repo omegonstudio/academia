@@ -4,10 +4,10 @@
 
 Two **hosted** environments, plus a local Compose loop. Never mix them.
 
-| Entorno | Rama   | Frontend     | API      | DB              | Storage              |
-| ------- | ------ | ------------ | -------- | --------------- | -------------------- |
-| DEV     | `dev`  | Vercel       | API DEV  | PostgreSQL DEV  | bucket/prefix DEV    |
-| PROD    | `main` | DigitalOcean | API PROD | PostgreSQL PROD | bucket/prefix PROD   |
+| Entorno | Rama   | Frontend     | API                    | DB              | Storage              |
+| ------- | ------ | ------------ | ---------------------- | --------------- | -------------------- |
+| DEV     | `dev`  | Vercel Services `web` | Vercel Services `api` (Fluid) | Neon DEV        | optional / omit for demos; else bucket DEV |
+| PROD    | `main` | DigitalOcean | API PROD (Compose)     | PostgreSQL PROD | bucket/prefix PROD   |
 
 ```text
 DEV never uses DB PROD
@@ -182,47 +182,54 @@ into the client bundle, so canonicals, Open Graph URLs, `robots.txt` and
 `API_INTERNAL_URL` as a build arg for image parity; only the runtime value is
 required for the proxy).
 
-### Vercel DEV (frontend only)
+### Vercel DEV (Services: web + API + Neon)
 
-Architecture for branch `dev`:
+Architecture for branch `dev` (see decision #46):
 
 ```text
-Vercel (apps/web)  →  API DEV (separate host)  →  PostgreSQL DEV
-                   ↘  (no API process on Vercel)
+Browser → Vercel service `web` (Next)
+            │  /api/* Route Handler proxy
+            ▼
+          API_INTERNAL_URL (service binding) → service `api` (Express / Fluid)
+                                                  │
+                                                  ▼
+                                               Neon Postgres DEV
 ```
 
-The **backend is not deployed on Vercel**. Only `apps/web` is a Vercel project.
-API DEV + PostgreSQL DEV + storage DEV live elsewhere (Compose on a DEV host,
-or a future small VPS). Production remains Compose on DigitalOcean from `main`
-(not implemented as a live DigitalOcean provision in this repo yet).
+Root [`vercel.json`](../vercel.json) defines both services. Public rewrites
+send all browser traffic to `web` only; `api` stays internal via the binding.
+Production remains Compose on DigitalOcean from `main` (provision later).
 
 #### Vercel project settings (monorepo)
 
 | Setting            | Value |
 | ------------------ | ----- |
-| Root Directory     | `apps/web` |
-| Framework Preset   | Next.js |
-| Install Command    | `cd ../.. && npm ci` |
-| Build Command      | `cd ../.. && npm run build -w @academia/shared && npm run build -w @academia/web` |
-| Output             | Next.js default (Vercel ignores `output: 'standalone'`, which exists for Docker) |
+| Root Directory     | *(empty — repo root)* |
+| Config             | `vercel.json` Services (`web` + `api`) |
+| Production Branch  | `dev` |
 | Node.js            | 22 (matches `engines` / `.nvmrc`) |
 
-Connect the project to the `dev` branch for the DEV deployment. Do **not** point
-this Vercel project at `main` as the production DigitalOcean path.
+Do **not** point this Vercel project at `main` as the production DigitalOcean
+path. Do **not** set Root Directory to `apps/web` when using Services.
 
-#### Environment variables on Vercel (WEB DEV only)
+#### Environment variables on Vercel (hosted DEV)
 
-| Variable               | Required | Notes |
-| ---------------------- | -------- | ----- |
-| `NEXT_PUBLIC_APP_URL`  | yes      | Canonical DEV URL (`https://…vercel.app` or custom). Rebuild after change. |
-| `API_INTERNAL_URL`     | yes      | HTTPS (or private) base URL of **API DEV**. Server-only — never `NEXT_PUBLIC_*`. |
+| Variable | Service | Notes |
+| --- | --- | --- |
+| `NEXT_PUBLIC_APP_URL` | web | Canonical DEV URL. Rebuild after change. |
+| `API_INTERNAL_URL` | web | **Injected by binding** — do not set manually. |
+| `DATABASE_URL` | api | Neon **pooled** (`-pooler`). |
+| `DATABASE_URL_UNPOOLED` | api | Neon **direct** (migrations / `prisma migrate deploy`). |
+| `AUTH_SECRET` | api | `openssl rand -base64 48` (not the `.env.example` sample). |
+| `NODE_ENV` | api | `production` for `Secure` session cookies behind HTTPS. |
+| `SUPERADMIN_*` / `DIRECTOR_*` | api | Bootstrap passwords (≥12 chars) when you want accounts provisioned on cold start. |
+| `LOAD_SEED_DATA` | api | Must be `false` when `NODE_ENV=production`. |
+| `APP_PUBLIC_URL` | api | Same origin as `NEXT_PUBLIC_APP_URL`. |
+| `ACADEMY_TIMEZONE` | api | Default `America/Argentina/Buenos_Aires`. |
+| `S3_*` | api | **Omit** for demos without materials; set together when Spaces/S3 DEV is ready. |
 
-Do **not** set on the Vercel web project: `DATABASE_URL`, `AUTH_SECRET`,
-`POSTGRES_*`, `S3_*`, `RESEND_*`, payment secrets, or bootstrap passwords. Those
-belong on the API DEV host only.
-
-See also [`docs/DEPLOY-CHECKLIST.md`](DEPLOY-CHECKLIST.md) for the full go-live
-gate (TLS, Spaces, Resend, MP/Stripe webhooks, GitHub Environment secrets).
+Operator checklist: [`docs/DEPLOY-CHECKLIST.md`](DEPLOY-CHECKLIST.md) (Vercel DEV
+section). Production DigitalOcean gate remains in the same file.
 
 ### Notifications + payments env (API host)
 
@@ -262,17 +269,17 @@ set, Zoom classes get a Calendar link event (Zoom URL, no Hangouts Meet).
 Empty payment credentials keep stub providers (local/CI). Webhook signature
 checks run only when the corresponding webhook secret is non-empty.
 
-#### API DEV host (out of band)
+#### Neon + first migrate (hosted DEV)
 
-Provision separately. Minimum:
-
-- PostgreSQL **DEV** (not PROD) + `npm run db:deploy`
-- Env from `.env.example` API checklist (DEV secrets, DEV `S3_*`, optional seed)
-- Reachable from Vercel at the URL you put in `API_INTERNAL_URL`
-- Prefer `NODE_ENV=production` on a hosted DEV API so session cookies are `Secure`
-  behind the HTTPS Vercel front (still use DEV DB / DEV storage / sandbox payments)
+1. Install **Neon** from the Vercel Marketplace and connect it to the project
+   (Production env for the `dev` branch deploy).
+2. Confirm `DATABASE_URL` (pooled) and `DATABASE_URL_UNPOOLED` (direct) are set.
+3. From a machine with the unpooled URL: `npm run db:deploy`.
+4. Redeploy so the API cold-starts and runs identity bootstrap when passwords
+   are set.
 
 `CORS_ALLOWED_ORIGINS` stays empty while the browser uses the Next proxy.
+Materials remain optional until `S3_*` points at a DEV bucket.
 
 ## Configuration and secrets
 
@@ -427,8 +434,8 @@ every push to those branches (see `docs/BRANCHING.md`):
 Action versions are pinned by major tag, npm downloads are cached, and every job
 fails the run on error.
 
-Frontend DEV deploy is **not** in GitHub Actions: Vercel deploys `apps/web`
-from `dev` when the Vercel project is connected. CI still validates every push
+Frontend + API DEV deploy is **not** in GitHub Actions: Vercel Services deploys
+`web` + `api` from `dev` when the Vercel project is connected. CI still validates every push
 and PR.
 
 ## Production deployment

@@ -1,363 +1,38 @@
-import { isApiDocsEnabled } from './config/docs-enabled.js';
-import { evaluateConfiguration, parseEnv } from './config/env.js';
-import { createAuthService } from './domain/identity/auth-service.js';
-import { createAdministrativeProvisionStore } from './domain/identity/provision-administrative.js';
-import { createDirectorProvisionStore } from './domain/identity/provision-director.js';
-import { createStudentProvisionStore } from './domain/identity/provision-student.js';
-import { createTeacherProvisionStore } from './domain/identity/provision-teacher.js';
-import { createAdministrativePermissionStore } from './domain/authorization/administrative-permission-store.js';
-import { createPermissionChangeAuditStore } from './domain/authorization/permission-change-audit-store.js';
-import { createPermissionGrantStore } from './domain/authorization/permission-grant-store.js';
-import { createStudentStore } from './domain/students/student-store.js';
-import { createTeacherStore } from './domain/teachers/teacher-store.js';
-import { createTeacherAssignmentStore } from './domain/assignments/assignment-store.js';
-import { createTeacherRelatedStudentsStore } from './domain/teachers/teacher-related-students-store.js';
-import { createCourseStore } from './domain/courses/course-store.js';
-import { createGroupStore } from './domain/groups/group-store.js';
-import { createEnrollmentStore } from './domain/enrollments/enrollment-store.js';
-import { createScheduleOptionStore } from './domain/schedules/schedule-option-store.js';
-import { getAcademyBusinessConfig } from './domain/academy/academy-config.js';
-import { createClassSessionStore } from './domain/classes/class-session-store.js';
-import { createAttendanceStore } from './domain/attendance/attendance-store.js';
-import { createClassNoteStore } from './domain/class-notes/class-note-store.js';
-import { createMaterialStore } from './domain/materials/material-store.js';
-import { createOnlineCourseStore } from './domain/online-courses/online-course-store.js';
-import { createFinanceStore } from './domain/finance/prisma-finance-store.js';
-import { createSessionCodec } from './domain/identity/session.js';
-import { createUserRepository } from './domain/identity/user-repository.js';
-import { createApp } from './http/app.js';
-import { parseAllowedOrigins } from './http/middleware/cors.js';
-import { createPrismaClient, isDatabaseReachable } from './lib/prisma.js';
+import type { IncomingMessage, ServerResponse } from 'node:http';
+import { createRuntimeApp } from './create-runtime-app.js';
 import { logger } from './lib/logger.js';
-import { createS3CompatibleStorage } from './storage/s3-compatible-storage.js';
-import {
-  createGoogleMeetService,
-  parseGoogleMeetCredentials,
-} from './domain/classes/google-meet-service.js';
-import {
-  createZoomMeetingService,
-  parseZoomMeetingCredentials,
-} from './domain/classes/zoom-meeting-service.js';
-import { createNotificationAudience } from './domain/notifications/notification-audience.js';
-import { createEmailTemplateStore } from './domain/notifications/email-template-store.js';
-import { createNotificationPublisher } from './domain/notifications/notification-publisher.js';
-import { createNotificationStore } from './domain/notifications/notification-store.js';
-import { createResendEmailSender } from './domain/notifications/resend-email-sender.js';
-import { initSentryIfConfigured } from './lib/sentry.js';
 
 const SHUTDOWN_GRACE_MS = 10_000;
 
-async function main(): Promise<void> {
-  const env = parseEnv();
-  await initSentryIfConfigured({
-    dsn: env.SENTRY_DSN,
-    environment: env.NODE_ENV,
-    logger,
-  });
+const runtimePromise = createRuntimeApp();
 
-  // A production process must not start misconfigured; in development the same
-  // issues are surfaced as warnings so the loop stays fast.
-  const issues = evaluateConfiguration(env);
-  if (issues.length > 0) {
-    if (env.NODE_ENV === 'production') {
-      throw new Error(`Refusing to start:\n${issues.map((i) => `  - ${i}`).join('\n')}`);
-    }
-    logger.warn({ issues }, 'Configuration issues detected');
-  }
+/**
+ * Vercel Fluid / Express detection: default export is the request listener.
+ * Boot (env, Prisma, identity bootstrap) runs once per warm instance.
+ */
+export default async function handler(
+  req: IncomingMessage,
+  res: ServerResponse,
+): Promise<void> {
+  const { app } = await runtimePromise;
+  app(req, res);
+}
 
-  const database = createPrismaClient(env.DATABASE_URL);
-  const users = createUserRepository(database);
-  const authService = createAuthService(users);
-  const sessionCodec = createSessionCodec(env.AUTH_SECRET, env.AUTH_SESSION_TTL);
-  const directors = createDirectorProvisionStore(database);
-  const administratives = createAdministrativeProvisionStore(database);
-  const teachers = createTeacherProvisionStore(database);
-  const students = createStudentProvisionStore(database);
-  const administrativePermissions =
-    createAdministrativePermissionStore(database);
-  const permissionGrants = createPermissionGrantStore(database);
-  const permissionChangeAudits = createPermissionChangeAuditStore(database);
-  const studentProfiles = createStudentStore(database);
-  const teacherProfiles = createTeacherStore(database);
-  const teacherAssignments = createTeacherAssignmentStore(database);
-  const teacherRelatedStudents = createTeacherRelatedStudentsStore(database);
-  const courses = createCourseStore(database);
-  const groups = createGroupStore(database);
-  const enrollments = createEnrollmentStore(database);
-  const scheduleOptions = createScheduleOptionStore(database);
-  const classSessions = createClassSessionStore(database);
-  const attendances = createAttendanceStore(database);
-  const classNotes = createClassNoteStore(database);
-  const materials = createMaterialStore(database);
-  const onlineCourses = createOnlineCourseStore(database);
-  const finance = createFinanceStore(database);
-  const objectStorage = createS3CompatibleStorage({
-    endpoint: env.S3_ENDPOINT,
-    publicEndpoint: env.S3_PUBLIC_ENDPOINT,
-    region: env.S3_REGION,
-    bucket: env.S3_BUCKET,
-    accessKeyId: env.S3_ACCESS_KEY,
-    secretAccessKey: env.S3_SECRET_KEY,
-    forcePathStyle: env.S3_FORCE_PATH_STYLE,
-  });
-  const notificationStore = createNotificationStore(database);
-  const emailTemplates = createEmailTemplateStore(database);
-  const notificationAudience = createNotificationAudience(database);
-  const notificationPublisher = createNotificationPublisher({
-    store: notificationStore,
-    email: createResendEmailSender({
-      apiKey: env.RESEND_API_KEY || undefined,
-      fromEmail: env.RESEND_FROM_EMAIL || undefined,
-      enabled: env.NOTIFICATIONS_ENABLED,
-      logger,
-    }),
-    logger,
-    appPublicUrl:
-      env.APP_PUBLIC_URL ||
-      process.env['NEXT_PUBLIC_APP_URL'] ||
-      'http://localhost:3000',
-    emailTemplates,
-  });
-  const googleMeet = createGoogleMeetService({
-    credentials: parseGoogleMeetCredentials(env),
-    logger,
-  });
-  // Instantiated for boot/config readiness; class-route wiring comes later.
-  const zoomMeeting = createZoomMeetingService({
-    credentials: parseZoomMeetingCredentials(env),
-    logger,
-  });
-  const startedAt = Date.now();
-
-  const authOptions = {
-    authService,
-    sessionCodec,
-    cookieName: 'academia_session',
-  } as const;
-
-  const app = createApp({
-    logger,
-    allowedOrigins: parseAllowedOrigins(env.CORS_ALLOWED_ORIGINS),
-    health: {
-      environment: env.NODE_ENV,
-      isDatabaseReachable: () => isDatabaseReachable(database),
-      configurationIssues: () => evaluateConfiguration(env),
-      uptimeSeconds: () => Math.floor((Date.now() - startedAt) / 1000),
-    },
-    auth: {
-      authService,
-      sessionCodec,
-      cookie: {
-        name: 'academia_session',
-        secure: env.NODE_ENV === 'production',
-        ttlSeconds: env.AUTH_SESSION_TTL,
-      },
-    },
-    directors: {
-      authenticate: authOptions,
-      directors,
-      permissionGrants,
-    },
-    administratives: {
-      authenticate: authOptions,
-      administratives,
-      permissionGrants,
-      notifications: notificationPublisher,
-    },
-    teachers: {
-      authenticate: authOptions,
-      teachers,
-      permissionGrants,
-    },
-    students: {
-      authenticate: authOptions,
-      students,
-      permissionGrants,
-    },
-    studentRegistry: {
-      authenticate: authOptions,
-      students: studentProfiles,
-      permissionGrants,
-      notifications: notificationPublisher,
-    },
-    studentHub: {
-      authenticate: authOptions,
-      students: studentProfiles,
-      materials,
-      attendances,
-      academy: getAcademyBusinessConfig(env),
-      finance,
-      paymentCredentials: {
-        mercadopagoAccessToken: env.MERCADOPAGO_ACCESS_TOKEN,
-        mercadopagoWebhookSecret: env.MERCADOPAGO_WEBHOOK_SECRET,
-        stripeSecretKey: env.STRIPE_SECRET_KEY,
-        stripeWebhookSecret: env.STRIPE_WEBHOOK_SECRET,
-        appPublicUrl:
-          env.APP_PUBLIC_URL ||
-          process.env['NEXT_PUBLIC_APP_URL'] ||
-          'http://localhost:3000',
-        apiPublicUrl: env.API_PUBLIC_URL || undefined,
-        requireWebhookSignature: env.NODE_ENV === 'production',
-        allowLiveMercadoPagoInDev: env.MERCADOPAGO_ALLOW_LIVE_IN_DEV,
-        nodeEnv: env.NODE_ENV,
-        forceStubs: env.NODE_ENV === 'test',
-      },
-    },
-    studentOnlineCourses: {
-      authenticate: authOptions,
-      onlineCourses,
-      students: studentProfiles,
-      storage: objectStorage,
-      urlTtls: {
-        uploadUrlTtlSeconds: env.MATERIAL_UPLOAD_URL_TTL_SECONDS,
-        downloadUrlTtlSeconds: env.MATERIAL_DOWNLOAD_URL_TTL_SECONDS,
-      },
-    },
-    teacherHub: {
-      authenticate: authOptions,
-      teachers: teacherProfiles,
-      relatedStudents: teacherRelatedStudents,
-      materials,
-      attendances,
-      academy: getAcademyBusinessConfig(env),
-    },
-    teacherRegistry: {
-      authenticate: authOptions,
-      teachers: teacherProfiles,
-      permissionGrants,
-      notifications: notificationPublisher,
-    },
-    studentTeacherAssignment: {
-      authenticate: authOptions,
-      assignments: teacherAssignments,
-      permissionGrants,
-      notifications: notificationPublisher,
-      audience: notificationAudience,
-    },
-    courses: {
-      authenticate: authOptions,
-      courses,
-      permissionGrants,
-    },
-    groups: {
-      authenticate: authOptions,
-      groups,
-      enrollments,
-      classSessions,
-      academy: getAcademyBusinessConfig(env),
-      permissionGrants,
-      teachers: teacherProfiles,
-      finance,
-    },
-    scheduleOptions: {
-      authenticate: authOptions,
-      scheduleOptions,
-      permissionGrants,
-    },
-    classSessions: {
-      authenticate: authOptions,
-      classSessions,
-      attendances,
-      classNotes,
-      teachers: teacherProfiles,
-      students: studentProfiles,
-      academy: getAcademyBusinessConfig(env),
-      permissionGrants,
-      finance,
-      notifications: notificationPublisher,
-      audience: notificationAudience,
-      googleMeet,
-      zoomMeeting,
-    },
-    materials: {
-      authenticate: authOptions,
-      materials,
-      storage: objectStorage,
-      teachers: teacherProfiles,
-      students: studentProfiles,
-      permissionGrants,
-      sizeLimits: {
-        maxPdfBytes: env.MATERIAL_MAX_PDF_BYTES,
-        maxImageBytes: env.MATERIAL_MAX_IMAGE_BYTES,
-        maxAudioBytes: env.MATERIAL_MAX_AUDIO_BYTES,
-      },
-      urlTtls: {
-        uploadUrlTtlSeconds: env.MATERIAL_UPLOAD_URL_TTL_SECONDS,
-        downloadUrlTtlSeconds: env.MATERIAL_DOWNLOAD_URL_TTL_SECONDS,
-      },
-      logError: (payload, message) => {
-        logger.error(payload, message);
-      },
-    },
-    publicOnlineCourses: {
-      onlineCourses,
-    },
-    onlineCourses: {
-      authenticate: authOptions,
-      onlineCourses,
-      permissionGrants,
-      storage: objectStorage,
-      sizeLimits: {
-        maxPdfBytes: env.MATERIAL_MAX_PDF_BYTES,
-        maxImageBytes: env.MATERIAL_MAX_IMAGE_BYTES,
-        maxAudioBytes: env.MATERIAL_MAX_AUDIO_BYTES,
-      },
-      urlTtls: {
-        uploadUrlTtlSeconds: env.MATERIAL_UPLOAD_URL_TTL_SECONDS,
-        downloadUrlTtlSeconds: env.MATERIAL_DOWNLOAD_URL_TTL_SECONDS,
-      },
-      logError: (payload, message) => {
-        logger.error(payload, message);
-      },
-    },
-    finance: {
-      authenticate: authOptions,
-      finance,
-      permissionGrants,
-      students: studentProfiles,
-      teachers: teacherProfiles,
-      paymentCredentials: {
-        mercadopagoAccessToken: env.MERCADOPAGO_ACCESS_TOKEN,
-        mercadopagoWebhookSecret: env.MERCADOPAGO_WEBHOOK_SECRET,
-        stripeSecretKey: env.STRIPE_SECRET_KEY,
-        stripeWebhookSecret: env.STRIPE_WEBHOOK_SECRET,
-        appPublicUrl:
-          env.APP_PUBLIC_URL ||
-          process.env['NEXT_PUBLIC_APP_URL'] ||
-          'http://localhost:3000',
-        apiPublicUrl: env.API_PUBLIC_URL || undefined,
-        requireWebhookSignature: env.NODE_ENV === 'production',
-        allowLiveMercadoPagoInDev: env.MERCADOPAGO_ALLOW_LIVE_IN_DEV,
-        nodeEnv: env.NODE_ENV,
-        forceStubs: env.NODE_ENV === 'test',
-      },
-    },
-    administrativePermissions: {
-      authenticate: authOptions,
-      administrativePermissions,
-      permissionGrants,
-      permissionChangeAudits,
-    },
-    notifications: {
-      authenticate: authOptions,
-      notifications: notificationStore,
-    },
-    emailTemplates: {
-      authenticate: authOptions,
-      emailTemplates,
-      googleMeet,
-      zoomMeeting,
-    },
-    docsEnabled: isApiDocsEnabled(env),
-  });
+/**
+ * Docker / local long-running process. Skipped on Vercel where the platform
+ * invokes the default export per request.
+ */
+async function listenLocally(): Promise<void> {
+  const { app, database, env, googleMeetConfigured, zoomConfigured } =
+    await runtimePromise;
 
   const server = app.listen(env.API_PORT, () => {
     logger.info(
       {
         port: env.API_PORT,
         environment: env.NODE_ENV,
-        googleMeetConfigured: googleMeet.isConfigured(),
-        zoomConfigured: zoomMeeting.isConfigured(),
+        googleMeetConfigured,
+        zoomConfigured,
       },
       'API listening',
     );
@@ -381,7 +56,9 @@ async function main(): Promise<void> {
   process.on('SIGINT', () => shutdown('SIGINT'));
 }
 
-main().catch((error: unknown) => {
-  logger.fatal({ err: error }, 'API failed to start');
-  process.exit(1);
-});
+if (!process.env['VERCEL']) {
+  listenLocally().catch((error: unknown) => {
+    logger.fatal({ err: error }, 'API failed to start');
+    process.exit(1);
+  });
+}

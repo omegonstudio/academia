@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   describeDatabaseUrlProblem,
   evaluateConfiguration,
+  isObjectStorageConfigured,
   parseEnv,
   type Env,
 } from './env.js';
@@ -84,6 +85,22 @@ describe('parseEnv', () => {
     expect(() => parseEnv({ ...baseEnv(), AUTH_SECRET: 'short' })).toThrow(
       /AUTH_SECRET/,
     );
+  });
+
+  it('allows boot without S3 credentials (hosted DEV without materials)', () => {
+    const env = parseEnv({
+      DATABASE_URL: 'postgresql://user:pw@db:5432/academia_test?schema=public',
+      AUTH_SECRET: VALID_SECRET,
+    });
+    expect(isObjectStorageConfigured(env)).toBe(false);
+    expect(env.S3_ENDPOINT).toBe('');
+    expect(env.S3_BUCKET).toBe('');
+  });
+
+  it('rejects an invalid S3_ENDPOINT when provided', () => {
+    expect(() =>
+      parseEnv({ ...baseEnv(), S3_ENDPOINT: 'not-a-url' }),
+    ).toThrow(/S3_ENDPOINT/);
   });
 
   it('rejects an out-of-range port', () => {
@@ -189,6 +206,31 @@ describe('evaluateConfiguration', () => {
   it('flags development S3 sample credentials in production', () => {
     const issues = evaluateConfiguration(productionEnv());
     expect(issues.some((issue) => /S3 credentials/.test(issue))).toBe(true);
+  });
+
+  it('allows production without S3 (materials omitted)', () => {
+    const env = parseEnv({
+      NODE_ENV: 'production',
+      DATABASE_URL: 'postgresql://user:pw@db:5432/academia_test?schema=public',
+      AUTH_SECRET: VALID_SECRET,
+    });
+    expect(evaluateConfiguration(env)).toEqual([]);
+    expect(isObjectStorageConfigured(env)).toBe(false);
+  });
+
+  it('flags incomplete S3 configuration', () => {
+    const issues = evaluateConfiguration(
+      parseEnv({
+        ...baseEnv(),
+        S3_ENDPOINT: 'http://127.0.0.1:9000',
+        S3_BUCKET: '',
+        S3_ACCESS_KEY: '',
+        S3_SECRET_KEY: '',
+      }),
+    );
+    expect(issues.some((issue) => /Object storage requires/.test(issue))).toBe(
+      true,
+    );
   });
 
   it('tolerates the sample secret outside production', () => {

@@ -35,7 +35,7 @@ Three npm workspaces: `@academia/api`, `@academia/web`, `@academia/shared`.
 
 | Entorno | Rama   | Frontend     | API      | DB              |
 | ------- | ------ | ------------ | -------- | --------------- |
-| DEV     | `dev`  | Vercel       | API DEV  | PostgreSQL DEV  |
+| DEV     | `dev`  | Vercel Services `web` | Vercel Services `api` | Neon DEV |
 | PROD    | `main` | DigitalOcean | API PROD | PostgreSQL PROD |
 
 Local Docker Compose (`academia-dev`) remains the developer loop. DEV never uses
@@ -63,8 +63,8 @@ at request time, so:
 - requests are same-origin, and the session cookie needs no cross-site relaxation;
 - CORS is unnecessary in the default topology (leave `CORS_ALLOWED_ORIGINS` empty);
 - in production Compose the API publishes no host port at all;
-- on Vercel DEV, only the web app runs on Vercel; `API_INTERNAL_URL` points at
-  the separate API DEV host.
+- on Vercel DEV, Services run `web` + `api`; `API_INTERNAL_URL` is a service
+  binding to the internal Express service (Neon is the DEV database).
 
 `CORS_ALLOWED_ORIGINS` exists for a deployment that gives the API its own
 hostname to browsers. It is empty by default. Never use `*`.

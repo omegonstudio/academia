@@ -2,8 +2,10 @@
 
 import Link from 'next/link'
 import { useCallback, useEffect, useState } from 'react'
-import { ArrowRight, GraduationCap } from 'lucide-react'
+import { ArrowRight } from 'lucide-react'
 import type { PublicOnlineCourseListResponse } from '@academia/shared'
+import { PublicSiteFooter } from '@/components/public/site-footer'
+import { PublicSiteHeader } from '@/components/public/site-header'
 import {
   Alert,
   Button,
@@ -44,24 +46,9 @@ export default function PublicOnlineCoursesCatalogPage() {
         <div className="absolute right-0 top-0 h-96 w-96 rounded-full bg-accent/10 blur-3xl" />
       </div>
 
-      <header className="mx-auto flex max-w-5xl items-center justify-between px-5 py-5 lg:px-8">
-        <Link href="/" className="flex items-center gap-3">
-          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary text-primary-foreground">
-            <GraduationCap className="h-5 w-5" />
-          </span>
-          <span className="font-semibold tracking-tight">
-            Academia<span className="text-primary">.</span>
-          </span>
-        </Link>
-        <Link
-          href="/login"
-          className="text-sm font-medium text-muted-foreground transition hover:text-foreground"
-        >
-          Ingresar
-        </Link>
-      </header>
+      <PublicSiteHeader activePath="/cursos" />
 
-      <div className="mx-auto max-w-5xl px-5 pb-16 lg:px-8">
+      <div className="mx-auto max-w-6xl px-5 pb-16 lg:px-8">
         <p className="text-sm font-semibold text-primary">Cursos online</p>
         <h1 className="mt-2 text-3xl font-semibold tracking-tight sm:text-4xl">
           Aprendé a tu ritmo
@@ -158,6 +145,7 @@ export default function PublicOnlineCoursesCatalogPage() {
           </ul>
         ) : null}
       </div>
+      <PublicSiteFooter />
     </main>
   )
 }

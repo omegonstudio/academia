@@ -7,7 +7,7 @@ Definitive Git workflow for this repository.
 | Branch | Role |
 | --- | --- |
 | `main` | Production-ready history only. **Never commit directly.** Updated only by PR from `dev` when a Stage (or an explicit slice) is ready to promote. Deploy target: DigitalOcean PROD (future). |
-| `dev` | Integration branch. All Stage work lands here first. Hosted frontend DEV on Vercel; API/DB/storage DEV are separate. Day-to-day base for feature branches. |
+| `dev` | Integration branch. All Stage work lands here first. Hosted DEV on Vercel Services (web + API) + Neon. Day-to-day base for feature branches. |
 | `feature/stage-N-<slug>` | Short-lived work branches cut from `dev`. Open PRs into `dev`, not into `main`. |
 
 ```text

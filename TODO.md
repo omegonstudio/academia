@@ -63,7 +63,7 @@ See `docs/DECISIONS.md` (1) and `docs/LAQQ-REFERENCE.md`.
 
 ### Known limits carried forward
 - **The production *deploy* job has not been executed.** The production Compose stack itself was built and verified locally, but the SSH deployment path in `.github/workflows/production.yml` cannot be validated without a provisioned DigitalOcean (or other) server, GitHub Secrets and a DNS name. First real deploy must be treated as a rehearsal: confirm the server prerequisites in `docs/INFRASTRUCTURE.md`, then watch the health gate.
-- [x] Hosted DEV separation documented: Vercel → `apps/web` only; API DEV + PostgreSQL DEV + storage DEV separate; `API_INTERNAL_URL` + `NEXT_PUBLIC_APP_URL` on Vercel; no API-on-Vercel. Dashboard wiring and first redeploy still pending (out of band).
+- [x] Hosted DEV: Vercel Services (`web` + `api`) + Neon; `vercel.json` binding for `API_INTERNAL_URL`; S3 optional on hosted DEV. Operator checklist in `docs/DEPLOY-CHECKLIST.md` (first Neon connect + env + `db:deploy` still out of band).
 - Login throttle is per-process; needs a shared store before multiple API replicas (Stage 9).
 - Design tokens are provisional pending official Omegon brand assets.
 - TLS termination is expected from a reverse proxy in front of the stack; not in the Compose file.
@@ -374,8 +374,9 @@ existing Express API (`/api` proxy, HttpOnly session, `@academia/shared`).
 
 | Ruta monorepo | academia-front | Notas |
 | ------------- | -------------- | ----- |
-| `/` | `[x]` landing one-page (anchors) | Decisión Fase 4: no restaurar páginas legacy |
-| `/about` `/courses` `/teachers` `/contact` | **no restauradas** | Contenido en `#academia` `#cursos` `#contacto` |
+| `/` | `[x]` home oferta Spanish2Go | Secciones + CTA asesoría; catálogo en `/cursos` |
+| `/profesores-no-nativos` `/pildoras-educativas` `/mentorias` `/blabla2go` `/asesoria` | `[x]` | Copy documentado; sin booking inventado |
+| `/about` `/courses` `/teachers` `/contact` | **no restauradas** | Rutas EN legacy; oferta en rutas ES nuevas |
 | `/login` | `[x]` UI | Cookie real; sin DEV localStorage (Fase 2) |
 | `/dashboard` | `[x]` hub | Gate `/auth/me`; módulos API real (Fase 3) |
 | `/dashboard/students` + `[id]` | `[x]` API real | Soft-delete; teacher assign |
@@ -570,7 +571,7 @@ Backups, recovery procedure, healthchecks, structured logging, CI/CD and the
 SEO/accessibility baselines already exist. This stage deepens them.
 
 ### Done (go-live slice)
-- [x] Hosted DEV/PROD env separation documented (Vercel web-only + API/DB/storage separated).
+- [x] Hosted DEV/PROD env separation documented (Vercel Services + Neon DEV; DigitalOcean PROD).
 - [x] Notifications: in-app + Resend email on user create, teacher assignment, class meeting link.
 - [x] Live payment providers (Mercado Pago Preference + Stripe Checkout Session) when credentials set; stubs otherwise.
 - [x] Mercado Pago native webhooks: signature + GET `/v1/payments/{id}` before ledger update; production requires `MERCADOPAGO_WEBHOOK_SECRET` when token is set.
@@ -607,6 +608,14 @@ Distinct from live `Course` → `Group` → `ClassSession`. Uses `OnlineCourse*`
 - [x] Sitemap enumeration of published `/cursos/[slug]` (catálogo `/cursos` + slugs PUBLISHED).
 - [x] Integration test against real PostgreSQL (publish → enroll-free → progress).
 - [x] Seed Spanish2Go estructura: `npm run db:seed:spanish2go` importa taller (5/5) + Mis 4 amigos (11/40) en DRAFT desde `_research_out/spanish2go_migration/*.json`. Sin URLs de assets (0% contenido interno). Precio EUR se persiste en `FinanceCurrency` (ARS|USD|EUR). Gap residual: autora requiere Teacher FK (no bloquea cierre MVP).
+
+### Front público Spanish2Go (oferta comercial)
+- [x] Home + nav pública: Profesores no nativos, Cursos online, Píldoras, Mentorías, Blabla2Go, CTA asesoría gratis.
+- [x] Páginas `/profesores-no-nativos`, `/pildoras-educativas`, `/mentorias`, `/blabla2go`, `/asesoria` con copy documentado en `_research_out/spanish2go_migration/OFERTA_COMERCIAL_PUBLICA.md`.
+- [x] Catálogo `/cursos` reutilizado (`GET /public/online-courses`); cursos DRAFT no se publican solos.
+- [ ] Descargas reales de recursos/ebooks (“píldoras”) cuando haya assets migrados.
+- [ ] Booking automático de asesoría/mentorías (Spanish2Go usaba Booking Calendar; Academia solo mailto/tel).
+- [ ] Inscripción/cobro Blabla2Go en plataforma.
 
 ### Post-MVP / known limits
 - [ ] Paid self-serve checkout: Charge/Payment for online courses + grant access on `succeedPayment` (today: admin grant or free enroll; paid CTA is contact-only).

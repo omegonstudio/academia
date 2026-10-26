@@ -972,24 +972,30 @@ student “mark as paid” UX.
 
 ---
 
-## 46. Hosted DEV is Vercel web + separate API DEV; PROD is DigitalOcean
+## 46. Hosted DEV is Vercel Services (web + API) + Neon; PROD is DigitalOcean
 
-**Decision.** Branch `dev` deploys the frontend to Vercel (`apps/web` as Root
-Directory). API DEV, PostgreSQL DEV and storage DEV are separate hosts —
-**not** Vercel Services. Branch `main` remains the sole production path;
-production infrastructure is DigitalOcean (Compose today; provision later).
-Local Docker Compose (`academia-dev` / `academia-prod`) is unchanged.
+**Decision.** Branch `dev` deploys a single Vercel project with **Services**:
+`web` (`apps/web` / Next.js) and `api` (`apps/api` / Express on Fluid). Public
+traffic goes only to `web`; `API_INTERNAL_URL` is injected via a **service
+binding** so the existing same-origin `/api` proxy reaches the API without
+exposing Express on the public internet. PostgreSQL DEV is **Neon** (Vercel
+Marketplace). Object storage (`S3_*`) is optional on hosted DEV — when unset,
+the API uses in-memory stubs (materials are non-functional until Spaces/S3 is
+wired). Branch `main` remains the sole production path; production
+infrastructure is DigitalOcean (Compose today; provision later). Local Docker
+Compose (`academia-dev` / `academia-prod`) is unchanged.
 
-**Why.** Keeps cookie sessions same-origin via the existing `/api` proxy, avoids
-mixing DEV and PROD secrets/DBs, and matches the product flow
-`feature → PR → dev → validate → PR → main` without putting the Express API on
-Vercel as part of this architecture.
+**Why.** Enables a shareable hosted DEV without a separate API VPS, keeps cookie
+sessions same-origin via the Next proxy, and still isolates DEV DB/secrets from
+PROD. Matches `feature → PR → dev → validate → PR → main`.
 
-**Consequence.** Vercel needs only `NEXT_PUBLIC_APP_URL` and `API_INTERNAL_URL`.
-API secrets stay on the API host. The former root `vercel.json` multi-service
-definition was removed so the repo does not imply an API-on-Vercel deploy.
-DigitalOcean production deploy is documented and gated in
-`.github/workflows/production.yml` but not auto-provisioned here.
+**Consequence.** Root [`vercel.json`](../vercel.json) defines Services + the
+binding. Operators set `NEXT_PUBLIC_APP_URL`, Neon `DATABASE_URL` /
+`DATABASE_URL_UNPOOLED`, `AUTH_SECRET`, and bootstrap passwords on the Vercel
+project; they do **not** hand-set `API_INTERNAL_URL` when the binding is active.
+Prisma on Vercel uses `pg.Pool` + `attachDatabasePool`. Migrations use the
+unpooled URL via `prisma7.config.ts`. DigitalOcean production deploy remains
+documented and gated in `.github/workflows/production.yml`.
 
 ---
 
@@ -1071,3 +1077,20 @@ Google Meet lifecycle (when `GOOGLE_MEET_*` is set):
 **UI.** Create/edit class forms expose Meet / Zoom / manual / none; options
 disabled when the matching status endpoint reports not configured. Students
 cannot create classes or meetings.
+
+---
+
+## 47. Public Spanish2Go offer pages (beyond one-page landing)
+
+**Context.** Fase 4 kept a one-page landing and folded legacy EN routes into
+anchors. Recovering the Spanish2Go commercial offer requires crawlable sections
+(profes no nativos, píldoras, mentorías, Blabla2Go, asesoría) with SEO metadata.
+
+**Decision.** Add dedicated public routes under Spanish paths; keep `/cursos` as
+the only LMS catalog (`GET /public/online-courses`, PUBLISHED only). Do not
+restore `/about|/courses|/teachers|/contact`. Do not invent unavailable copy,
+fake bookings, or auto-publish DRAFT Spanish2Go courses. Document recovered
+offer text in `_research_out/spanish2go_migration/OFERTA_COMERCIAL_PUBLICA.md`.
+
+**Consequence.** `publicRoutes` / sitemap expand; home links to section pages;
+asesoría CTA uses public mailto/tel until booking is integrated.

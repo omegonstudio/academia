@@ -6,10 +6,11 @@ import {
   Check,
   ChevronDown,
   ChevronRight,
-  GraduationCap,
   Loader2,
 } from 'lucide-react'
 import type { PublicOnlineCourse, SessionUser } from '@academia/shared'
+import { PublicSiteFooter } from '@/components/public/site-footer'
+import { PublicSiteHeader } from '@/components/public/site-header'
 import { Alert, Button, Skeleton } from '@/components/ui/primitives'
 import {
   enrollFreeOnlineCourseBrowser,
@@ -126,32 +127,9 @@ export default function PublicOnlineCoursePage({
         <div className="absolute right-0 top-0 h-96 w-96 rounded-full bg-accent/10 blur-3xl" />
       </div>
 
-      <header className="mx-auto flex max-w-5xl items-center justify-between px-5 py-5 lg:px-8">
-        <Link href="/" className="flex items-center gap-3">
-          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary text-primary-foreground">
-            <GraduationCap className="h-5 w-5" />
-          </span>
-          <span className="font-semibold tracking-tight">
-            Academia<span className="text-primary">.</span>
-          </span>
-        </Link>
-        <div className="flex items-center gap-4">
-          <Link
-            href="/cursos"
-            className="text-sm font-medium text-muted-foreground transition hover:text-foreground"
-          >
-            Catálogo
-          </Link>
-          <Link
-            href="/login"
-            className="text-sm font-medium text-muted-foreground transition hover:text-foreground"
-          >
-            Ingresar
-          </Link>
-        </div>
-      </header>
+      <PublicSiteHeader activePath="/cursos" />
 
-      <div className="mx-auto max-w-5xl px-5 pb-16 lg:px-8">
+      <div className="mx-auto max-w-6xl px-5 pb-16 lg:px-8">
         {state.status === 'loading' ? (
           <div className="space-y-4">
             <Skeleton className="h-56 w-full rounded-3xl" />
@@ -385,6 +363,7 @@ export default function PublicOnlineCoursePage({
           </article>
         ) : null}
       </div>
+      <PublicSiteFooter />
     </main>
   )
 }

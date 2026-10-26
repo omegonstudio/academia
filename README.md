@@ -13,7 +13,7 @@ Branching: [`docs/BRANCHING.md`](docs/BRANCHING.md)
 
 | Entorno | Rama   | Frontend     | API      | DB              |
 | ------- | ------ | ------------ | -------- | --------------- |
-| DEV     | `dev`  | Vercel       | API DEV  | PostgreSQL DEV  |
+| DEV     | `dev`  | Vercel Services `web` | Vercel Services `api` | Neon DEV |
 | PROD    | `main` | DigitalOcean | API PROD | PostgreSQL PROD |
 
 ```text
@@ -32,7 +32,7 @@ Compose remains the developer loop. Details: [`docs/INFRASTRUCTURE.md`](docs/INF
 | Database | PostgreSQL 17, Prisma 7 (versioned migrations)       |
 | Objects  | S3-compatible (MinIO development / Spaces production)|
 | Runtime  | Docker + Docker Compose, separate dev and prod       |
-| CI/CD    | GitHub Actions; Vercel for hosted frontend DEV       |
+| CI/CD    | GitHub Actions; Vercel Services + Neon for hosted DEV |
 | Email    | Resend (optional; in-app notifications always)       |
 | Payments | Mercado Pago (ARS) + Stripe (USD/EUR); MANUAL admin  |
 

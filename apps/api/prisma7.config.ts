@@ -9,7 +9,13 @@ import { defineConfig } from 'prisma/config';
 // call is a harmless no-op.
 loadDotenv({ path: path.resolve(import.meta.dirname, '../../.env'), quiet: true });
 
-const url = process.env['DATABASE_URL'];
+// Neon / serverless: migrate needs a direct (unpooled) connection. Runtime
+// Prisma Client uses DATABASE_URL (pooled). Fall back to DATABASE_URL for
+// local Compose where only one URL exists.
+const url =
+  process.env['DATABASE_URL_UNPOOLED'] ||
+  process.env['DIRECT_URL'] ||
+  process.env['DATABASE_URL'];
 
 export default defineConfig({
   schema: 'prisma/schema.prisma',

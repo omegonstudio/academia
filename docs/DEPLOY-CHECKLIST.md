@@ -6,16 +6,73 @@ Use this before the first (and every) deploy from `main` to DigitalOcean.
 
 | | DEV (`dev`) | PROD (`main`) |
 | --- | --- | --- |
-| Frontend | Vercel (`apps/web`) | DigitalOcean Compose `web` |
-| API | API DEV host | API PROD (Compose `api`) |
-| Database | PostgreSQL DEV | PostgreSQL PROD |
-| Storage | Spaces/bucket DEV | Spaces/bucket PROD |
-| Payments | MP/Stripe **sandbox** | MP/Stripe **live** |
-| Email | Resend DEV sender | Resend PROD sender |
+| Frontend | Vercel Services `web` | DigitalOcean Compose `web` |
+| API | Vercel Services `api` (Fluid) | DigitalOcean Compose `api` |
+| Database | Neon DEV | PostgreSQL PROD |
+| Storage | Optional omit / Spaces DEV | Spaces/bucket PROD |
+| Payments | MP/Stripe **sandbox** (optional) | MP/Stripe **live** |
+| Email | Resend DEV sender (optional) | Resend PROD sender |
 
 **DEV never uses DB PROD. PROD never uses DB DEV.**
 
-## Prerequisites
+---
+
+## Vercel DEV (operator checklist — you)
+
+Do this after the repo has `vercel.json` Services on branch `dev`.
+
+### 1. Project
+
+- [ ] Import the Git repo in Vercel.
+- [ ] **Root Directory empty** (monorepo root — not `apps/web`).
+- [ ] Production Branch = `dev`.
+- [ ] Node.js 22.
+- [ ] Confirm deploy uses root [`vercel.json`](../vercel.json) (`web` + `api` services).
+
+### 2. Neon
+
+- [ ] Marketplace → Neon → install and connect to this project.
+- [ ] Scope: Production (for `dev` deploys); Preview optional.
+- [ ] Note pooled `DATABASE_URL` and direct `DATABASE_URL_UNPOOLED`.
+
+### 3. Environment variables (Production scope of this DEV project)
+
+**Web**
+
+- [ ] `NEXT_PUBLIC_APP_URL` = `https://<project>.vercel.app` (update after first URL is known).
+- [ ] Do **not** set `API_INTERNAL_URL` manually (service binding injects it).
+
+**API**
+
+- [ ] `NODE_ENV=production`
+- [ ] `DATABASE_URL` = Neon pooled (integration may inject).
+- [ ] `DATABASE_URL_UNPOOLED` = Neon direct.
+- [ ] `AUTH_SECRET` = `openssl rand -base64 48` (not the sample from `.env.example`).
+- [ ] `SUPERADMIN_EMAIL` / `SUPERADMIN_PASSWORD` (≥12 chars).
+- [ ] `DIRECTOR_EMAIL` / `DIRECTOR_PASSWORD` (≥12 chars).
+- [ ] `LOAD_SEED_DATA=false`
+- [ ] `APP_PUBLIC_URL` = same as `NEXT_PUBLIC_APP_URL`
+- [ ] `ACADEMY_TIMEZONE=America/Argentina/Buenos_Aires`
+- [ ] `CORS_ALLOWED_ORIGINS` empty
+- [ ] **Do not set `S3_*`** until materials are needed
+- [ ] Optional later: Resend, MP/Stripe TEST, Meet/Zoom
+
+### 4. Migrate + smoke
+
+- [ ] `vercel env pull` (or copy unpooled URL) → `npm run db:deploy`
+- [ ] Redeploy / hit the site so the API cold-starts and bootstraps identities
+- [ ] Open the URL → `/login` → dashboard
+- [ ] Confirm `/api/health` (Network) returns healthy / `ok`
+- [ ] Disable Deployment Protection or use a shareable link if you want others to open DEV
+
+### 5. Share
+
+- [ ] Send the Vercel URL
+- [ ] Tell testers: materials uploads are off until `S3_*` is configured; payments stay stubs unless sandbox keys are set
+
+---
+
+## Prerequisites (DigitalOcean PROD)
 
 - [ ] Droplet with Docker + Compose; git checkout at `DEPLOY_PATH`.
 - [ ] TLS terminator (Caddy / nginx / Traefik) in front of port 3000.
@@ -32,7 +89,7 @@ Use this before the first (and every) deploy from `main` to DigitalOcean.
 - [ ] `API_PUBLIC_URL` set to the publicly reachable API base so Preferences include `notification_url`
 - [ ] `SENTRY_DSN` (optional but recommended).
 
-## Deploy steps
+## Deploy steps (PROD)
 
 1. Merge validated work: PR `feature/*` → `dev` → (validate) → PR `dev` → `main`.
 2. Push to `main` triggers `.github/workflows/production.yml` (CI gate + SSH `prod-up.sh`).
@@ -48,14 +105,3 @@ git reset --hard <good-sha>
 ```
 
 Forward-only migrations: undo with a new migration, never auto-drop.
-
-## Vercel DEV (parallel)
-
-| Setting | Value |
-| --- | --- |
-| Root Directory | `apps/web` |
-| Install | `cd ../.. && npm ci` |
-| Build | `cd ../.. && npm run build -w @academia/shared && npm run build -w @academia/web` |
-| Env | `NEXT_PUBLIC_APP_URL`, `API_INTERNAL_URL` only |
-
-API DEV secrets stay on the API host, not on Vercel.

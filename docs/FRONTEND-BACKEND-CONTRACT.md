@@ -7,7 +7,7 @@
 > Convención de paths:
 > - Express monta rutas **sin** prefijo `/api` (ej. `POST /auth/login`).
 > - El browser Next llama **`/api/...`** (Route Handler → `API_INTERNAL_URL`).
-> - En Vercel DEV solo corre `apps/web`; la API DEV es un host aparte.
+> - En Vercel DEV: Services `web` + `api`; `API_INTERNAL_URL` por binding; Neon como DB.
 > - SSR en `apps/web` llama al API interno **sin** `/api`.
 >
 > Fuentes primarias: `apps/api/src/http/**`, `packages/shared/src/**`,

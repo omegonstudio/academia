@@ -8,16 +8,17 @@ export const site = {
   name: 'Academia de Español — Omegon',
   shortName: 'Academia',
   description:
-    'Academia de español con clases individuales y grupales, docentes formados y seguimiento personalizado.',
+    'Formación y comunidad para profes de español no nativos: cursos online, recursos, mentorías, Blabla2Go y asesoría gratuita.',
   locale: 'es_AR',
   url: process.env['NEXT_PUBLIC_APP_URL'] ?? DEFAULT_URL,
 } as const;
 
 /**
- * Public, indexable routes. Product decision (Fase 4): keep the one-page
- * landing. Legacy `/about|/courses|/teachers|/contact` stay folded into
- * `/#academia`, `/#cursos`, `/#contacto` (and método) — not restored as
- * separate crawlable pages.
+ * Public, indexable routes.
+ *
+ * Product update (Spanish2Go public offer): marketing sections live as
+ * dedicated crawlable pages. Legacy `/about|/courses|/teachers|/contact`
+ * from the old monorepo are still not restored under those English paths.
  *
  * `/cursos` (catalog) and `/cursos/[slug]` are public LMS surfaces (not in
  * privateRoutePrefixes). Published slugs are appended dynamically in
@@ -25,7 +26,12 @@ export const site = {
  */
 export const publicRoutes = [
   { path: '/', changeFrequency: 'monthly' as const, priority: 1 },
+  { path: '/profesores-no-nativos', changeFrequency: 'monthly' as const, priority: 0.8 },
   { path: '/cursos', changeFrequency: 'weekly' as const, priority: 0.8 },
+  { path: '/pildoras-educativas', changeFrequency: 'monthly' as const, priority: 0.7 },
+  { path: '/mentorias', changeFrequency: 'monthly' as const, priority: 0.7 },
+  { path: '/blabla2go', changeFrequency: 'monthly' as const, priority: 0.7 },
+  { path: '/asesoria', changeFrequency: 'monthly' as const, priority: 0.8 },
 ] as const;
 
 /** Routes that must never be indexed. */
