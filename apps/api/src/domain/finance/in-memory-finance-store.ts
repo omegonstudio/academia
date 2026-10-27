@@ -573,7 +573,7 @@ export function createInMemoryFinanceStore(): InMemoryFinanceStore {
         kind: input.kind,
         amountMinor: input.amountMinor,
         currency: input.currency,
-        academyPercentage: input.academyPercentage as AcademyPercentage,
+        academyPercentage: input.academyPercentage,
         academyAmountMinor: input.academyAmountMinor,
         teacherAmountMinor: input.teacherAmountMinor,
         refundId: input.refundId,

@@ -11,6 +11,7 @@ import {
   isAcademyPercentage,
   isCourseServiceType,
   isFinanceCurrency,
+  isFrozenAcademyPercentage,
 } from '@academia/shared';
 import type { Database } from '../../lib/prisma.js';
 import {
@@ -143,7 +144,7 @@ function mapAllocation(row: {
   if (!isFinanceCurrency(row.currency)) {
     throw new Error(`Invalid allocation currency: ${row.currency}`);
   }
-  if (!isAcademyPercentage(row.academyPercentage)) {
+  if (!isFrozenAcademyPercentage(row.academyPercentage)) {
     throw new Error(`Invalid allocation academyPercentage: ${row.academyPercentage}`);
   }
   return {

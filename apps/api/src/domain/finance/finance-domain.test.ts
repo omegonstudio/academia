@@ -72,7 +72,7 @@ describe('finance domain', () => {
       expect(initial.academyPercentage).toBe(40);
       expect(initial.teacherPercentage).toBe(60);
 
-      for (const pct of [20, 30, 40, 50] as const) {
+      for (const pct of [40, 50, 60, 70, 80, 90] as const) {
         const updated = await updateFinanceSettings(store, {
           academyPercentage: pct,
           updatedByUserId: actorUserId,
@@ -81,7 +81,7 @@ describe('finance domain', () => {
         expect(updated.teacherPercentage).toBe(100 - pct);
       }
 
-      for (const bad of [19, 25, 51, 0, 100]) {
+      for (const bad of [19, 20, 30, 25, 35, 0, 100]) {
         await expect(
           updateFinanceSettings(store, {
             academyPercentage: bad,

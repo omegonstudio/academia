@@ -63,12 +63,19 @@ describe('Finance HTTP API (Stage 6B-2)', () => {
     const patched = await request(fixture.app)
       .patch('/finance/settings')
       .set('Cookie', cookie)
-      .send({ academyPercentage: 30 });
+      .send({ academyPercentage: 60 });
     expect(patched.status).toBe(200);
     expect(patched.body.settings).toEqual({
-      academyPercentage: 30,
-      teacherPercentage: 70,
+      academyPercentage: 60,
+      teacherPercentage: 40,
     });
+
+    const retired = await request(fixture.app)
+      .patch('/finance/settings')
+      .set('Cookie', cookie)
+      .send({ academyPercentage: 20 });
+    expect(retired.status).toBe(400);
+    expect(retired.body.error.code).toBe('BAD_REQUEST');
 
     const bad = await request(fixture.app)
       .patch('/finance/settings')

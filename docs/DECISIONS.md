@@ -769,9 +769,12 @@ default, without allowing inconsistent independent percentages. Finance
 **Decision.**
 
 - Store a single **current** academy setting: `academyPercentage`.
-- Allowed values only: `20 | 30 | 40 | 50`. Default: `40`.
+- Allowed values only: `40 | 50 | 60 | 70 | 80 | 90` (extended 2026-10;
+  previously `20 | 30 | 40 | 50`). Default: `40`.
 - Teacher share is always derived: `teacherPercentage = 100 - academyPercentage`
-  (pairs 20/80, 30/70, 40/60, 50/50). Never two independent writable percentages.
+  (pairs 40/60 … 90/10). Never two independent writable percentages.
+- Frozen `RevenueAllocation.academyPercentage` may still hold legacy `20|30`
+  from older payments; those rows are never rewritten.
 - Who may **mutate** the setting: **SUPER_ADMIN** and **DIRECTOR** only.
   ADMINISTRATIVE, TEACHER and STUDENT cannot change it (role gate, not an
   Administrative grant).
@@ -793,7 +796,7 @@ exist.
 
 **Still out of scope.** Payment records; settlements; finance UI; money
 calculations; percentage history tables beyond the freeze-on-record principle;
-Administrative grants for this setting; options other than 20/30/40/50;
+Administrative grants for this setting; options outside 40–90 (except frozen legacy);
 exact freeze trigger timing.
 
 ---

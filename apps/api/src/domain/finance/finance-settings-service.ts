@@ -56,7 +56,7 @@ export async function updateFinanceSettings(
 ): Promise<AcademyFinanceSettingsView> {
   if (!isAcademyPercentage(input.academyPercentage)) {
     throw new FinanceValidationError(
-      `academyPercentage must be one of 20, 30, 40, 50 (got ${input.academyPercentage}).`,
+      `academyPercentage must be one of 40, 50, 60, 70, 80, 90 (got ${input.academyPercentage}).`,
     );
   }
   const updated = await store.upsertFinanceSettings({

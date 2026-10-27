@@ -30,12 +30,15 @@ Academy-level configuration (current / vigente), selected by SUPER_ADMIN or DIRE
 ADMINISTRATIVE, TEACHER and STUDENT cannot change it.
 
 Allowed `academyPercentage` values only:
-- 20 → Teacher 80
-- 30 → Teacher 70
 - 40 → Teacher 60 (**DEFAULT**)
 - 50 → Teacher 50
+- 60 → Teacher 40
+- 70 → Teacher 30
+- 80 → Teacher 20
+- 90 → Teacher 10
 
 Teacher share is always derived as `100 - academyPercentage`. Never store two independent writable percentages that can disagree.
+Frozen historical allocations may still show legacy 20/30 from older payments.
 
 The MVP may record the calculation and settlement status without automatically transferring money.
 **Freeze:** financial operations that must keep a historical split freeze the applicable percentage on that record; later academy-config changes do not rewrite frozen rows (`docs/DECISIONS.md` #41). Exact freeze trigger timing is left to Stage 6 implementation.

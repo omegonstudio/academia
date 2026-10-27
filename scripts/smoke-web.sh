@@ -147,7 +147,7 @@ python3 - <<'PY'
 import json
 body = json.load(open("/tmp/academia-smoke-finance-settings.json"))
 settings = body["settings"]
-assert settings["academyPercentage"] in (20, 30, 40, 50)
+assert settings["academyPercentage"] in (40, 50, 60, 70, 80, 90)
 assert settings["teacherPercentage"] == 100 - settings["academyPercentage"]
 print(f"PASS  /finance/settings ({settings['academyPercentage']}/{settings['teacherPercentage']})")
 PY

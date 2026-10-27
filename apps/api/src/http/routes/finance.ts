@@ -240,7 +240,7 @@ export function createFinanceRouter({
           const parsed = updateFinanceSettingsRequestSchema.safeParse(req.body);
           if (!parsed.success) {
             throw new BadRequestError(
-              'academyPercentage must be one of 20, 30, 40, 50.',
+              'academyPercentage must be one of 40, 50, 60, 70, 80, 90.',
             );
           }
           const view = await updateFinanceSettings(finance, {

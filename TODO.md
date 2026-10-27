@@ -250,13 +250,12 @@ Track payments and settlements using the academy's **configurable** revenue spli
   PostgreSQL unique indexes; Payment MANUAL remains explicit)
 
 ### Business rule — revenue split (academy config) — #41
-- Single **current** academy setting: `academyPercentage` ∈ `{20, 30, 40, 50}`
-  **hoy**; **próxima ampliación** (rama `feature/finance-split-40-90`) a
-  `{40, 50, 60, 70, 80, 90}` (retirar 20/30). Default sigue **40**.
+- Single **current** academy setting: `academyPercentage` ∈
+  `{40, 50, 60, 70, 80, 90}`. Default: **40** (Teacher **60**).
 - Teacher share is always derived: `teacherPercentage = 100 - academyPercentage`.
   Do not allow two independent writable percentages.
-- Allowed pairs today: 20/80, 30/70, 40/60, 50/50 → after split branch:
-  40/60 … 90/10.
+- Allowed pairs: 40/60, 50/50, 60/40, 70/30, 80/20, 90/10.
+- Frozen allocations may retain legacy `20|30` from older payments (read-only).
 - Who may **change** the config: **SUPER_ADMIN** and **DIRECTOR** only.
   ADMINISTRATIVE, TEACHER and STUDENT cannot modify it.
 - **Freeze (#41 + #44):** on `Payment.status → SUCCEEDED`, create immutable
@@ -645,13 +644,8 @@ Plan de ejecución: ramas cortas → PR → `dev` solo con CI/tests verdes
 
 ### Pendientes priorizados (post-auditoría)
 
-- [ ] **[FINANZAS][P1]** Ampliar `academyPercentage` a `{40,50,60,70,80,90}` (retirar 20/30).
-  - Rama: `feature/finance-split-40-90`.
-  - Tipo: Funcionalidad / Datos / Decisión funcional cerrada.
-  - Estado actual: shared + DB CHECK solo `20|30|40|50`; UI usa `ACADEMY_PERCENTAGES`.
-  - Resultado: dropdown 40–90; default 40; settings CHECK 40–90; allocations CHECK
-    permite freeze histórico `20|30` + nuevo set; tests + DECISIONS #41.
-  - Criterios: unit + integration finance verdes; migrate deploy OK.
+- [x] **[FINANZAS][P1]** Ampliar `academyPercentage` a `{40,50,60,70,80,90}` (retirar 20/30).
+  - Rama: `feature/finance-split-40-90` (DONE).
 
 - [ ] **[PERM][P2]** List endpoint para usuarios ADMINISTRATIVE (directorio).
   - Tipo: Funcionalidad faltante.

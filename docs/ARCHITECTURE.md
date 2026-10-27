@@ -142,7 +142,7 @@ When payments do arrive, the boundary is already decided:
 ```
 Student → Payment domain → Payment provider adapter → Mercado Pago | Stripe
                                      ↓
-                            Finance (academyPercentage ∈ {20,30,40,50};
+                            Finance (academyPercentage ∈ {40,50,60,70,80,90};
                                      default 40; teacher = 100 − academy)
 ```
 

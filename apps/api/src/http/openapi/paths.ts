@@ -1527,7 +1527,7 @@ export function buildOpenApiPaths(): Record<string, Record<string, Operation>> {
         summary: 'Update finance settings',
         description:
           'SUPER_ADMIN/DIRECTOR role gate only (not `finance.update`). ' +
-          '`academyPercentage` ∈ {20, 30, 40, 50}. Does not rewrite frozen allocations.',
+          '`academyPercentage` ∈ {40, 50, 60, 70, 80, 90}. Does not rewrite frozen allocations.',
         operationId: 'updateFinanceSettings',
         security: session,
         requestBody: {

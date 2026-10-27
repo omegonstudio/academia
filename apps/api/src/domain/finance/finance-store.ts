@@ -3,6 +3,7 @@ import type {
   ChargeStatus,
   CourseServiceType,
   FinanceCurrency,
+  FrozenAcademyPercentage,
   PaymentProvider,
   PaymentStatus,
   RevenueAllocationKind,
@@ -127,7 +128,7 @@ export interface FinanceStore {
     kind: RevenueAllocationKind;
     amountMinor: bigint;
     currency: FinanceCurrency;
-    academyPercentage: AcademyPercentage;
+    academyPercentage: FrozenAcademyPercentage;
     academyAmountMinor: bigint;
     teacherAmountMinor: bigint;
     refundId: string | null;

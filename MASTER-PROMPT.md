@@ -10,7 +10,7 @@ Actuá como Staff/Principal Full-Stack Engineer, Product Architect, UX/UI Engine
 >
 > **Nota de negocio (Stage 6 — definición).** El reparto fijo 15%/85% de este
 > documento queda **superseded** por un `academyPercentage` configurable
-> (20/30/40/50; default 40; teacher = 100 − academia; mutación solo
+> (40/50/60/70/80/90; default 40; teacher = 100 − academia; mutación solo
 > SUPER_ADMIN/DIRECTOR). Operaciones financieras históricas usan **Freeze**:
 > el porcentaje queda congelado en el registro; cambios posteriores de config
 > no reescriben retrospectivamente. Ver `docs/DECISIONS.md` (decisión 41) y
@@ -37,7 +37,7 @@ El modelo educativo inicial tiene:
    - La dirección asigna estudiantes a docentes.
    - Un docente no puede autoasignarse estudiantes.
    - La dirección configura el reparto academia/docente entre pares permitidos
-     (20/80, 30/70, 40/60 por defecto, 50/50). Solo SUPER_ADMIN y DIRECTOR
+     (40/60 por defecto … 90/10). Solo SUPER_ADMIN y DIRECTOR
      pueden cambiarlo; el % docente se deriva como `100 - academyPercentage`.
      Ver decisión 41.
 La visión de producción es convertir la plataforma en la infraestructura operativa de una academia escalable: formación de profesores → incorporación de docentes → asignación de estudiantes → clases → seguimiento → liquidaciones.
@@ -126,7 +126,7 @@ Prioridad:
 10. Materiales.
 11. Asistencia y notas básicas.
 12. Registro financiero básico: precio, reparto configurable academia/docente
-    (`academyPercentage` ∈ {20,30,40,50}, default 40; teacher derivado), estado.
+    (`academyPercentage` ∈ {40,50,60,70,80,90}, default 40; teacher derivado), estado.
 13. Gestión de administrativos y permisos.
 14. SEO técnico y accesibilidad desde el primer día.
 
@@ -713,7 +713,7 @@ Payment confirmed
    ↓
 Finance
    ↓
-Academy share = academyPercentage (20|30|40|50; default 40)
+Academy share = academyPercentage (40|50|60|70|80|90; default 40)
 Teacher share = 100 - academyPercentage
 ```
 

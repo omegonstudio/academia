@@ -298,9 +298,12 @@ export {
 } from './materials.js';
 export {
   ACADEMY_PERCENTAGES,
+  FROZEN_ACADEMY_PERCENTAGES,
   DEFAULT_ACADEMY_PERCENTAGE,
   academyPercentageSchema,
+  frozenAcademyPercentageSchema,
   isAcademyPercentage,
+  isFrozenAcademyPercentage,
   teacherPercentageFromAcademy,
   splitAmountMinor,
   FINANCE_CURRENCIES,
@@ -351,6 +354,7 @@ export {
   financeWebhookRequestSchema,
   financeWebhookResponseSchema,
   type AcademyPercentage,
+  type FrozenAcademyPercentage,
   type FinanceCurrency,
   type PaymentProvider,
   type ChargeStatus,

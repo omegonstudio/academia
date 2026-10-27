@@ -1,19 +1,50 @@
 import { z } from 'zod';
 
-/** Allowed academy revenue-split percentages (#41 / #44). */
-export const ACADEMY_PERCENTAGES = [20, 30, 40, 50] as const;
+/**
+ * Writable academy revenue-split percentages (#41 / #44, extended 2026-10).
+ * Dropdown / settings only — not historical freeze values.
+ */
+export const ACADEMY_PERCENTAGES = [40, 50, 60, 70, 80, 90] as const;
 export type AcademyPercentage = (typeof ACADEMY_PERCENTAGES)[number];
 export const DEFAULT_ACADEMY_PERCENTAGE: AcademyPercentage = 40;
 
+/**
+ * Percentages allowed on frozen RevenueAllocation rows (includes legacy 20|30).
+ */
+export const FROZEN_ACADEMY_PERCENTAGES = [
+  20, 30, 40, 50, 60, 70, 80, 90,
+] as const;
+export type FrozenAcademyPercentage =
+  (typeof FROZEN_ACADEMY_PERCENTAGES)[number];
+
 export const academyPercentageSchema = z.union([
+  z.literal(40),
+  z.literal(50),
+  z.literal(60),
+  z.literal(70),
+  z.literal(80),
+  z.literal(90),
+]);
+
+export const frozenAcademyPercentageSchema = z.union([
   z.literal(20),
   z.literal(30),
   z.literal(40),
   z.literal(50),
+  z.literal(60),
+  z.literal(70),
+  z.literal(80),
+  z.literal(90),
 ]);
 
 export function isAcademyPercentage(value: number): value is AcademyPercentage {
   return (ACADEMY_PERCENTAGES as readonly number[]).includes(value);
+}
+
+export function isFrozenAcademyPercentage(
+  value: number,
+): value is FrozenAcademyPercentage {
+  return (FROZEN_ACADEMY_PERCENTAGES as readonly number[]).includes(value);
 }
 
 export function teacherPercentageFromAcademy(
@@ -295,7 +326,7 @@ export const revenueAllocationSchema = z.object({
   kind: revenueAllocationKindSchema,
   amountMinor: moneyMinorStringSchema,
   currency: financeCurrencySchema,
-  academyPercentage: academyPercentageSchema,
+  academyPercentage: frozenAcademyPercentageSchema,
   academyAmountMinor: moneyMinorStringSchema,
   teacherAmountMinor: moneyMinorStringSchema,
   refundId: z.string().uuid().nullable(),
