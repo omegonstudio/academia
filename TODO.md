@@ -250,11 +250,13 @@ Track payments and settlements using the academy's **configurable** revenue spli
   PostgreSQL unique indexes; Payment MANUAL remains explicit)
 
 ### Business rule — revenue split (academy config) — #41
-- Single **current** academy setting: `academyPercentage` ∈ `{20, 30, 40, 50}`.
-- Default: **40** (Teacher **60**).
+- Single **current** academy setting: `academyPercentage` ∈ `{20, 30, 40, 50}`
+  **hoy**; **próxima ampliación** (rama `feature/finance-split-40-90`) a
+  `{40, 50, 60, 70, 80, 90}` (retirar 20/30). Default sigue **40**.
 - Teacher share is always derived: `teacherPercentage = 100 - academyPercentage`.
   Do not allow two independent writable percentages.
-- Allowed pairs only: 20/80, 30/70, 40/60, 50/50.
+- Allowed pairs today: 20/80, 30/70, 40/60, 50/50 → after split branch:
+  40/60 … 90/10.
 - Who may **change** the config: **SUPER_ADMIN** and **DIRECTOR** only.
   ADMINISTRATIVE, TEACHER and STUDENT cannot modify it.
 - **Freeze (#41 + #44):** on `Payment.status → SUCCEEDED`, create immutable
@@ -627,6 +629,52 @@ Distinct from live `Course` → `Group` → `ClassSession`. Uses `OnlineCourse*`
 
 ### MVP closure acceptance (Stages 0–8 + LMS free enroll)
 - [x] Smoke de aceptación ejecutado (2026-10-16): `npm run smoke` OK — SuperAdmin login, finance settings/lists, auto-charge ONE_TO_ONE → student checkout PENDING, Student Hub, Teacher Hub + earnings, logout. Integration PG online courses (publish → enroll-free → progress) OK (`./scripts/test-integration.sh`, 58 tests). OpenAPI online-courses paths + sitemap `/cursos/[slug]` verificados. Checkout pago LMS y Stage 9 ops quedan post-MVP.
+
+## Auditoría funcional (2026-10-27) — plan por ramas
+
+Fuente: auditoría integral sobre el tip de `dev` (no `main` desfasado).
+Plan de ejecución: ramas cortas → PR → `dev` solo con CI/tests verdes
+(`docs/BRANCHING.md` merge gates).
+
+### Verificado ya en `dev` (no reabrir como “faltante”)
+- [x] Auth UI Fase 2 — login/logout/`/auth/me`, sin DEV bypass, guards.
+- [x] UI módulos Fase 3 — dashboard cableado a API (sin `academy-data`).
+- [x] Stage 6B-2 Finance API + OpenAPI + authz + webhooks MP/Stripe.
+- [x] Stage 6C Finance UI (`/dashboard/finance*`, student/teacher surfaces).
+- [x] Stage 6D Auto-charge + Stages 7–8 hubs.
+
+### Pendientes priorizados (post-auditoría)
+
+- [ ] **[FINANZAS][P1]** Ampliar `academyPercentage` a `{40,50,60,70,80,90}` (retirar 20/30).
+  - Rama: `feature/finance-split-40-90`.
+  - Tipo: Funcionalidad / Datos / Decisión funcional cerrada.
+  - Estado actual: shared + DB CHECK solo `20|30|40|50`; UI usa `ACADEMY_PERCENTAGES`.
+  - Resultado: dropdown 40–90; default 40; settings CHECK 40–90; allocations CHECK
+    permite freeze histórico `20|30` + nuevo set; tests + DECISIONS #41.
+  - Criterios: unit + integration finance verdes; migrate deploy OK.
+
+- [ ] **[PERM][P2]** List endpoint para usuarios ADMINISTRATIVE (directorio).
+  - Tipo: Funcionalidad faltante.
+  - Estado: solo `POST /users/administratives`; UI create-only.
+  - Dependencias: ninguna bloqueante de Finance.
+
+- [ ] **[FINANZAS][P2]** Backfill de Charge cuando el Course obtiene precio *después* del enroll
+      (GROUP_120 hoy no-op silencioso sin list price).
+  - Tipo: Funcionalidad faltante.
+  - Workaround actual: `POST /finance/charges` manual.
+
+- [ ] **[FINANZAS][P2]** Checkout pago LMS online courses + grant on `succeedPayment`
+      (ya en Post-MVP / known limits arriba).
+
+- [ ] **[SEC][P1]** Hosted DEV Vercel: env sin prefijo `academia_dev_`; no importar `.env`
+      local; `API_INTERNAL_URL` solo via binding; rotar secretos expuestos en chats.
+  - Tipo: Seguridad / Ops (out of band).
+
+- [ ] **[DOCS][P3]** Promote estable `dev` → `main` tras merge de split 40–90 + smoke.
+  - Tipo: Proceso.
+
+### Criterio de merge por rama
+Ver `docs/BRANCHING.md` § Merge gates. No mergear WIP.
 
 ## Future backlog
 

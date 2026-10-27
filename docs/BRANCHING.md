@@ -26,6 +26,21 @@ feature/*  →  (PR)  →  dev  →  CI + Vercel DEV  →  validation
 6. **DEV never uses the PROD database** (and the reverse). Hosted secrets are
    environment-specific — see `docs/INFRASTRUCTURE.md`.
 
+## Merge gates (feature → `dev`)
+
+Merge a PR into `dev` only when **all** of the following hold:
+
+1. CI green (lint, typecheck, tests for touched workspaces, build).
+2. New/updated tests for the slice pass locally.
+3. `TODO.md` + `ROUTE-MAP.md` (+ `docs/DECISIONS.md` if a rule changed) are synchronized.
+4. No secrets in the diff; no unrelated HTTP contract changes.
+5. PR includes a short summary and a minimal manual smoke checklist for the slice.
+
+Do **not** merge WIP. Prefer a follow-up branch over a half-feature on `dev`.
+
+Promote `dev` → `main` only when the integrated slice is stable (auth + finance
+API/UI or equivalent smoke), not after every micro-branch.
+
 ## Historical branch (do not use)
 
 `feature/stage-0-foundation-infrastructure` carried Stage 0–1 and the start of
