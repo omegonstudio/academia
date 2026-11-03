@@ -112,6 +112,7 @@ async function assertCanMutateProgress(
     }
   }
 
+  // listLessonOrderRefs already excludes inactive modules/lessons (LMS-04).
   const ordered = await store.listLessonOrderRefs(onlineCourseId);
   const lesson = ordered.find((r) => r.id === lessonId && r.isActive);
   if (!lesson) {

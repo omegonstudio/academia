@@ -609,6 +609,11 @@ Distinct from live `Course` → `Group` → `ClassSession`. Uses `OnlineCourse*`
 - [x] Sitemap enumeration of published `/cursos/[slug]` (catálogo `/cursos` + slugs PUBLISHED).
 - [x] Integration test against real PostgreSQL (publish → enroll-free → progress).
 - [x] Seed Spanish2Go estructura: `npm run db:seed:spanish2go` importa taller (5/5) + Mis 4 amigos (11/40) en DRAFT desde `_research_out/spanish2go_migration/*.json`. Sin URLs de assets (0% contenido interno). Precio EUR se persiste en `FinanceCurrency` (ARS|USD|EUR). Gap residual: autora requiere Teacher FK (no bloquea cierre MVP).
+- [x] **LMS-01** — Candado LINEAR en mutaciones de alumno (`quiz/submit`, submissions) + tests HTTP (`feature/lms-01-linear-lock`).
+- [x] **LMS-02** — Formulario integrado de creación/edición de lección (sin `window.prompt`) en `/dashboard/online-courses/[id]`.
+- [x] **LMS-03** — Validación de publicación en dominio (`online-course-publish.ts`): título, descripción, ≥1 módulo, ≥1 lección publicada teachable (asset válido / quiz / `acceptsSubmission`), assets activos válidos; gate en `POST …/publish` y `PATCH status=PUBLISHED`; FE muestra requisitos; tests dominio + HTTP. Auditoría: `docs/audits/COURSES_LMS_AUDIT.md`; decisión #50.
+- [x] **LMS-04** — Integridad módulo/lección: soft-delete sin hard-delete ni borrado histórico; gate alumno exige módulo+lección activos (H5); restore vía PATCH `isActive` (admin permite inactive); sin cascade write ni migración. Informe `docs/audits/LMS-04_MODULE_LESSON_INTEGRITY.md`; decisión #51.
+- [x] **LMS-05** — Editor admin de quizzes multi-pregunta (H3): carga completa, guardado explícito, ConfirmDialog; upsert con `mode preserve` si hay attempts (bloquea delete/tipo); `attemptCount` en DTO; sin migración/versionado. Informe `docs/audits/LMS-05_QUIZ_ADMIN_EDITOR.md`; decisión #52.
 
 ### Front público Spanish2Go (oferta comercial)
 - [x] Home + nav pública: Profesores no nativos, Cursos online, Píldoras, Mentorías, Blabla2Go, CTA asesoría gratis.

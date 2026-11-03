@@ -3805,13 +3805,24 @@ export async function updateOnlineCourseBrowser(
       body: JSON.stringify(validated.data),
     });
     if (!response.ok) {
+      let apiMessage: string | undefined;
+      try {
+        const body = (await response.json()) as {
+          error?: { message?: string };
+        };
+        apiMessage = body.error?.message;
+      } catch {
+        /* ignore */
+      }
       return {
         ok: false,
         status: response.status,
-        message: genericError(
-          response.status,
-          'No pudimos actualizar el curso online.',
-        ),
+        message:
+          apiMessage ??
+          genericError(
+            response.status,
+            'No pudimos actualizar el curso online.',
+          ),
       };
     }
     const parsed = onlineCourseResponseSchema.safeParse(await response.json());
@@ -3842,10 +3853,19 @@ async function onlineCourseStatusActionBrowser(
       method: 'POST',
     });
     if (!response.ok) {
+      let apiMessage: string | undefined;
+      try {
+        const body = (await response.json()) as {
+          error?: { message?: string };
+        };
+        apiMessage = body.error?.message;
+      } catch {
+        /* ignore */
+      }
       return {
         ok: false,
         status: response.status,
-        message: genericError(response.status, fallback),
+        message: apiMessage ?? genericError(response.status, fallback),
       };
     }
     const parsed = onlineCourseResponseSchema.safeParse(await response.json());
@@ -5014,13 +5034,24 @@ export async function upsertOnlineQuizBrowser(
       },
     );
     if (!response.ok) {
+      let apiMessage: string | undefined;
+      try {
+        const errBody = (await response.json()) as {
+          error?: { message?: string };
+        };
+        apiMessage = errBody.error?.message;
+      } catch {
+        /* ignore */
+      }
       return {
         ok: false,
         status: response.status,
-        message: genericError(
-          response.status,
-          'No pudimos guardar el cuestionario.',
-        ),
+        message:
+          apiMessage ??
+          genericError(
+            response.status,
+            'No pudimos guardar el cuestionario.',
+          ),
       };
     }
     const parsed = z

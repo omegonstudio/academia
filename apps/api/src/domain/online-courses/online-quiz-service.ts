@@ -17,6 +17,7 @@ import {
   type OnlineQuizQuestionRecord,
   type OnlineQuizRecord,
 } from './online-course-service.js';
+import { requireActiveLessonInActiveModule } from './online-course-visibility.js';
 
 function validateQuizQuestions(
   questions: UpsertOnlineQuizRequest['questions'],
@@ -35,6 +36,7 @@ function validateQuizQuestions(
         );
       }
       return {
+        id: q.id,
         prompt: q.prompt,
         type: q.type,
         points: q.points ?? 1,
@@ -64,17 +66,73 @@ function validateQuizQuestions(
     }
 
     return {
+      id: q.id,
       prompt: q.prompt,
       type: q.type,
       points: q.points ?? 1,
       correctText: null,
       explanation: q.explanation ?? null,
       options: options.map((o) => ({
+        id: o.id,
         label: o.label,
         isCorrect: o.isCorrect,
       })),
     };
   });
+}
+
+/**
+ * When student attempts exist, structural deletes and type changes are blocked.
+ * Historical OnlineQuizAttempt rows (score + answersJson) are never deleted.
+ */
+export function assertQuizMutationSafeWithAttempts(
+  existing: OnlineQuizRecord,
+  incoming: OnlineQuizQuestionInput[],
+): void {
+  const byId = new Map(existing.questions.map((q) => [q.id, q] as const));
+  const incomingExistingIds = new Set(
+    incoming.map((q) => q.id).filter((id): id is string => Boolean(id)),
+  );
+
+  for (const question of existing.questions) {
+    if (!incomingExistingIds.has(question.id)) {
+      throw new OnlineCourseValidationError(
+        'No se pueden eliminar preguntas de un cuestionario con intentos de alumnos.',
+      );
+    }
+  }
+
+  for (const q of incoming) {
+    if (!q.id) continue;
+    const prev = byId.get(q.id);
+    if (!prev) {
+      throw new OnlineCourseValidationError(
+        'Una pregunta enviada no pertenece a este cuestionario.',
+      );
+    }
+    if (prev.type !== q.type) {
+      throw new OnlineCourseValidationError(
+        'No se puede cambiar el tipo de una pregunta con intentos de alumnos.',
+      );
+    }
+    const incomingOptionIds = new Set(
+      q.options.map((o) => o.id).filter((id): id is string => Boolean(id)),
+    );
+    for (const option of prev.options) {
+      if (!incomingOptionIds.has(option.id)) {
+        throw new OnlineCourseValidationError(
+          'No se pueden eliminar opciones de una pregunta con intentos de alumnos.',
+        );
+      }
+    }
+    for (const option of q.options) {
+      if (option.id && !prev.options.some((o) => o.id === option.id)) {
+        throw new OnlineCourseValidationError(
+          'Una opción enviada no pertenece a esta pregunta.',
+        );
+      }
+    }
+  }
 }
 
 export async function upsertQuiz(
@@ -88,14 +146,27 @@ export async function upsertQuiz(
   }
 
   const questions = validateQuizQuestions(input.questions);
+  const existing = await store.findQuizByLessonId(lessonId);
+  let mode: 'replace' | 'preserve' = 'replace';
+
+  if (existing) {
+    const attemptCount = await store.countQuizAttempts(existing.id);
+    if (attemptCount > 0) {
+      assertQuizMutationSafeWithAttempts(existing, questions);
+      mode = 'preserve';
+    }
+  }
+
   const record = await store.upsertQuiz({
     lessonId,
     title: input.title,
     passScorePercent:
       input.passScorePercent === undefined ? null : input.passScorePercent,
     questions,
+    mode,
   });
-  return toOnlineQuizAdminDto(record);
+  const attemptCount = await store.countQuizAttempts(record.id);
+  return toOnlineQuizAdminDto(record, attemptCount);
 }
 
 export async function getQuizAdmin(
@@ -106,7 +177,8 @@ export async function getQuizAdmin(
   if (!quiz || !quiz.isActive) {
     throw new OnlineCourseNotFoundError('Quiz not found.');
   }
-  return toOnlineQuizAdminDto(quiz);
+  const attemptCount = await store.countQuizAttempts(quiz.id);
+  return toOnlineQuizAdminDto(quiz, attemptCount);
 }
 
 /** Public quiz payload — strips isCorrect and correctText. */
@@ -135,17 +207,17 @@ function evaluateQuestion(
       }
     | undefined,
 ): { correct: boolean; pointsAwarded: number } {
-  const pointsPossible = question.points;
-
   if (question.type === 'SHORT_TEXT') {
-    const expected = question.correctText ?? '';
-    const given = answer?.textAnswer ?? '';
-    const correct =
-      normalizeShortText(given) === normalizeShortText(expected) &&
-      expected.trim().length > 0;
+    const expected = question.correctText
+      ? normalizeShortText(question.correctText)
+      : '';
+    const given = answer?.textAnswer
+      ? normalizeShortText(answer.textAnswer)
+      : '';
+    const correct = expected.length > 0 && given === expected;
     return {
       correct,
-      pointsAwarded: correct ? pointsPossible : 0,
+      pointsAwarded: correct ? question.points : 0,
     };
   }
 
@@ -155,26 +227,23 @@ function evaluateQuestion(
   );
 
   if (question.type === 'MULTIPLE_CHOICE') {
-    if (selected.size !== correctIds.size) {
-      return { correct: false, pointsAwarded: 0 };
-    }
-    for (const id of correctIds) {
-      if (!selected.has(id)) {
-        return { correct: false, pointsAwarded: 0 };
-      }
-    }
-    return { correct: true, pointsAwarded: pointsPossible };
+    const correct =
+      selected.size === correctIds.size &&
+      [...correctIds].every((id) => selected.has(id));
+    return {
+      correct,
+      pointsAwarded: correct ? question.points : 0,
+    };
   }
 
-  // SINGLE_CHOICE / TRUE_FALSE
-  if (selected.size !== 1) {
-    return { correct: false, pointsAwarded: 0 };
-  }
-  const only = [...selected][0]!;
-  const correct = correctIds.has(only);
+  // SINGLE_CHOICE / TRUE_FALSE — exactly one correct option.
+  const correct =
+    selected.size === 1 &&
+    correctIds.size === 1 &&
+    selected.has([...correctIds][0]!);
   return {
     correct,
-    pointsAwarded: correct ? pointsPossible : 0,
+    pointsAwarded: correct ? question.points : 0,
   };
 }
 
@@ -182,17 +251,17 @@ export function evaluateQuizAttempt(
   quiz: OnlineQuizRecord,
   answers: SubmitOnlineQuizRequest['answers'],
 ): OnlineQuizAttemptResult {
-  const answerByQuestion = new Map(answers.map((a) => [a.questionId, a]));
+  const byQuestion = new Map(answers.map((a) => [a.questionId, a] as const));
   let pointsAwardedTotal = 0;
   let pointsPossibleTotal = 0;
 
   const results = quiz.questions.map((question) => {
+    pointsPossibleTotal += question.points;
     const evaluation = evaluateQuestion(
       question,
-      answerByQuestion.get(question.id),
+      byQuestion.get(question.id),
     );
     pointsAwardedTotal += evaluation.pointsAwarded;
-    pointsPossibleTotal += question.points;
     return {
       questionId: question.id,
       correct: evaluation.correct,
@@ -222,6 +291,8 @@ export async function submitQuiz(
     preview?: boolean;
   },
 ): Promise<OnlineQuizAttemptResult> {
+  await requireActiveLessonInActiveModule(store, input.lessonId);
+
   const quiz = await store.findQuizByLessonId(input.lessonId);
   if (!quiz || !quiz.isActive) {
     throw new OnlineCourseNotFoundError('Quiz not found.');

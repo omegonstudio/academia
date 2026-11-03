@@ -551,6 +551,8 @@ export const onlineQuizAdminSchema = z.object({
   title: z.string(),
   passScorePercent: z.number().int().min(0).max(100).nullable(),
   isActive: z.boolean(),
+  /** Student attempts for this quiz (historical). Used to lock destructive edits. */
+  attemptCount: z.number().int().nonnegative(),
   questions: z.array(onlineQuizQuestionAdminSchema),
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),
@@ -563,6 +565,8 @@ export const upsertOnlineQuizRequestSchema = z.object({
   questions: z
     .array(
       z.object({
+        /** Existing question id — required to update in place when attempts exist. */
+        id: z.string().uuid().optional(),
         prompt: z.string().trim().min(1).max(2000),
         type: onlineQuizQuestionTypeSchema,
         points: z.number().int().positive().max(100).optional(),
@@ -571,6 +575,7 @@ export const upsertOnlineQuizRequestSchema = z.object({
         options: z
           .array(
             z.object({
+              id: z.string().uuid().optional(),
               label: z.string().trim().min(1).max(1000),
               isCorrect: z.boolean(),
             }),

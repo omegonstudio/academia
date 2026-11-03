@@ -1040,17 +1040,20 @@ export function createOnlineCourseStore(database: Database): OnlineCourseStore {
       return row ? mapQuiz(row) : null;
     },
 
+    async countQuizAttempts(quizId) {
+      return database.onlineQuizAttempt.count({ where: { quizId } });
+    },
+
     async upsertQuiz(input) {
       return database.$transaction(async (tx) => {
         const existing = await tx.onlineQuiz.findUnique({
           where: { lessonId: input.lessonId },
-          select: { id: true },
+          include: quizInclude,
         });
 
         let quizId: string;
         if (existing) {
           quizId = existing.id;
-          await tx.onlineQuizQuestion.deleteMany({ where: { quizId } });
           await tx.onlineQuiz.update({
             where: { id: quizId },
             data: {
@@ -1059,6 +1062,96 @@ export function createOnlineCourseStore(database: Database): OnlineCourseStore {
               isActive: true,
             },
           });
+
+          if (input.mode === 'replace') {
+            await tx.onlineQuizQuestion.deleteMany({ where: { quizId } });
+            for (let qIndex = 0; qIndex < input.questions.length; qIndex++) {
+              const q = input.questions[qIndex]!;
+              const question = await tx.onlineQuizQuestion.create({
+                data: {
+                  quizId,
+                  prompt: q.prompt,
+                  type: q.type,
+                  position: qIndex,
+                  points: q.points,
+                  correctText: q.correctText,
+                  explanation: q.explanation,
+                },
+              });
+              if (q.options.length > 0) {
+                await tx.onlineQuizOption.createMany({
+                  data: q.options.map((o, oIndex) => ({
+                    questionId: question.id,
+                    label: o.label,
+                    position: oIndex,
+                    isCorrect: o.isCorrect,
+                  })),
+                });
+              }
+            }
+          } else {
+            // preserve: update/create by id; never delete questions/options here.
+            for (let qIndex = 0; qIndex < input.questions.length; qIndex++) {
+              const q = input.questions[qIndex]!;
+              if (q.id) {
+                await tx.onlineQuizQuestion.update({
+                  where: { id: q.id },
+                  data: {
+                    prompt: q.prompt,
+                    type: q.type,
+                    position: qIndex,
+                    points: q.points,
+                    correctText: q.correctText,
+                    explanation: q.explanation,
+                  },
+                });
+                for (let oIndex = 0; oIndex < q.options.length; oIndex++) {
+                  const o = q.options[oIndex]!;
+                  if (o.id) {
+                    await tx.onlineQuizOption.update({
+                      where: { id: o.id },
+                      data: {
+                        label: o.label,
+                        position: oIndex,
+                        isCorrect: o.isCorrect,
+                      },
+                    });
+                  } else {
+                    await tx.onlineQuizOption.create({
+                      data: {
+                        questionId: q.id,
+                        label: o.label,
+                        position: oIndex,
+                        isCorrect: o.isCorrect,
+                      },
+                    });
+                  }
+                }
+              } else {
+                const question = await tx.onlineQuizQuestion.create({
+                  data: {
+                    quizId,
+                    prompt: q.prompt,
+                    type: q.type,
+                    position: qIndex,
+                    points: q.points,
+                    correctText: q.correctText,
+                    explanation: q.explanation,
+                  },
+                });
+                if (q.options.length > 0) {
+                  await tx.onlineQuizOption.createMany({
+                    data: q.options.map((o, oIndex) => ({
+                      questionId: question.id,
+                      label: o.label,
+                      position: oIndex,
+                      isCorrect: o.isCorrect,
+                    })),
+                  });
+                }
+              }
+            }
+          }
         } else {
           const created = await tx.onlineQuiz.create({
             data: {
@@ -1068,30 +1161,29 @@ export function createOnlineCourseStore(database: Database): OnlineCourseStore {
             },
           });
           quizId = created.id;
-        }
-
-        for (let qIndex = 0; qIndex < input.questions.length; qIndex++) {
-          const q = input.questions[qIndex]!;
-          const question = await tx.onlineQuizQuestion.create({
-            data: {
-              quizId,
-              prompt: q.prompt,
-              type: q.type,
-              position: qIndex,
-              points: q.points,
-              correctText: q.correctText,
-              explanation: q.explanation,
-            },
-          });
-          if (q.options.length > 0) {
-            await tx.onlineQuizOption.createMany({
-              data: q.options.map((o, oIndex) => ({
-                questionId: question.id,
-                label: o.label,
-                position: oIndex,
-                isCorrect: o.isCorrect,
-              })),
+          for (let qIndex = 0; qIndex < input.questions.length; qIndex++) {
+            const q = input.questions[qIndex]!;
+            const question = await tx.onlineQuizQuestion.create({
+              data: {
+                quizId,
+                prompt: q.prompt,
+                type: q.type,
+                position: qIndex,
+                points: q.points,
+                correctText: q.correctText,
+                explanation: q.explanation,
+              },
             });
+            if (q.options.length > 0) {
+              await tx.onlineQuizOption.createMany({
+                data: q.options.map((o, oIndex) => ({
+                  questionId: question.id,
+                  label: o.label,
+                  position: oIndex,
+                  isCorrect: o.isCorrect,
+                })),
+              });
+            }
           }
         }
 

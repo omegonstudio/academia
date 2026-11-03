@@ -138,6 +138,7 @@ describe('online courses integration', () => {
     const course = await createOnlineCourse(store, {
       title: 'Integration Online Course',
       slug,
+      description: 'Curso de integración con contenido mínimo.',
       accessMode: 'OPEN',
     });
     expect(course.status).toBe('DRAFT');

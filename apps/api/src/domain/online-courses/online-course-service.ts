@@ -49,6 +49,7 @@ import type {
   MaterialUrlTtls,
 } from '../materials/material-service.js';
 import { maxBytesForMime } from '../materials/material-service.js';
+import { assertOnlineCourseReadyToPublish } from './online-course-publish.js';
 
 export class OnlineCourseNotFoundError extends Error {
   constructor(message = 'Online course not found.') {
@@ -249,12 +250,14 @@ export interface OnlineLessonOrderRef {
 }
 
 export interface OnlineQuizQuestionInput {
+  /** Persist id when updating an existing question (LMS-05 historical safety). */
+  id?: string;
   prompt: string;
   type: OnlineQuizQuestionType;
   points: number;
   correctText: string | null;
   explanation: string | null;
-  options: Array<{ label: string; isCorrect: boolean }>;
+  options: Array<{ id?: string; label: string; isCorrect: boolean }>;
 }
 
 /**
@@ -441,11 +444,18 @@ export interface OnlineCourseStore {
 
   // —— Quiz ——
   findQuizByLessonId(lessonId: string): Promise<OnlineQuizRecord | null>;
+  countQuizAttempts(quizId: string): Promise<number>;
+  /**
+   * Upsert quiz structure.
+   * `mode: 'replace'` deletes and recreates questions (only when no attempts).
+   * `mode: 'preserve'` updates/creates by id and never deletes historical graph nodes.
+   */
   upsertQuiz(input: {
     lessonId: string;
     title: string;
     passScorePercent: number | null;
     questions: OnlineQuizQuestionInput[];
+    mode: 'replace' | 'preserve';
   }): Promise<OnlineQuizRecord>;
   createQuizAttempt(input: {
     quizId: string;
@@ -622,13 +632,17 @@ export function toOnlineLessonSubmissionDto(
   };
 }
 
-export function toOnlineQuizAdminDto(record: OnlineQuizRecord): OnlineQuizAdmin {
+export function toOnlineQuizAdminDto(
+  record: OnlineQuizRecord,
+  attemptCount = 0,
+): OnlineQuizAdmin {
   return {
     id: record.id,
     lessonId: record.lessonId,
     title: record.title,
     passScorePercent: record.passScorePercent,
     isActive: record.isActive,
+    attemptCount,
     questions: record.questions.map((q) => ({
       id: q.id,
       prompt: q.prompt,
@@ -791,7 +805,7 @@ export async function updateOnlineCourse(
   id: string,
   input: UpdateOnlineCourseRequest,
 ): Promise<OnlineCourse> {
-  await requireCourse(store, id);
+  const current = await requireCourse(store, id);
 
   let amountMinor: bigint | null | undefined;
   let currency: FinanceCurrency | null | undefined;
@@ -822,6 +836,17 @@ export async function updateOnlineCourse(
     }
   }
 
+  const nextStatus = input.status;
+  const publishing =
+    nextStatus === 'PUBLISHED' && current.status !== 'PUBLISHED';
+  if (publishing) {
+    // Validate merged title/description + persisted structure before status write.
+    await assertOnlineCourseReadyToPublish(store, id, {
+      title: input.title,
+      description: input.description,
+    });
+  }
+
   try {
     const record = await store.updateCourse(id, {
       title: input.title,
@@ -850,7 +875,7 @@ export async function updateOnlineCourse(
   }
 }
 
-/** Publish via status=PUBLISHED. */
+/** Publish via status=PUBLISHED (same readiness gate as PATCH status). */
 export async function publishOnlineCourse(
   store: OnlineCourseStore,
   id: string,
