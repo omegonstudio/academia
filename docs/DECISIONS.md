@@ -1097,3 +1097,84 @@ offer text in `_research_out/spanish2go_migration/OFERTA_COMERCIAL_PUBLICA.md`.
 
 **Consequence.** `publicRoutes` / sitemap expand; home links to section pages;
 asesoría CTA uses public mailto/tel until booking is integrated.
+
+---
+
+## 50. Online course publish readiness (LMS-03)
+
+**Context.** `publishOnlineCourse` previously set `status=PUBLISHED` with no
+structural checks, so empty courses could appear in the public catalog. PATCH
+`status=PUBLISHED` was an equivalent bypass.
+
+**Decision.** Domain gate `assertOnlineCourseReadyToPublish` runs before any
+transition to `PUBLISHED` (POST `/publish` and PATCH). Minimum rules without
+schema changes:
+
+- non-empty title and description;
+- ≥1 active module;
+- ≥1 active `PUBLISHED` lesson;
+- every active `PUBLISHED` lesson must be teachable via valid asset content,
+  active quiz with ≥1 question, or `acceptsSubmission`;
+- every active asset on those lessons must be valid for its kind
+  (TEXT body, LINK/VIDEO URL, DOCUMENT `READY`+storageKey).
+
+OPEN and LINEAR share the same rules. Failed publish does not write status and
+does not touch enrollments/progress. Messages are Spanish for admin UI.
+
+**Consequence.** Existing PUBLISHED rows are untouched until republish; drafts
+without description/structure cannot go live. Helpers/tests must seed
+description + teachable published lessons.
+
+---
+
+## 51. Online module/lesson soft-delete integrity (LMS-04)
+
+**Context.** Soft-deleting a module (`PATCH isActive: false`) did not cascade to
+lessons. Student GET lesson / assets / quiz / submissions on OPEN courses only
+checked `lesson.isActive`, so content under an inactive module remained
+reachable by UUID. Admin PATCH required an active module, so restore was
+impossible after soft-delete. Prisma uses `onDelete: Restrict`; hard-delete is
+not the product path.
+
+**Decision.** No schema change. Policy:
+
+- Soft-delete only (`isActive`); never hard-delete modules/lessons/content/
+  progress/submissions/quiz attempts.
+- Do **not** cascade-write lesson `isActive` when deactivating a module (avoids
+  losing the distinction between module hide vs individual lesson hide without
+  new columns).
+- Student-facing access requires **both** active module and active lesson
+  (`requireActiveLessonInActiveModule`); inactive → NotFound.
+- `listLessonOrderRefs` already excludes inactive modules (outline / LINEAR /
+  progress).
+- Restore = PATCH `isActive: true`. Admin PATCH allows inactive modules/lessons
+  so restore works. Restoring a module re-exposes lessons that stayed active;
+  individually deactivated lessons stay inactive.
+
+**Consequence.** OPEN and LINEAR students cannot reach soft-deleted module
+content. Historical academic rows remain. Cascade soft-delete of lessons (or
+`deactivatedByModuleId`) would need a migration — deferred unless product
+requires admin lesson lists under inactive modules to look empty.
+
+---
+
+## 52. Quiz admin upsert preserves attempts without versioning (LMS-05)
+
+**Context.** Admin UI only edited one SINGLE_CHOICE question and called
+`PUT …/quiz` which `deleteMany`’d all questions — destroying rich quizzes.
+Student answers live in `OnlineQuizAttempt.answersJson` (FK to quiz, not
+questions); scores survive question deletes but structure IDs in JSON become
+orphans and accidental wipe is unacceptable.
+
+**Decision.** No quiz versioning migration. Additive contract: optional
+question/option `id` on upsert; `attemptCount` on admin DTO.
+
+- `attemptCount === 0` → `mode: 'replace'` (full recreate, previous behavior).
+- `attemptCount > 0` → `mode: 'preserve'`: update/create by id; **reject**
+  deleting existing questions/options or changing question type. Title,
+  prompts, points, correctness, reorder, and new questions remain allowed.
+- Attempts rows are never deleted by upsert.
+
+**Consequence.** Admins can maintain live quizzes safely; structural shrink
+after first student attempt requires a future versioned-quiz design (new
+migration) if product demands it.

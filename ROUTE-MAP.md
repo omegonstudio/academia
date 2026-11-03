@@ -43,7 +43,7 @@ cableados a API real (Fase 3). Sin DEV bypass. `lib/academy-data.ts` eliminado (
 | `[x]`  | `/dashboard/courses` | API real `GET/POST /courses` (`courseType`/`serviceType`). Session gate via layout. |
 | `[x]`  | `/dashboard/courses/[id]` | API real `GET/PATCH/DELETE` (soft-delete) + sección Materiales (LINK + FILE 3-step). Session gate via layout. |
 | `[x]`  | `/dashboard/online-courses` | Backoffice cursos online: listado + crear (`GET/POST /online-courses`). |
-| `[x]`  | `/dashboard/online-courses/[id]` | Editor: datos, publish/unpublish/archive, módulos/lecciones/assets. |
+| `[x]`  | `/dashboard/online-courses/[id]` | Editor: datos, publish/unpublish/archive (LMS-03: requisitos de publicación), módulos/lecciones/assets (LMS-02: form lección). |
 | `[x]`  | `/dashboard/student/courses` | Estudiante: cursos online inscritos + progreso %. |
 | `[x]`  | `/dashboard/student/courses/[slug]` | Viewer: temario, lección, progreso, quiz, prev/next. |
 | `[x]`  | `/dashboard/groups` | API real `GET/POST /groups` (+ teacher/schedule opcionales al crear). Session gate via layout. |
@@ -273,9 +273,9 @@ Storage: private S3-compatible bucket (MinIO dev / Spaces prod); short-lived sig
 | ------ | ------ | ---- | ----- |
 | `[x]` | GET/POST | `/online-courses` | List / create |
 | `[x]` | GET/PATCH/DELETE | `/online-courses/:id` | Read / update / soft-delete |
-| `[x]` | POST | `/online-courses/:id/publish` \| `/unpublish` \| `/archive` | Status transitions |
+| `[x]` | POST | `/online-courses/:id/publish` \| `/unpublish` \| `/archive` | Status transitions (publish: readiness gate LMS-03; same gate on PATCH `status=PUBLISHED`) |
 | `[x]` | GET/POST | `/online-courses/:id/modules` | Modules CRUD list/create |
-| `[x]` | PATCH | `/online-courses/:courseId/modules/:moduleId` | Update module |
+| `[x]` | PATCH | `/online-courses/:courseId/modules/:moduleId` | Update module (LMS-04: soft-delete/restore via `isActive`; inactive patchable) |
 | `[x]` | POST | `/online-courses/:id/modules/reorder` | Reorder modules |
 | `[x]` | GET/POST | `/online-courses/:courseId/modules/:moduleId/lessons` | Lessons |
 | `[x]` | PATCH | `…/lessons/:lessonId` | Update lesson |
@@ -285,7 +285,7 @@ Storage: private S3-compatible bucket (MinIO dev / Spaces prod); short-lived sig
 | `[x]` | POST | `/online-courses/assets/:assetId/complete` | Verify object → READY |
 | `[x]` | PATCH/DELETE | `/online-courses/assets/:assetId` | Update / soft-delete |
 | `[x]` | GET | `/online-courses/assets/:assetId/download` | Signed GET / externalUrl |
-| `[x]` | PUT/GET | `/online-courses/lessons/:lessonId/quiz` | Admin quiz (includes correct answers) |
+| `[x]` | PUT/GET | `/online-courses/lessons/:lessonId/quiz` | Admin quiz (LMS-05: multi-question upsert; preserve IDs if attempts; `attemptCount`) |
 | `[x]` | POST/DELETE | `/online-courses/:id/access` | Grant / revoke student access |
 | `[x]` | GET | `/online-courses/:id/preview` | Student-like outline without access grant |
 

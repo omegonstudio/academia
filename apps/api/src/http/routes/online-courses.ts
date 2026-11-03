@@ -117,9 +117,13 @@ async function requireModuleInCourse(
   store: OnlineCourseStore,
   courseId: string,
   moduleId: string,
+  options?: { allowInactive?: boolean },
 ) {
   const mod = await store.findModuleById(moduleId);
-  if (!mod || !mod.isActive || mod.onlineCourseId !== courseId) {
+  if (!mod || mod.onlineCourseId !== courseId) {
+    throw new OnlineCourseNotFoundError('Module not found.');
+  }
+  if (!options?.allowInactive && !mod.isActive) {
     throw new OnlineCourseNotFoundError('Module not found.');
   }
   return mod;
@@ -129,9 +133,13 @@ async function requireLessonInModule(
   store: OnlineCourseStore,
   moduleId: string,
   lessonId: string,
+  options?: { allowInactive?: boolean },
 ) {
   const lesson = await store.findLessonById(lessonId);
-  if (!lesson || !lesson.isActive || lesson.moduleId !== moduleId) {
+  if (!lesson || lesson.moduleId !== moduleId) {
+    throw new OnlineCourseNotFoundError('Lesson not found.');
+  }
+  if (!options?.allowInactive && !lesson.isActive) {
     throw new OnlineCourseNotFoundError('Lesson not found.');
   }
   return lesson;
@@ -556,7 +564,10 @@ export function createOnlineCoursesRouter({
           if (!courseId || !moduleId) {
             throw new BadRequestError('Course id and module id are required.');
           }
-          await requireModuleInCourse(onlineCourses, courseId, moduleId);
+          // allowInactive: soft-deleted modules must be patchable to restore.
+          await requireModuleInCourse(onlineCourses, courseId, moduleId, {
+            allowInactive: true,
+          });
           const parsed = updateOnlineCourseModuleRequestSchema.safeParse(
             req.body,
           );
@@ -679,8 +690,12 @@ export function createOnlineCoursesRouter({
               'Course id, module id and lesson id are required.',
             );
           }
+          // allowInactive: restore soft-deleted lessons; module must still be active
+          // for structural edits under a live module tree.
           await requireModuleInCourse(onlineCourses, courseId, moduleId);
-          await requireLessonInModule(onlineCourses, moduleId, lessonId);
+          await requireLessonInModule(onlineCourses, moduleId, lessonId, {
+            allowInactive: true,
+          });
           const parsed = updateOnlineLessonRequestSchema.safeParse(req.body);
           if (!parsed.success) {
             throw new BadRequestError('Invalid lesson update payload.');

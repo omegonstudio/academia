@@ -47,6 +47,7 @@ import {
   createSubmission,
   listOwnSubmissions,
 } from '../../domain/online-courses/online-submission-service.js';
+import { requireActiveLessonInActiveModule } from '../../domain/online-courses/online-course-visibility.js';
 import type { StudentStore } from '../../domain/students/student-service.js';
 import type { ObjectStoragePort } from '../../storage/object-storage.js';
 import {
@@ -70,6 +71,38 @@ export interface StudentOnlineCoursesDependencies {
 
 function pathId(raw: string | string[] | undefined): string | undefined {
   return typeof raw === 'string' ? raw : raw?.[0];
+}
+
+/**
+ * Student content gate: lesson + parent module must be active, then LINEAR lock.
+ * Inactive module/lesson → NotFound (not Forbidden) so OPEN cannot bypass by UUID.
+ */
+async function assertStudentLessonUnlocked(
+  onlineCourses: OnlineCourseStore,
+  course: Pick<OnlineCourse, 'id' | 'accessMode'>,
+  studentId: string,
+  lessonId: string,
+): Promise<void> {
+  await requireActiveLessonInActiveModule(onlineCourses, lessonId);
+
+  const ordered = await onlineCourses.listLessonOrderRefs(course.id);
+  const progressByLessonId = await getProgressMapForCourse(
+    onlineCourses,
+    studentId,
+    course.id,
+  );
+  if (
+    isLessonLockedInCourse(
+      course.accessMode,
+      lessonId,
+      ordered,
+      progressByLessonId,
+    )
+  ) {
+    throw new OnlineCourseForbiddenError(
+      'Complete previous required lessons before continuing.',
+    );
+  }
 }
 
 function mapDomainError(error: unknown): never {
@@ -226,6 +259,10 @@ export function createStudentOnlineCoursesRouter({
           if (!asset || !asset.isActive) {
             throw new OnlineCourseNotFoundError('Asset not found.');
           }
+          await requireActiveLessonInActiveModule(
+            onlineCourses,
+            asset.lessonId,
+          );
           const courseId = await onlineCourses.findCourseIdForLesson(
             asset.lessonId,
           );
@@ -380,8 +417,11 @@ export function createStudentOnlineCoursesRouter({
           );
           await requireStudentAccess(onlineCourses, studentId, course.id);
 
-          const lesson = await onlineCourses.findLessonById(lessonId);
-          if (!lesson || !lesson.isActive || lesson.status !== 'PUBLISHED') {
+          const { lesson } = await requireActiveLessonInActiveModule(
+            onlineCourses,
+            lessonId,
+          );
+          if (lesson.status !== 'PUBLISHED') {
             throw new OnlineCourseNotFoundError('Lesson not found.');
           }
           const courseIdForLesson =
@@ -530,24 +570,12 @@ export function createStudentOnlineCoursesRouter({
             throw new OnlineCourseNotFoundError('Lesson not found.');
           }
 
-          const ordered = await onlineCourses.listLessonOrderRefs(course.id);
-          const progressByLessonId = await getProgressMapForCourse(
+          await assertStudentLessonUnlocked(
             onlineCourses,
+            course,
             studentId,
-            course.id,
+            lessonId,
           );
-          if (
-            isLessonLockedInCourse(
-              course.accessMode,
-              lessonId,
-              ordered,
-              progressByLessonId,
-            )
-          ) {
-            throw new OnlineCourseForbiddenError(
-              'Complete previous required lessons before continuing.',
-            );
-          }
 
           const quiz = await getQuizPublic(onlineCourses, lessonId);
           res.status(200).json({ quiz } satisfies { quiz: OnlineQuizPublic });
@@ -585,6 +613,13 @@ export function createStudentOnlineCoursesRouter({
           if (courseIdForLesson !== course.id) {
             throw new OnlineCourseNotFoundError('Lesson not found.');
           }
+
+          await assertStudentLessonUnlocked(
+            onlineCourses,
+            course,
+            studentId,
+            lessonId,
+          );
 
           const parsed = submitOnlineQuizRequestSchema.safeParse(req.body);
           if (!parsed.success) {
@@ -635,6 +670,13 @@ export function createStudentOnlineCoursesRouter({
             throw new OnlineCourseNotFoundError('Lesson not found.');
           }
 
+          await assertStudentLessonUnlocked(
+            onlineCourses,
+            course,
+            studentId,
+            lessonId,
+          );
+
           const parsed = createOnlineLessonSubmissionRequestSchema.safeParse(
             req.body,
           );
@@ -684,6 +726,13 @@ export function createStudentOnlineCoursesRouter({
           if (courseIdForLesson !== course.id) {
             throw new OnlineCourseNotFoundError('Lesson not found.');
           }
+
+          await assertStudentLessonUnlocked(
+            onlineCourses,
+            course,
+            studentId,
+            lessonId,
+          );
 
           const submissions = await listOwnSubmissions(
             onlineCourses,

@@ -11,6 +11,7 @@ import {
   toOnlineLessonSubmissionDto,
   type OnlineCourseStore,
 } from './online-course-service.js';
+import { requireActiveLessonInActiveModule } from './online-course-visibility.js';
 
 export async function createSubmission(
   store: OnlineCourseStore,
@@ -21,10 +22,10 @@ export async function createSubmission(
     preview?: boolean;
   },
 ): Promise<OnlineLessonSubmission | null> {
-  const lesson = await store.findLessonById(input.lessonId);
-  if (!lesson || !lesson.isActive) {
-    throw new OnlineCourseNotFoundError('Lesson not found.');
-  }
+  const { lesson } = await requireActiveLessonInActiveModule(
+    store,
+    input.lessonId,
+  );
   if (!lesson.acceptsSubmission) {
     throw new OnlineCourseValidationError(
       'This lesson does not accept submissions.',
@@ -76,10 +77,8 @@ export async function listOwnSubmissions(
   lessonId: string,
   studentId: string,
 ): Promise<OnlineLessonSubmission[]> {
-  const lesson = await store.findLessonById(lessonId);
-  if (!lesson || !lesson.isActive) {
-    throw new OnlineCourseNotFoundError('Lesson not found.');
-  }
+  // Soft-deleted module/lesson hides student listing; rows remain in store.
+  await requireActiveLessonInActiveModule(store, lessonId);
 
   const rows = await store.listSubmissionsByLessonAndStudent(
     lessonId,

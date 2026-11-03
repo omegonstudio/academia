@@ -22,11 +22,13 @@ import {
   type OnlineLessonAsset,
   type OnlineLessonStatus,
   type OnlineCourseModule,
+  type OnlineQuizQuestionType,
 } from '@academia/shared'
 import {
   FINANCE_CURRENCIES,
   ONLINE_COURSE_ACCESS_MODES,
   ONLINE_LESSON_STATUSES,
+  ONLINE_QUIZ_QUESTION_TYPES,
 } from '@academia/shared'
 import { DashboardShell, PageHeader } from '@/components/dashboard-shell'
 import {
@@ -34,6 +36,7 @@ import {
   Badge,
   Button,
   Card,
+  ConfirmDialog,
   Field,
   Input,
   Select,
@@ -76,12 +79,203 @@ type ModuleBlock = {
   loadingLessons: boolean
 }
 
+type NewLessonFormState = {
+  title: string
+  estimatedMinutes: string
+  isRequired: boolean
+  acceptsSubmission: boolean
+  status: OnlineLessonStatus
+}
+
+const EMPTY_NEW_LESSON_FORM: NewLessonFormState = {
+  title: '',
+  estimatedMinutes: '',
+  isRequired: true,
+  acceptsSubmission: false,
+  status: 'DRAFT',
+}
+
+function NewLessonForm({
+  formId,
+  value,
+  error,
+  saving,
+  onChange,
+  onCancel,
+  onSubmit,
+}: {
+  formId: string
+  value: NewLessonFormState
+  error: string
+  saving: boolean
+  onChange: (next: NewLessonFormState) => void
+  onCancel: () => void
+  onSubmit: () => void
+}) {
+  const titleId = `${formId}-title`
+  const minutesId = `${formId}-minutes`
+  const statusId = `${formId}-status`
+
+  return (
+    <form
+      className="mb-4 space-y-3 rounded-xl border border-border bg-surface-muted/40 p-3"
+      onSubmit={(event) => {
+        event.preventDefault()
+        onSubmit()
+      }}
+      aria-labelledby={`${formId}-heading`}
+    >
+      <h3 id={`${formId}-heading`} className="text-sm font-semibold">
+        Nueva lección
+      </h3>
+      {error ? <Alert>{error}</Alert> : null}
+      <Field
+        label="Título"
+        htmlFor={titleId}
+        error={
+          error && !value.title.trim()
+            ? 'Ingresá el título de la lección.'
+            : undefined
+        }
+      >
+        <Input
+          id={titleId}
+          value={value.title}
+          onChange={(e) => onChange({ ...value, title: e.target.value })}
+          placeholder="Ej. Introducción al módulo"
+          required
+          autoFocus
+          disabled={saving}
+          aria-invalid={Boolean(error && !value.title.trim())}
+        />
+      </Field>
+      <div className="flex flex-wrap gap-3">
+        <Field label="Duración (minutos)" htmlFor={minutesId}>
+          <Input
+            id={minutesId}
+            className="w-28"
+            type="number"
+            min={1}
+            value={value.estimatedMinutes}
+            onChange={(e) =>
+              onChange({ ...value, estimatedMinutes: e.target.value })
+            }
+            disabled={saving}
+          />
+        </Field>
+        <Field label="Estado" htmlFor={statusId}>
+          <Select
+            id={statusId}
+            className="w-auto"
+            value={value.status}
+            onChange={(e) =>
+              onChange({
+                ...value,
+                status: e.target.value as OnlineLessonStatus,
+              })
+            }
+            disabled={saving}
+          >
+            {ONLINE_LESSON_STATUSES.map((s) => (
+              <option key={s} value={s}>
+                {s === 'PUBLISHED' ? 'Publicada' : 'Borrador'}
+              </option>
+            ))}
+          </Select>
+        </Field>
+      </div>
+      <div className="flex flex-wrap gap-4 text-sm">
+        <label className="flex items-center gap-2 font-medium">
+          <input
+            type="checkbox"
+            checked={value.isRequired}
+            onChange={(e) =>
+              onChange({ ...value, isRequired: e.target.checked })
+            }
+            disabled={saving}
+          />
+          Lección obligatoria
+        </label>
+        <label className="flex items-center gap-2 font-medium">
+          <input
+            type="checkbox"
+            checked={value.acceptsSubmission}
+            onChange={(e) =>
+              onChange({ ...value, acceptsSubmission: e.target.checked })
+            }
+            disabled={saving}
+          />
+          Acepta entregas
+        </label>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        <Button type="submit" size="sm" disabled={saving || !value.title.trim()}>
+          {saving ? 'Creando…' : 'Crear lección'}
+        </Button>
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          disabled={saving}
+          onClick={onCancel}
+        >
+          Cancelar
+        </Button>
+      </div>
+    </form>
+  )
+}
+
 function statusTone(
   status: OnlineCourse['status'],
 ): 'neutral' | 'success' | 'warning' {
   if (status === 'PUBLISHED') return 'success'
   if (status === 'ARCHIVED') return 'neutral'
   return 'warning'
+}
+
+type DraftQuizOption = {
+  clientKey: string
+  id?: string
+  label: string
+  isCorrect: boolean
+}
+
+type DraftQuizQuestion = {
+  clientKey: string
+  id?: string
+  prompt: string
+  type: OnlineQuizQuestionType
+  points: string
+  correctText: string
+  explanation: string
+  options: DraftQuizOption[]
+}
+
+function newClientKey(): string {
+  return `tmp-${crypto.randomUUID()}`
+}
+
+function emptyDraftQuestion(): DraftQuizQuestion {
+  return {
+    clientKey: newClientKey(),
+    prompt: '',
+    type: 'SINGLE_CHOICE',
+    points: '1',
+    correctText: '',
+    explanation: '',
+    options: [
+      { clientKey: newClientKey(), label: '', isCorrect: true },
+      { clientKey: newClientKey(), label: '', isCorrect: false },
+    ],
+  }
+}
+
+const QUIZ_TYPE_LABELS: Record<OnlineQuizQuestionType, string> = {
+  SINGLE_CHOICE: 'Opción única',
+  MULTIPLE_CHOICE: 'Opción múltiple',
+  TRUE_FALSE: 'Verdadero / Falso',
+  SHORT_TEXT: 'Texto corto',
 }
 
 function LessonQuizEditor({
@@ -93,120 +287,587 @@ function LessonQuizEditor({
   onError: (message: string) => void
   onSuccess: (message: string) => void
 }) {
+  const [loading, setLoading] = useState(true)
   const [title, setTitle] = useState('Cuestionario')
   const [passScore, setPassScore] = useState('70')
-  const [prompt, setPrompt] = useState('')
-  const [optionA, setOptionA] = useState('')
-  const [optionB, setOptionB] = useState('')
-  const [correct, setCorrect] = useState<'A' | 'B'>('A')
+  const [questions, setQuestions] = useState<DraftQuizQuestion[]>([
+    emptyDraftQuestion(),
+  ])
+  const [attemptCount, setAttemptCount] = useState(0)
+  const [hasExistingQuiz, setHasExistingQuiz] = useState(false)
   const [saving, setSaving] = useState(false)
-  const [existingTitle, setExistingTitle] = useState<string | null>(null)
+  const [localError, setLocalError] = useState('')
+  const [pendingDeleteKey, setPendingDeleteKey] = useState<string | null>(null)
 
-  useEffect(() => {
-    let cancelled = false
-    void (async () => {
-      const result = await getOnlineQuizAdminBrowser(lessonId)
-      if (cancelled || !result.ok || !result.data) return
-      setExistingTitle(result.data.title)
-      setTitle(result.data.title)
-      setPassScore(
-        result.data.passScorePercent !== null
-          ? String(result.data.passScorePercent)
-          : '',
-      )
-    })()
-    return () => {
-      cancelled = true
-    }
-  }, [lessonId])
-
-  async function saveQuiz() {
-    if (!prompt.trim() || !optionA.trim() || !optionB.trim() || saving) return
-    setSaving(true)
-    const pass =
-      passScore.trim() === '' ? null : Number.parseInt(passScore.trim(), 10)
-    const result = await upsertOnlineQuizBrowser(lessonId, {
-      title: title.trim() || 'Cuestionario',
-      passScorePercent:
-        pass !== null && Number.isFinite(pass) ? pass : null,
-      questions: [
-        {
-          prompt: prompt.trim(),
-          type: 'SINGLE_CHOICE',
-          points: 1,
-          options: [
-            { label: optionA.trim(), isCorrect: correct === 'A' },
-            { label: optionB.trim(), isCorrect: correct === 'B' },
-          ],
-        },
-      ],
-    })
-    setSaving(false)
+  const load = useCallback(async () => {
+    setLoading(true)
+    setLocalError('')
+    const result = await getOnlineQuizAdminBrowser(lessonId)
+    setLoading(false)
     if (!result.ok) {
       onError(result.message)
       return
     }
-    setExistingTitle(result.data.title)
+    if (!result.data) {
+      setHasExistingQuiz(false)
+      setAttemptCount(0)
+      setTitle('Cuestionario')
+      setPassScore('70')
+      setQuestions([emptyDraftQuestion()])
+      return
+    }
+    const quiz = result.data
+    setHasExistingQuiz(true)
+    setAttemptCount(quiz.attemptCount)
+    setTitle(quiz.title)
+    setPassScore(
+      quiz.passScorePercent !== null ? String(quiz.passScorePercent) : '',
+    )
+    setQuestions(
+      quiz.questions.map((q) => ({
+        clientKey: q.id,
+        id: q.id,
+        prompt: q.prompt,
+        type: q.type,
+        points: String(q.points),
+        correctText: q.correctText ?? '',
+        explanation: q.explanation ?? '',
+        options:
+          q.type === 'SHORT_TEXT'
+            ? []
+            : q.options.map((o) => ({
+                clientKey: o.id,
+                id: o.id,
+                label: o.label,
+                isCorrect: o.isCorrect,
+              })),
+      })),
+    )
+  }, [lessonId, onError])
+
+  useEffect(() => {
+    void load()
+  }, [load])
+
+  function updateQuestion(
+    clientKey: string,
+    patch: Partial<DraftQuizQuestion>,
+  ) {
+    setQuestions((current) =>
+      current.map((q) => (q.clientKey === clientKey ? { ...q, ...patch } : q)),
+    )
+  }
+
+  function moveQuestion(clientKey: string, direction: -1 | 1) {
+    setQuestions((current) => {
+      const index = current.findIndex((q) => q.clientKey === clientKey)
+      if (index < 0) return current
+      const target = index + direction
+      if (target < 0 || target >= current.length) return current
+      const next = [...current]
+      const [item] = next.splice(index, 1)
+      next.splice(target, 0, item!)
+      return next
+    })
+  }
+
+  function requestDeleteQuestion(clientKey: string) {
+    const question = questions.find((q) => q.clientKey === clientKey)
+    if (!question) return
+    if (attemptCount > 0 && question.id) {
+      setLocalError(
+        'No se pueden eliminar preguntas de un cuestionario con intentos de alumnos.',
+      )
+      return
+    }
+    if (questions.length <= 1) {
+      setLocalError('El cuestionario necesita al menos una pregunta.')
+      return
+    }
+    setPendingDeleteKey(clientKey)
+  }
+
+  function confirmDeleteQuestion() {
+    if (!pendingDeleteKey) return
+    setQuestions((current) =>
+      current.filter((q) => q.clientKey !== pendingDeleteKey),
+    )
+    setPendingDeleteKey(null)
+  }
+
+  function addOption(questionKey: string) {
+    setQuestions((current) =>
+      current.map((q) =>
+        q.clientKey === questionKey
+          ? {
+              ...q,
+              options: [
+                ...q.options,
+                {
+                  clientKey: newClientKey(),
+                  label: '',
+                  isCorrect: false,
+                },
+              ],
+            }
+          : q,
+      ),
+    )
+  }
+
+  function removeOption(questionKey: string, optionKey: string) {
+    const question = questions.find((q) => q.clientKey === questionKey)
+    if (!question) return
+    const option = question.options.find((o) => o.clientKey === optionKey)
+    if (attemptCount > 0 && option?.id) {
+      setLocalError(
+        'No se pueden eliminar opciones de una pregunta con intentos de alumnos.',
+      )
+      return
+    }
+    if (question.options.length <= 2) {
+      setLocalError('Cada pregunta de opciones necesita al menos dos.')
+      return
+    }
+    setLocalError('')
+    setQuestions((current) =>
+      current.map((q) =>
+        q.clientKey === questionKey
+          ? {
+              ...q,
+              options: q.options.filter((o) => o.clientKey !== optionKey),
+            }
+          : q,
+      ),
+    )
+  }
+
+  async function saveQuiz() {
+    if (saving) return
+    setLocalError('')
+    if (!title.trim()) {
+      setLocalError('Ingresá un título para el cuestionario.')
+      return
+    }
+    for (const [index, q] of questions.entries()) {
+      if (!q.prompt.trim()) {
+        setLocalError(`La pregunta ${index + 1} necesita enunciado.`)
+        return
+      }
+      if (q.type === 'SHORT_TEXT') {
+        if (!q.correctText.trim()) {
+          setLocalError(
+            `La pregunta ${index + 1} necesita la respuesta de texto esperada.`,
+          )
+          return
+        }
+      } else {
+        if (q.options.some((o) => !o.label.trim())) {
+          setLocalError(
+            `Completá todas las opciones de la pregunta ${index + 1}.`,
+          )
+          return
+        }
+        const correctCount = q.options.filter((o) => o.isCorrect).length
+        if (q.type === 'MULTIPLE_CHOICE' && correctCount < 1) {
+          setLocalError(
+            `La pregunta ${index + 1} necesita al menos una opción correcta.`,
+          )
+          return
+        }
+        if (q.type !== 'MULTIPLE_CHOICE' && correctCount !== 1) {
+          setLocalError(
+            `La pregunta ${index + 1} necesita exactamente una opción correcta.`,
+          )
+          return
+        }
+      }
+    }
+
+    setSaving(true)
+    const pass =
+      passScore.trim() === '' ? null : Number.parseInt(passScore.trim(), 10)
+    const result = await upsertOnlineQuizBrowser(lessonId, {
+      title: title.trim(),
+      passScorePercent:
+        pass !== null && Number.isFinite(pass) ? pass : null,
+      questions: questions.map((q) => ({
+        ...(q.id ? { id: q.id } : {}),
+        prompt: q.prompt.trim(),
+        type: q.type,
+        points: Number.parseInt(q.points, 10) || 1,
+        correctText:
+          q.type === 'SHORT_TEXT' ? q.correctText.trim() : null,
+        explanation: q.explanation.trim() || null,
+        options:
+          q.type === 'SHORT_TEXT'
+            ? undefined
+            : q.options.map((o) => ({
+                ...(o.id ? { id: o.id } : {}),
+                label: o.label.trim(),
+                isCorrect: o.isCorrect,
+              })),
+      })),
+    })
+    setSaving(false)
+    if (!result.ok) {
+      setLocalError(result.message)
+      onError(result.message)
+      return
+    }
+    setHasExistingQuiz(true)
+    setAttemptCount(result.data.attemptCount)
+    setQuestions(
+      result.data.questions.map((q) => ({
+        clientKey: q.id,
+        id: q.id,
+        prompt: q.prompt,
+        type: q.type,
+        points: String(q.points),
+        correctText: q.correctText ?? '',
+        explanation: q.explanation ?? '',
+        options:
+          q.type === 'SHORT_TEXT'
+            ? []
+            : q.options.map((o) => ({
+                clientKey: o.id,
+                id: o.id,
+                label: o.label,
+                isCorrect: o.isCorrect,
+              })),
+      })),
+    )
     onSuccess('Cuestionario guardado.')
   }
 
+  if (loading) {
+    return <Skeleton className="mt-4 h-40 w-full" />
+  }
+
   return (
-    <div className="mt-4 rounded-lg border border-dashed border-border p-3">
-      <p className="text-sm font-medium">
-        Cuestionario
-        {existingTitle ? (
-          <span className="ml-2 text-xs font-normal text-muted-foreground">
-            ({existingTitle})
-          </span>
-        ) : null}
-      </p>
-      <p className="mt-1 text-xs text-muted-foreground">
-        Editor simple: una pregunta de opción única. Guardar reemplaza el
-        cuestionario completo de la lección.
-      </p>
-      <div className="mt-3 grid gap-2">
-        <Input
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          placeholder="Título del cuestionario"
-        />
-        <Input
-          value={passScore}
-          onChange={(e) => setPassScore(e.target.value)}
-          placeholder="Nota mínima % (opcional)"
-        />
-        <Textarea
-          value={prompt}
-          onChange={(e) => setPrompt(e.target.value)}
-          placeholder="Pregunta"
-        />
-        <Input
-          value={optionA}
-          onChange={(e) => setOptionA(e.target.value)}
-          placeholder="Opción A"
-        />
-        <Input
-          value={optionB}
-          onChange={(e) => setOptionB(e.target.value)}
-          placeholder="Opción B"
-        />
-        <Select
-          value={correct}
-          onChange={(e) => setCorrect(e.target.value as 'A' | 'B')}
-          aria-label="Respuesta correcta"
+    <div className="mt-4 space-y-3 rounded-lg border border-dashed border-border p-3">
+      <div>
+        <p className="text-sm font-medium">
+          Cuestionario
+          {hasExistingQuiz ? (
+            <span className="ml-2 text-xs font-normal text-muted-foreground">
+              (guardado)
+            </span>
+          ) : (
+            <span className="ml-2 text-xs font-normal text-muted-foreground">
+              (nuevo)
+            </span>
+          )}
+        </p>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Editá preguntas y opciones en el borrador local. Los cambios se
+          persisten solo al guardar.
+        </p>
+      </div>
+
+      {attemptCount > 0 ? (
+        <Alert tone="info">
+          Este cuestionario tiene {attemptCount} intento
+          {attemptCount === 1 ? '' : 's'} de alumnos. Podés editar textos,
+          puntajes y respuestas correctas, y agregar preguntas. No se pueden
+          eliminar preguntas u opciones existentes ni cambiar el tipo.
+        </Alert>
+      ) : null}
+
+      {localError ? <Alert>{localError}</Alert> : null}
+
+      <div className="grid gap-2">
+        <Field label="Título" htmlFor={`quiz-title-${lessonId}`}>
+          <Input
+            id={`quiz-title-${lessonId}`}
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+          />
+        </Field>
+        <Field
+          label="Nota mínima % (opcional)"
+          htmlFor={`quiz-pass-${lessonId}`}
         >
-          <option value="A">Correcta: A</option>
-          <option value="B">Correcta: B</option>
-        </Select>
+          <Input
+            id={`quiz-pass-${lessonId}`}
+            inputMode="numeric"
+            value={passScore}
+            onChange={(e) => setPassScore(e.target.value)}
+            placeholder="70"
+          />
+        </Field>
+      </div>
+
+      <ul className="space-y-4">
+        {questions.map((question, index) => (
+          <li
+            key={question.clientKey}
+            className="rounded-lg border border-border bg-surface p-3"
+          >
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="text-sm font-semibold">Pregunta {index + 1}</p>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  aria-label={`Subir pregunta ${index + 1}`}
+                  disabled={index === 0 || saving}
+                  onClick={() => moveQuestion(question.clientKey, -1)}
+                >
+                  <ArrowUp className="size-3.5" />
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  aria-label={`Bajar pregunta ${index + 1}`}
+                  disabled={index === questions.length - 1 || saving}
+                  onClick={() => moveQuestion(question.clientKey, 1)}
+                >
+                  <ArrowDown className="size-3.5" />
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  disabled={saving}
+                  onClick={() => requestDeleteQuestion(question.clientKey)}
+                >
+                  Eliminar
+                </Button>
+              </div>
+            </div>
+
+            <div className="mt-3 grid gap-2">
+              <Field
+                label="Enunciado"
+                htmlFor={`quiz-prompt-${question.clientKey}`}
+              >
+                <Textarea
+                  id={`quiz-prompt-${question.clientKey}`}
+                  value={question.prompt}
+                  onChange={(e) =>
+                    updateQuestion(question.clientKey, {
+                      prompt: e.target.value,
+                    })
+                  }
+                />
+              </Field>
+              <div className="grid gap-2 sm:grid-cols-2">
+                <Field
+                  label="Tipo"
+                  htmlFor={`quiz-type-${question.clientKey}`}
+                >
+                  <Select
+                    id={`quiz-type-${question.clientKey}`}
+                    value={question.type}
+                    disabled={Boolean(attemptCount > 0 && question.id)}
+                    onChange={(e) => {
+                      const type = e.target.value as OnlineQuizQuestionType
+                      if (type === 'SHORT_TEXT') {
+                        updateQuestion(question.clientKey, {
+                          type,
+                          options: [],
+                        })
+                        return
+                      }
+                      if (type === 'TRUE_FALSE') {
+                        updateQuestion(question.clientKey, {
+                          type,
+                          options: [
+                            {
+                              clientKey: newClientKey(),
+                              label: 'Verdadero',
+                              isCorrect: true,
+                            },
+                            {
+                              clientKey: newClientKey(),
+                              label: 'Falso',
+                              isCorrect: false,
+                            },
+                          ],
+                        })
+                        return
+                      }
+                      updateQuestion(question.clientKey, {
+                        type,
+                        options:
+                          question.options.length >= 2
+                            ? question.options
+                            : emptyDraftQuestion().options,
+                      })
+                    }}
+                  >
+                    {ONLINE_QUIZ_QUESTION_TYPES.map((type) => (
+                      <option key={type} value={type}>
+                        {QUIZ_TYPE_LABELS[type]}
+                      </option>
+                    ))}
+                  </Select>
+                </Field>
+                <Field
+                  label="Puntos"
+                  htmlFor={`quiz-points-${question.clientKey}`}
+                >
+                  <Input
+                    id={`quiz-points-${question.clientKey}`}
+                    inputMode="numeric"
+                    value={question.points}
+                    onChange={(e) =>
+                      updateQuestion(question.clientKey, {
+                        points: e.target.value,
+                      })
+                    }
+                  />
+                </Field>
+              </div>
+
+              {question.type === 'SHORT_TEXT' ? (
+                <Field
+                  label="Respuesta esperada"
+                  htmlFor={`quiz-correct-text-${question.clientKey}`}
+                >
+                  <Input
+                    id={`quiz-correct-text-${question.clientKey}`}
+                    value={question.correctText}
+                    onChange={(e) =>
+                      updateQuestion(question.clientKey, {
+                        correctText: e.target.value,
+                      })
+                    }
+                  />
+                </Field>
+              ) : (
+                <div className="space-y-2">
+                  <p className="text-xs font-medium text-muted-foreground">
+                    Opciones
+                  </p>
+                  {question.options.map((option, optionIndex) => (
+                    <div
+                      key={option.clientKey}
+                      className="flex flex-wrap items-center gap-2"
+                    >
+                      <Input
+                        aria-label={`Opción ${optionIndex + 1}`}
+                        className="min-w-[12rem] flex-1"
+                        value={option.label}
+                        onChange={(e) =>
+                          updateQuestion(question.clientKey, {
+                            options: question.options.map((o) =>
+                              o.clientKey === option.clientKey
+                                ? { ...o, label: e.target.value }
+                                : o,
+                            ),
+                          })
+                        }
+                      />
+                      <label className="inline-flex items-center gap-2 text-sm">
+                        <input
+                          type={
+                            question.type === 'MULTIPLE_CHOICE'
+                              ? 'checkbox'
+                              : 'radio'
+                          }
+                          name={`correct-${question.clientKey}`}
+                          checked={option.isCorrect}
+                          onChange={() =>
+                            updateQuestion(question.clientKey, {
+                              options: question.options.map((o) => {
+                                if (question.type === 'MULTIPLE_CHOICE') {
+                                  return o.clientKey === option.clientKey
+                                    ? { ...o, isCorrect: !o.isCorrect }
+                                    : o
+                                }
+                                return {
+                                  ...o,
+                                  isCorrect: o.clientKey === option.clientKey,
+                                }
+                              }),
+                            })
+                          }
+                        />
+                        Correcta
+                      </label>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        disabled={saving}
+                        onClick={() =>
+                          removeOption(question.clientKey, option.clientKey)
+                        }
+                      >
+                        Quitar
+                      </Button>
+                    </div>
+                  ))}
+                  {question.type !== 'TRUE_FALSE' ? (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      disabled={saving}
+                      onClick={() => addOption(question.clientKey)}
+                    >
+                      <Plus className="size-3.5" />
+                      Opción
+                    </Button>
+                  ) : null}
+                </div>
+              )}
+
+              <Field
+                label="Explicación (opcional)"
+                htmlFor={`quiz-expl-${question.clientKey}`}
+              >
+                <Input
+                  id={`quiz-expl-${question.clientKey}`}
+                  value={question.explanation}
+                  onChange={(e) =>
+                    updateQuestion(question.clientKey, {
+                      explanation: e.target.value,
+                    })
+                  }
+                />
+              </Field>
+            </div>
+          </li>
+        ))}
+      </ul>
+
+      <div className="flex flex-wrap gap-2">
         <Button
           type="button"
           size="sm"
-          disabled={saving || !prompt.trim() || !optionA.trim() || !optionB.trim()}
+          variant="outline"
+          disabled={saving}
+          onClick={() =>
+            setQuestions((current) => [...current, emptyDraftQuestion()])
+          }
+        >
+          <Plus className="size-3.5" />
+          Pregunta
+        </Button>
+        <Button
+          type="button"
+          size="sm"
+          disabled={saving}
           onClick={() => void saveQuiz()}
         >
-          Guardar cuestionario
+          {saving ? 'Guardando…' : 'Guardar cuestionario'}
         </Button>
       </div>
+
+      {pendingDeleteKey ? (
+        <ConfirmDialog
+          title="Eliminar pregunta"
+          description="Se quitará del borrador local. El cambio se confirma al guardar el cuestionario."
+          confirmLabel="Eliminar"
+          onConfirm={confirmDeleteQuestion}
+          onClose={() => setPendingDeleteKey(null)}
+        />
+      ) : null}
     </div>
   )
 }
@@ -433,9 +1094,18 @@ export default function OnlineCourseDetailPage({
   const [modules, setModules] = useState<ModuleBlock[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [publishIssues, setPublishIssues] = useState<string[]>([])
   const [success, setSuccess] = useState('')
   const [saving, setSaving] = useState(false)
   const [newModuleTitle, setNewModuleTitle] = useState('')
+  const [creatingLessonModuleId, setCreatingLessonModuleId] = useState<
+    string | null
+  >(null)
+  const [newLessonForm, setNewLessonForm] = useState<NewLessonFormState>(
+    EMPTY_NEW_LESSON_FORM,
+  )
+  const [newLessonError, setNewLessonError] = useState('')
+  const [newLessonSaving, setNewLessonSaving] = useState(false)
   const [students, setStudents] = useState<Student[]>([])
   const [grantStudentId, setGrantStudentId] = useState('')
   const [editForm, setEditForm] = useState({
@@ -576,13 +1246,57 @@ export default function OnlineCourseDetailPage({
     setGrantStudentId('')
   }
 
+  function clientPublishBlockers(): string[] {
+    const blockers: string[] = []
+    if (!editForm.title.trim()) {
+      blockers.push('El curso necesita un título válido.')
+    }
+    if (!editForm.description.trim()) {
+      blockers.push('El curso necesita una descripción válida.')
+    }
+    if (modules.length === 0) {
+      blockers.push('El curso necesita al menos un módulo.')
+    } else {
+      const loadedLessons = modules.flatMap((block) => block.lessons)
+      const anyLessonsLoaded = modules.some(
+        (block) => block.expanded || block.lessons.length > 0,
+      )
+      if (
+        anyLessonsLoaded &&
+        !loadedLessons.some((lesson) => lesson.status === 'PUBLISHED')
+      ) {
+        blockers.push(
+          'Agregá una lección publicada antes de publicar el curso.',
+        )
+      }
+    }
+    return blockers
+  }
+
   async function runStatus(
     action: 'publish' | 'unpublish' | 'archive',
   ) {
     if (!course || saving) return
     setSaving(true)
     setError('')
+    setPublishIssues([])
     setSuccess('')
+
+    if (action === 'publish') {
+      const localBlockers = clientPublishBlockers()
+      if (localBlockers.length > 0) {
+        setSaving(false)
+        setPublishIssues(localBlockers)
+        setError(
+          localBlockers.length > 1
+            ? 'No se puede publicar el curso todavía. Revisá los requisitos pendientes.'
+            : (localBlockers[0] ??
+              'No se puede publicar el curso todavía.'),
+        )
+        return
+      }
+    }
+
     const fn =
       action === 'publish'
         ? publishOnlineCourseBrowser
@@ -592,10 +1306,24 @@ export default function OnlineCourseDetailPage({
     const result = await fn(course.id)
     setSaving(false)
     if (!result.ok) {
+      if (action === 'publish') {
+        const lines = result.message
+          .split('\n')
+          .map((line) => line.trim())
+          .filter(Boolean)
+        setPublishIssues(lines)
+        setError(
+          lines.length > 1
+            ? 'No se puede publicar el curso. Revisá los requisitos pendientes.'
+            : lines[0] || result.message,
+        )
+        return
+      }
       setError(result.message)
       return
     }
     setCourse(result.data)
+    setPublishIssues([])
     setSuccess(
       action === 'publish'
         ? 'Curso publicado.'
@@ -676,19 +1404,55 @@ export default function OnlineCourseDetailPage({
     if (!result.ok) setError(result.message)
   }
 
-  async function addLesson(moduleIndex: number) {
-    if (!course) return
+  function openNewLessonForm(moduleId: string) {
+    setCreatingLessonModuleId(moduleId)
+    setNewLessonForm(EMPTY_NEW_LESSON_FORM)
+    setNewLessonError('')
+    setError('')
+  }
+
+  function cancelNewLessonForm() {
+    if (newLessonSaving) return
+    setCreatingLessonModuleId(null)
+    setNewLessonForm(EMPTY_NEW_LESSON_FORM)
+    setNewLessonError('')
+  }
+
+  async function submitNewLesson(moduleIndex: number) {
+    if (!course || newLessonSaving) return
     const block = modules[moduleIndex]
-    if (!block) return
-    const title = window.prompt('Título de la lección')
-    if (!title?.trim()) return
-    const result = await createOnlineLessonBrowser(
-      course.id,
-      block.module.id,
-      { title: title.trim(), status: 'DRAFT' },
-    )
+    if (!block || block.module.id !== creatingLessonModuleId) return
+
+    const title = newLessonForm.title.trim()
+    if (!title) {
+      setNewLessonError('Ingresá el título de la lección.')
+      return
+    }
+
+    const minutesRaw = newLessonForm.estimatedMinutes.trim()
+    let estimatedMinutes: number | undefined
+    if (minutesRaw) {
+      const parsed = Number(minutesRaw)
+      if (!Number.isInteger(parsed) || parsed < 1) {
+        setNewLessonError('Ingresá una duración en minutos válida.')
+        return
+      }
+      estimatedMinutes = parsed
+    }
+
+    setNewLessonSaving(true)
+    setNewLessonError('')
+    setError('')
+    const result = await createOnlineLessonBrowser(course.id, block.module.id, {
+      title,
+      status: newLessonForm.status,
+      isRequired: newLessonForm.isRequired,
+      acceptsSubmission: newLessonForm.acceptsSubmission,
+      ...(estimatedMinutes !== undefined ? { estimatedMinutes } : {}),
+    })
+    setNewLessonSaving(false)
     if (!result.ok) {
-      setError(result.message)
+      setNewLessonError(result.message)
       return
     }
     setModules((current) =>
@@ -698,6 +1462,9 @@ export default function OnlineCourseDetailPage({
           : m,
       ),
     )
+    setCreatingLessonModuleId(null)
+    setNewLessonForm(EMPTY_NEW_LESSON_FORM)
+    setSuccess('Lección creada.')
   }
 
   async function moveLesson(
@@ -787,8 +1554,18 @@ export default function OnlineCourseDetailPage({
 
       {loading ? <Skeleton className="mt-6 h-64 w-full" /> : null}
       {error ? (
-        <div className="mt-6">
+        <div className="mt-6 space-y-2">
           <Alert>{error}</Alert>
+          {publishIssues.length > 1 ? (
+            <Alert>
+              <p className="font-semibold">Requisitos pendientes</p>
+              <ul className="mt-2 list-disc space-y-1 pl-5">
+                {publishIssues.map((issue) => (
+                  <li key={issue}>{issue}</li>
+                ))}
+              </ul>
+            </Alert>
+          ) : null}
         </div>
       ) : null}
       {success ? (
@@ -1090,17 +1867,33 @@ export default function OnlineCourseDetailPage({
                           <Skeleton className="h-20 w-full" />
                         ) : (
                           <>
-                            <div className="mb-3 flex justify-end">
-                              <Button
-                                type="button"
-                                size="sm"
-                                variant="outline"
-                                onClick={() => void addLesson(moduleIndex)}
-                              >
-                                <Plus className="size-3.5" />
-                                Nueva lección
-                              </Button>
-                            </div>
+                            {creatingLessonModuleId === block.module.id ? (
+                              <NewLessonForm
+                                formId={`new-lesson-${block.module.id}`}
+                                value={newLessonForm}
+                                error={newLessonError}
+                                saving={newLessonSaving}
+                                onChange={setNewLessonForm}
+                                onCancel={cancelNewLessonForm}
+                                onSubmit={() =>
+                                  void submitNewLesson(moduleIndex)
+                                }
+                              />
+                            ) : (
+                              <div className="mb-3 flex justify-end">
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() =>
+                                    openNewLessonForm(block.module.id)
+                                  }
+                                >
+                                  <Plus className="size-3.5" />
+                                  Nueva lección
+                                </Button>
+                              </div>
+                            )}
                             {block.lessons.length === 0 ? (
                               <p className="text-sm text-muted-foreground">
                                 No hay lecciones en este módulo.
@@ -1113,32 +1906,44 @@ export default function OnlineCourseDetailPage({
                                     className="rounded-xl border border-border p-3"
                                   >
                                     <div className="flex flex-wrap items-start justify-between gap-2">
-                                      <div className="min-w-0 flex-1">
-                                        <Input
-                                          className="font-medium"
-                                          defaultValue={lesson.title}
-                                          onBlur={(e) => {
-                                            const title = e.target.value.trim()
-                                            if (
-                                              title &&
-                                              title !== lesson.title
-                                            ) {
-                                              void patchLesson(
-                                                moduleIndex,
-                                                lesson,
-                                                { title },
-                                              )
-                                            }
-                                          }}
-                                          aria-label="Título de lección"
-                                        />
-                                        <div className="mt-2 flex flex-wrap gap-3 text-sm">
-                                          <label className="flex items-center gap-1.5">
-                                            <span className="text-muted-foreground">
-                                              Min
-                                            </span>
+                                      <div className="min-w-0 flex-1 space-y-3">
+                                        <Field
+                                          label="Título"
+                                          htmlFor={`lesson-title-${lesson.id}`}
+                                        >
+                                          <Input
+                                            id={`lesson-title-${lesson.id}`}
+                                            key={`title-${lesson.id}-${lesson.updatedAt}`}
+                                            className="font-medium"
+                                            defaultValue={lesson.title}
+                                            onBlur={(e) => {
+                                              const title = e.target.value.trim()
+                                              if (!title) {
+                                                e.target.value = lesson.title
+                                                setError(
+                                                  'El título de la lección no puede quedar vacío.',
+                                                )
+                                                return
+                                              }
+                                              if (title !== lesson.title) {
+                                                void patchLesson(
+                                                  moduleIndex,
+                                                  lesson,
+                                                  { title },
+                                                )
+                                              }
+                                            }}
+                                          />
+                                        </Field>
+                                        <div className="flex flex-wrap gap-3 text-sm">
+                                          <Field
+                                            label="Duración (minutos)"
+                                            htmlFor={`lesson-min-${lesson.id}`}
+                                          >
                                             <Input
-                                              className="w-20"
+                                              id={`lesson-min-${lesson.id}`}
+                                              key={`min-${lesson.id}-${lesson.updatedAt}`}
+                                              className="w-28"
                                               type="number"
                                               min={1}
                                               defaultValue={
@@ -1166,8 +1971,8 @@ export default function OnlineCourseDetailPage({
                                                 }
                                               }}
                                             />
-                                          </label>
-                                          <label className="flex items-center gap-1.5">
+                                          </Field>
+                                          <label className="flex items-center gap-2 font-medium">
                                             <input
                                               type="checkbox"
                                               checked={lesson.isRequired}
@@ -1182,9 +1987,9 @@ export default function OnlineCourseDetailPage({
                                                 )
                                               }
                                             />
-                                            Obligatoria
+                                            Lección obligatoria
                                           </label>
-                                          <label className="flex items-center gap-1.5">
+                                          <label className="flex items-center gap-2 font-medium">
                                             <input
                                               type="checkbox"
                                               checked={
@@ -1201,31 +2006,38 @@ export default function OnlineCourseDetailPage({
                                                 )
                                               }
                                             />
-                                            Acepta entrega
+                                            Acepta entregas
                                           </label>
-                                          <Select
-                                            className="w-auto"
-                                            value={lesson.status}
-                                            onChange={(e) =>
-                                              void patchLesson(
-                                                moduleIndex,
-                                                lesson,
-                                                {
-                                                  status: e.target
-                                                    .value as OnlineLessonStatus,
-                                                },
-                                              )
-                                            }
-                                            aria-label="Estado de lección"
+                                          <Field
+                                            label="Estado"
+                                            htmlFor={`lesson-status-${lesson.id}`}
                                           >
-                                            {ONLINE_LESSON_STATUSES.map((s) => (
-                                              <option key={s} value={s}>
-                                                {s === 'PUBLISHED'
-                                                  ? 'Publicada'
-                                                  : 'Borrador'}
-                                              </option>
-                                            ))}
-                                          </Select>
+                                            <Select
+                                              id={`lesson-status-${lesson.id}`}
+                                              className="w-auto"
+                                              value={lesson.status}
+                                              onChange={(e) =>
+                                                void patchLesson(
+                                                  moduleIndex,
+                                                  lesson,
+                                                  {
+                                                    status: e.target
+                                                      .value as OnlineLessonStatus,
+                                                  },
+                                                )
+                                              }
+                                            >
+                                              {ONLINE_LESSON_STATUSES.map(
+                                                (s) => (
+                                                  <option key={s} value={s}>
+                                                    {s === 'PUBLISHED'
+                                                      ? 'Publicada'
+                                                      : 'Borrador'}
+                                                  </option>
+                                                ),
+                                              )}
+                                            </Select>
+                                          </Field>
                                         </div>
                                       </div>
                                       <div className="flex gap-1">

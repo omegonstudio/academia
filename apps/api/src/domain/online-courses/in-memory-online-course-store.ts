@@ -681,23 +681,41 @@ export function createInMemoryOnlineCourseStore(): InMemoryOnlineCourseStore {
       return row ? cloneQuiz(row) : null;
     },
 
+    async countQuizAttempts(quizId) {
+      return [...attempts.values()].filter((a) => a.quizId === quizId).length;
+    },
+
     async upsertQuiz(input) {
       const existingId = quizzesByLesson.get(input.lessonId);
       const now = new Date();
       const quizId = existingId ?? randomUUID();
+      const previous = existingId ? quizzes.get(existingId) : undefined;
+
       const questions: OnlineQuizQuestionRecord[] = input.questions.map(
         (q: OnlineQuizQuestionInput, qIndex) => {
-          const questionId = randomUUID();
+          const prevQuestion =
+            input.mode === 'preserve' && q.id
+              ? previous?.questions.find((pq) => pq.id === q.id)
+              : undefined;
+          const questionId =
+            input.mode === 'preserve' && q.id ? q.id : randomUUID();
           const options: OnlineQuizOptionRecord[] = q.options.map(
-            (o, oIndex) => ({
-              id: randomUUID(),
-              questionId,
-              label: o.label,
-              position: oIndex,
-              isCorrect: o.isCorrect,
-              createdAt: now,
-              updatedAt: now,
-            }),
+            (o, oIndex) => {
+              const prevOption =
+                input.mode === 'preserve' && o.id
+                  ? prevQuestion?.options.find((po) => po.id === o.id)
+                  : undefined;
+              return {
+                id:
+                  input.mode === 'preserve' && o.id ? o.id : randomUUID(),
+                questionId,
+                label: o.label,
+                position: oIndex,
+                isCorrect: o.isCorrect,
+                createdAt: prevOption?.createdAt ?? now,
+                updatedAt: now,
+              };
+            },
           );
           return {
             id: questionId,
@@ -709,12 +727,14 @@ export function createInMemoryOnlineCourseStore(): InMemoryOnlineCourseStore {
             correctText: q.correctText,
             explanation: q.explanation,
             options,
-            createdAt: now,
+            createdAt: prevQuestion?.createdAt ?? now,
             updatedAt: now,
           };
         },
       );
 
+      // preserve mode: keep any existing questions not in payload? Domain forbids
+      // deletions; still merge preserved-only extras should not happen.
       const record: OnlineQuizRecord = {
         id: quizId,
         lessonId: input.lessonId,
@@ -722,9 +742,7 @@ export function createInMemoryOnlineCourseStore(): InMemoryOnlineCourseStore {
         passScorePercent: input.passScorePercent,
         isActive: true,
         questions,
-        createdAt: existingId
-          ? (quizzes.get(existingId)?.createdAt ?? now)
-          : now,
+        createdAt: previous?.createdAt ?? now,
         updatedAt: now,
       };
       quizzes.set(quizId, record);
