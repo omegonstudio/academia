@@ -795,8 +795,15 @@ export function createFinanceRouter({
           typeof bodyRecord['type'] === 'string' &&
           bodyRecord['data'] === undefined;
 
-        // Legacy internal inbox (offline tests / stubs). Blocked with live MP token.
+        // Legacy internal inbox — test-only. Never process in development/production.
         if (isLegacyInbox) {
+          const nodeEnv =
+            credentials.nodeEnv ?? process.env['NODE_ENV'] ?? 'development';
+          if (nodeEnv !== 'test') {
+            throw new ForbiddenError(
+              'Legacy payment webhook inbox is disabled outside the test environment.',
+            );
+          }
           if (
             credentials.mercadopagoAccessToken.length > 0 &&
             credentials.forceStubs !== true
@@ -918,8 +925,15 @@ export function createFinanceRouter({
           typeof bodyRecord['type'] === 'string' &&
           bodyRecord['data'] === undefined;
 
-        // Legacy internal inbox (offline tests / stubs). Blocked with live Stripe key.
+        // Legacy internal inbox — test-only. Never process in development/production.
         if (isLegacyInbox) {
+          const nodeEnv =
+            credentials.nodeEnv ?? process.env['NODE_ENV'] ?? 'development';
+          if (nodeEnv !== 'test') {
+            throw new ForbiddenError(
+              'Legacy payment webhook inbox is disabled outside the test environment.',
+            );
+          }
           if (
             credentials.stripeSecretKey.length > 0 &&
             credentials.forceStubs !== true
