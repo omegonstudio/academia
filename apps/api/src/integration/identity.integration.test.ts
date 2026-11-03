@@ -89,13 +89,22 @@ describe('identity integration', () => {
   });
 
   /**
-   * Shared DB also hosts smoke/dev rows. CLEANUP emails (incl. bootstrap
-   * SUPER_ADMIN) may own charges/payments/profiles — clear FK dependents first.
+   * Shared DB also hosts smoke/dev rows. Only remove finance/academic rows that
+   * belong to CLEANUP_EMAILS as student/teacher. Do not delete charges/payments
+   * merely because SUPER_ADMIN (a cleanup email) created them for other users.
+   * Reassign required createdBy FKs on leftover rows so cleanup users can be
+   * deleted without wiping foreign smoke/dev data.
    */
   async function cleanupIdentityUsers() {
     const emailFilter = { email: { in: CLEANUP_EMAILS } };
     const teacherOfSession = {
       classSession: { group: { teacher: { user: emailFilter } } },
+    };
+    const chargeOwnedByScenario = {
+      OR: [
+        { student: { user: emailFilter } },
+        { classSession: { group: { teacher: { user: emailFilter } } } },
+      ],
     };
 
     await database.revenueAllocation.deleteMany({
@@ -103,9 +112,8 @@ describe('identity integration', () => {
         OR: [
           { student: { user: emailFilter } },
           { teacher: { user: emailFilter } },
-          { charge: { createdBy: emailFilter } },
-          { payment: { createdBy: emailFilter } },
-          { charge: { classSession: { group: { teacher: { user: emailFilter } } } } },
+          { charge: chargeOwnedByScenario },
+          { payment: { student: { user: emailFilter } } },
         ],
       },
     });
@@ -113,12 +121,7 @@ describe('identity integration', () => {
       where: {
         OR: [
           { payment: { student: { user: emailFilter } } },
-          { payment: { createdBy: emailFilter } },
-          {
-            payment: {
-              charge: { classSession: { group: { teacher: { user: emailFilter } } } },
-            },
-          },
+          { payment: { charge: chargeOwnedByScenario } },
         ],
       },
     });
@@ -126,19 +129,12 @@ describe('identity integration', () => {
       where: {
         OR: [
           { student: { user: emailFilter } },
-          { createdBy: emailFilter },
-          { charge: { classSession: { group: { teacher: { user: emailFilter } } } } },
+          { charge: chargeOwnedByScenario },
         ],
       },
     });
     await database.charge.deleteMany({
-      where: {
-        OR: [
-          { student: { user: emailFilter } },
-          { createdBy: emailFilter },
-          { classSession: { group: { teacher: { user: emailFilter } } } },
-        ],
-      },
+      where: chargeOwnedByScenario,
     });
     await database.teacherSettlement.deleteMany({
       where: { teacher: { user: emailFilter } },
@@ -162,13 +158,9 @@ describe('identity integration', () => {
         ],
       },
     });
+    // Materials for cleanup teachers' sessions only — not every row createdBy SuperAdmin.
     await database.material.deleteMany({
-      where: {
-        OR: [
-          { createdBy: emailFilter },
-          { classSession: { group: { teacher: { user: emailFilter } } } },
-        ],
-      },
+      where: teacherOfSession,
     });
     await database.classSession.deleteMany({
       where: { group: { teacher: { user: emailFilter } } },
@@ -184,6 +176,54 @@ describe('identity integration', () => {
       where: { updatedBy: emailFilter },
       data: { updatedByUserId: null },
     });
+
+    const cleanupUsers = await database.user.findMany({
+      where: emailFilter,
+      select: { id: true },
+    });
+    const cleanupUserIds = cleanupUsers.map((user) => user.id);
+
+    if (cleanupUserIds.length > 0) {
+      const keeper = await database.user.findFirst({
+        where: { email: { notIn: CLEANUP_EMAILS } },
+        select: { id: true },
+        orderBy: { createdAt: 'asc' },
+      });
+
+      const orphanCharges = await database.charge.findMany({
+        where: { createdByUserId: { in: cleanupUserIds } },
+        select: { id: true, student: { select: { userId: true } } },
+      });
+      for (const charge of orphanCharges) {
+        await database.charge.update({
+          where: { id: charge.id },
+          data: { createdByUserId: charge.student.userId },
+        });
+      }
+
+      const orphanPayments = await database.payment.findMany({
+        where: { createdByUserId: { in: cleanupUserIds } },
+        select: { id: true, student: { select: { userId: true } } },
+      });
+      for (const payment of orphanPayments) {
+        await database.payment.update({
+          where: { id: payment.id },
+          data: { createdByUserId: payment.student.userId },
+        });
+      }
+
+      if (keeper) {
+        await database.material.updateMany({
+          where: { createdByUserId: { in: cleanupUserIds } },
+          data: { createdByUserId: keeper.id },
+        });
+      } else {
+        await database.material.deleteMany({
+          where: { createdByUserId: { in: cleanupUserIds } },
+        });
+      }
+    }
+
     await database.student.deleteMany({
       where: { user: emailFilter },
     });
