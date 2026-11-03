@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { ArrowRight } from 'lucide-react'
 import type { Metadata } from 'next'
 import { FeaturedCourses } from '@/components/public/featured-courses'
+import { HomeHeroPanel } from '@/components/public/home-hero-panel'
 import { PublicSiteFooter } from '@/components/public/site-footer'
 import { PublicSiteHeader } from '@/components/public/site-header'
 import { publicCta } from '@/lib/public-nav'
@@ -77,37 +78,45 @@ export default function Page() {
 
         <section
           id="inicio"
-          className="relative mx-auto max-w-6xl px-5 pb-20 pt-14 lg:px-8 lg:pb-28 lg:pt-20"
+          className="relative mx-auto grid max-w-6xl items-center gap-14 px-5 pb-20 pt-14 lg:grid-cols-[1.05fr_0.95fr] lg:gap-14 lg:px-8 lg:pb-32 lg:pt-24"
           aria-labelledby="home-hero-heading"
         >
-          <p className="mb-6 inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/5 px-3 py-1.5 text-xs font-medium text-primary">
-            <span className="h-1.5 w-1.5 rounded-full bg-accent" aria-hidden />
-            {homeValueProp.eyebrow}
-          </p>
-          <h1
-            id="home-hero-heading"
-            className="max-w-3xl text-balance text-5xl font-semibold leading-[1.04] tracking-[-0.04em] md:text-7xl"
-          >
-            {homeValueProp.title}
-          </h1>
-          <p className="mt-6 max-w-2xl text-lg leading-8 text-muted-foreground">
-            {homeValueProp.lead}
-          </p>
-          <div className="mt-9 flex flex-col gap-3 sm:flex-row">
-            <Link
-              href={publicCta.href}
-              className="inline-flex items-center justify-center gap-2 rounded-xl bg-accent px-5 py-3.5 text-sm font-medium text-accent-foreground shadow-sm transition hover:opacity-90"
+          <div className="max-w-xl">
+            <p className="mb-6 inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/5 px-3 py-1.5 text-xs font-medium text-primary">
+              <span
+                className="h-1.5 w-1.5 rounded-full bg-accent"
+                aria-hidden
+              />
+              {homeValueProp.eyebrow}
+            </p>
+            <h1
+              id="home-hero-heading"
+              className="text-balance text-5xl font-semibold leading-[1.04] tracking-[-0.04em] md:text-7xl"
             >
-              {publicCta.label}
-              <ArrowRight className="h-4 w-4" aria-hidden />
-            </Link>
-            <Link
-              href="/cursos"
-              className="inline-flex items-center justify-center gap-2 rounded-xl border border-border bg-surface px-5 py-3.5 text-sm font-medium transition hover:bg-surface-muted"
-            >
-              Ver cursos online
-            </Link>
+              Español para llevar,{' '}
+              <span className="text-primary">hasta donde estés.</span>
+            </h1>
+            <p className="mt-6 max-w-lg text-lg leading-8 text-muted-foreground">
+              {homeValueProp.lead}
+            </p>
+            <div className="mt-9 flex flex-col gap-3 sm:flex-row">
+              <Link
+                href={publicCta.href}
+                className="inline-flex items-center justify-center gap-2 rounded-xl bg-accent px-5 py-3.5 text-sm font-medium text-accent-foreground shadow-sm transition hover:bg-accent-hover"
+              >
+                {publicCta.label}
+                <ArrowRight className="h-4 w-4" aria-hidden />
+              </Link>
+              <Link
+                href="/cursos"
+                className="inline-flex items-center justify-center gap-2 rounded-xl border border-border bg-surface px-5 py-3.5 text-sm font-medium transition hover:bg-surface-muted"
+              >
+                Ver cursos online
+              </Link>
+            </div>
           </div>
+
+          <HomeHeroPanel />
         </section>
       </div>
 
@@ -123,7 +132,9 @@ export default function Page() {
           aria-labelledby={`${section.id}-heading`}
         >
           <div className="mx-auto max-w-6xl px-5 lg:px-8">
-            <p className="text-sm font-semibold text-primary">{section.eyebrow}</p>
+            <p className="text-sm font-semibold text-primary">
+              {section.eyebrow}
+            </p>
             <h2
               id={`${section.id}-heading`}
               className="mt-3 max-w-2xl text-3xl font-semibold tracking-tight md:text-4xl"

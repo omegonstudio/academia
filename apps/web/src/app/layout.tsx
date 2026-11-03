@@ -17,7 +17,8 @@ const themeBootstrap = `(() => {
 
 export const metadata: Metadata = {
   title: 'Academia de Español — Omegon',
-  description: 'Aprendé español para comunicarte de verdad. Clases individuales, grupales y formación docente.',
+  description:
+    'Formación y comunidad para profes de español no nativos: cursos online, recursos, mentorías y Blabla2Go.',
   generator: 'v0.app',
   icons: {
     icon: [

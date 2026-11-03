@@ -32,10 +32,8 @@ export function PublicSiteHeader({
 
       <nav
         className={cn(
-          menuOpen
-            ? 'absolute left-4 right-4 top-20 flex'
-            : 'hidden',
-          'flex-col gap-1 rounded-2xl border border-border bg-surface-elevated p-2 shadow-lg md:static md:flex md:flex-row md:items-center md:gap-1 md:border-0 md:bg-transparent md:p-0 md:shadow-none lg:gap-2',
+          menuOpen ? 'absolute left-4 right-4 top-20 flex' : 'hidden',
+          'flex-col gap-1 rounded-2xl border border-border bg-surface-elevated p-2 shadow-lg md:static md:flex md:flex-1 md:flex-row md:items-center md:justify-center md:gap-1 md:border-0 md:bg-transparent md:p-0 md:shadow-none lg:gap-2',
         )}
         aria-label="Navegación principal"
       >
@@ -61,9 +59,16 @@ export function PublicSiteHeader({
         <Link
           href={publicCta.href}
           onClick={() => setMenuOpen(false)}
-          className="mt-1 inline-flex items-center justify-center rounded-xl bg-accent px-3 py-2.5 text-sm font-medium text-accent-foreground transition hover:opacity-90 md:hidden"
+          className="mt-1 inline-flex items-center justify-center rounded-xl border border-border bg-surface px-3 py-2.5 text-sm font-medium transition hover:bg-surface-muted md:hidden"
         >
           {publicCta.label}
+        </Link>
+        <Link
+          href="/login"
+          onClick={() => setMenuOpen(false)}
+          className="mt-1 inline-flex items-center justify-center rounded-xl bg-accent px-3 py-2.5 text-sm font-medium text-accent-foreground transition hover:bg-accent-hover md:hidden"
+        >
+          Ingresar
         </Link>
         <div className="mt-2 flex items-center justify-between border-t border-border px-3 py-3 md:hidden">
           <span className="text-sm font-medium">Tema</span>
@@ -71,19 +76,19 @@ export function PublicSiteHeader({
         </div>
       </nav>
 
-      <div className="flex items-center gap-2">
+      <div className="flex shrink-0 items-center gap-2">
         <div className="hidden sm:flex">
           <ThemeToggle />
         </div>
         <Link
           href={publicCta.href}
-          className="hidden rounded-xl bg-accent px-3.5 py-2.5 text-sm font-medium text-accent-foreground transition hover:opacity-90 lg:inline-flex"
+          className="hidden rounded-xl border border-border bg-surface px-3.5 py-2.5 text-sm font-medium transition hover:bg-surface-muted lg:inline-flex"
         >
           {publicCta.label}
         </Link>
         <Link
           href="/login"
-          className="hidden rounded-xl border border-border bg-surface px-3.5 py-2.5 text-sm font-medium transition hover:bg-surface-muted sm:inline-flex"
+          className="hidden rounded-xl bg-accent px-4 py-2.5 text-sm font-medium text-accent-foreground transition hover:bg-accent-hover sm:inline-flex"
         >
           Ingresar
         </Link>

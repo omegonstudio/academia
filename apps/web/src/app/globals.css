@@ -9,10 +9,10 @@
  * against its intended background for WCAG 2.2 AA (see docs/ACCESSIBILITY.md);
  * changing one requires re-checking it.
  *
- * This is a provisional neutral palette. When official Omegon brand tokens are
- * available they replace these values here, and nowhere else.
+ * Spanish2Go identity: chocolate brown surfaces, Spanish red highlights,
+ * golden yellow CTAs, warm off-white type. No violet.
  */
- 
+
 @theme {
   /* Surfaces */
   --color-surface: #ffffff;
@@ -38,6 +38,7 @@
   --color-destructive: var(--destructive);
   --color-accent-foreground: var(--accent-foreground);
   --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
   --color-muted-foreground: var(--muted-foreground);
   --color-muted: var(--muted);
   --color-secondary-foreground: var(--secondary-foreground);
@@ -66,125 +67,133 @@
 
 :root {
   color-scheme: light;
-  /* Neutrals with a warm undertone (flag-adjacent, not lilac) */
-  --background: oklch(0.985 0.006 70);
-  --foreground: oklch(0.2 0.02 40);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.2 0.02 40);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.2 0.02 40);
-  /* Spanish red (gules) */
-  --primary: oklch(0.5 0.195 28);
-  --primary-hover: oklch(0.43 0.185 28);
-  --primary-foreground: oklch(0.99 0 0);
-  /* Spanish gold / yellow */
-  --secondary: oklch(0.82 0.155 90);
-  --secondary-foreground: oklch(0.28 0.05 55);
-  --muted: oklch(0.96 0.01 75);
-  /* ~4.6:1 on --background for WCAG AA normal text */
-  --muted-foreground: oklch(0.45 0.03 50);
-  /* Amber/gold for text accents (deeper than flag yellow for contrast) */
-  --accent: oklch(0.58 0.14 80);
-  --accent-foreground: oklch(0.99 0 0);
-  --destructive: oklch(0.48 0.2 25);
-  --border: oklch(0.91 0.02 70);
-  --input: oklch(0.91 0.02 70);
-  --ring: oklch(0.5 0.195 28);
-  --surface: oklch(1 0 0);
-  --surface-muted: oklch(0.96 0.01 75);
-  --surface-elevated: oklch(1 0 0);
-  --success: oklch(0.58 0.18 145);
-  --chart-1: oklch(0.5 0.195 28);
-  --chart-2: oklch(0.82 0.155 90);
-  --chart-3: oklch(0.58 0.14 80);
-  --chart-4: oklch(0.55 0.04 50);
-  --chart-5: oklch(0.35 0.03 40);
+  /* Warm cream canvas — Spanish2Go light counterpart */
+  --background: #f9f5ee;
+  --foreground: #21130e;
+  --card: #ffffff;
+  --card-foreground: #21130e;
+  --popover: #ffffff;
+  --popover-foreground: #21130e;
+  /* Spanish red */
+  --primary: #d63b32;
+  --primary-hover: #c0322a;
+  --primary-foreground: #f9f5ee;
+  /* Mid warm brown */
+  --secondary: #8b5a2b;
+  --secondary-foreground: #f9f5ee;
+  --muted: #efe6d8;
+  --muted-foreground: #5c4338;
+  /* Golden yellow CTA */
+  --accent: #e6ac3d;
+  --accent-hover: #d49b2f;
+  --accent-foreground: #150a07;
+  --destructive: #b42318;
+  --border: #e0d2c0;
+  --input: #e0d2c0;
+  --ring: #d63b32;
+  --surface: #ffffff;
+  --surface-muted: #efe6d8;
+  --surface-elevated: #ffffff;
+  --success: #3f7d4e;
+  --chart-1: #d63b32;
+  --chart-2: #e6ac3d;
+  --chart-3: #8b5a2b;
+  --chart-4: #5c4338;
+  --chart-5: #21130e;
   --radius: 0.625rem;
-  --sidebar: oklch(0.985 0.004 70);
-  --sidebar-foreground: oklch(0.2 0.02 40);
-  --sidebar-primary: oklch(0.5 0.195 28);
-  --sidebar-primary-foreground: oklch(0.99 0 0);
-  --sidebar-accent: oklch(0.96 0.01 75);
-  --sidebar-accent-foreground: oklch(0.2 0.02 40);
-  --sidebar-border: oklch(0.91 0.02 70);
-  --sidebar-ring: oklch(0.5 0.195 28);
+  --sidebar: #f9f5ee;
+  --sidebar-foreground: #21130e;
+  --sidebar-primary: #d63b32;
+  --sidebar-primary-foreground: #f9f5ee;
+  --sidebar-accent: #efe6d8;
+  --sidebar-accent-foreground: #21130e;
+  --sidebar-border: #e0d2c0;
+  --sidebar-ring: #d63b32;
 }
 
 .dark {
   color-scheme: dark;
-  --background: oklch(0.16 0.02 40);
-  --foreground: oklch(0.97 0.01 80);
-  --card: oklch(0.205 0.025 40);
-  --card-foreground: oklch(0.97 0.01 80);
-  --popover: oklch(0.205 0.025 40);
-  --popover-foreground: oklch(0.97 0.01 80);
-  --primary: oklch(0.62 0.2 28);
-  --primary-hover: oklch(0.68 0.18 28);
-  --primary-foreground: oklch(0.99 0 0);
-  --secondary: oklch(0.78 0.14 90);
-  --secondary-foreground: oklch(0.22 0.04 50);
-  --muted: oklch(0.25 0.03 45);
-  /* ~4.6:1 on dark --background */
-  --muted-foreground: oklch(0.78 0.03 75);
-  --accent: oklch(0.78 0.14 80);
-  --accent-foreground: oklch(0.22 0.04 50);
-  --destructive: oklch(0.65 0.18 25);
-  --border: oklch(0.34 0.03 45);
-  --input: oklch(0.34 0.03 45);
-  --ring: oklch(0.62 0.2 28);
-  --surface: oklch(0.205 0.025 40);
-  --surface-muted: oklch(0.25 0.03 45);
-  --surface-elevated: oklch(0.285 0.035 45);
-  --success: oklch(0.7 0.16 145);
-  --chart-1: oklch(0.62 0.2 28);
-  --chart-2: oklch(0.78 0.14 90);
-  --chart-3: oklch(0.76 0.14 80);
-  --chart-4: oklch(0.72 0.03 70);
-  --chart-5: oklch(0.5 0.03 50);
-  --sidebar: oklch(0.145 0.02 40);
-  --sidebar-foreground: oklch(0.97 0.01 80);
-  --sidebar-primary: oklch(0.62 0.2 28);
-  --sidebar-primary-foreground: oklch(0.99 0 0);
-  --sidebar-accent: oklch(0.25 0.035 45);
-  --sidebar-accent-foreground: oklch(0.97 0.01 80);
-  --sidebar-border: oklch(0.34 0.03 45);
-  --sidebar-ring: oklch(0.62 0.2 28);
+  /* Spanish2Go dark reference */
+  --background: #150a07;
+  --foreground: #f9f5ee;
+  --card: #21130e;
+  --card-foreground: #f9f5ee;
+  --popover: #21130e;
+  --popover-foreground: #f9f5ee;
+  --primary: #e6443a;
+  --primary-hover: #f0554b;
+  --primary-foreground: #f9f5ee;
+  --secondary: #c48a3a;
+  --secondary-foreground: #150a07;
+  --muted: #2a1812;
+  --muted-foreground: #c9b8a8;
+  --accent: #e6ac3d;
+  --accent-hover: #f0bc55;
+  --accent-foreground: #150a07;
+  --destructive: #f07167;
+  --border: #3d2a22;
+  --input: #3d2a22;
+  --ring: #e6443a;
+  --surface: #21130e;
+  --surface-muted: #2a1812;
+  --surface-elevated: #2f1c15;
+  --success: #6fbf7d;
+  --chart-1: #e6443a;
+  --chart-2: #e6ac3d;
+  --chart-3: #c48a3a;
+  --chart-4: #c9b8a8;
+  --chart-5: #5c4338;
+  --sidebar: #150a07;
+  --sidebar-foreground: #f9f5ee;
+  --sidebar-primary: #e6443a;
+  --sidebar-primary-foreground: #f9f5ee;
+  --sidebar-accent: #2a1812;
+  --sidebar-accent-foreground: #f9f5ee;
+  --sidebar-border: #3d2a22;
+  --sidebar-ring: #e6443a;
 }
 
+/* System preference: reuse the explicit dark Spanish2Go palette. */
 @media (prefers-color-scheme: dark) {
   :root:not(.light):not(.dark) {
     color-scheme: dark;
-    --background: oklch(0.145 0 0);
-    --foreground: oklch(0.985 0 0);
-    --card: oklch(0.205 0 0);
-    --card-foreground: oklch(0.985 0 0);
-    --popover: oklch(0.205 0 0);
-    --popover-foreground: oklch(0.985 0 0);
-    --primary: oklch(0.922 0 0);
-    --primary-foreground: oklch(0.205 0 0);
-    --secondary: oklch(0.269 0 0);
-    --secondary-foreground: oklch(0.985 0 0);
-    --muted: oklch(0.269 0 0);
-    --muted-foreground: oklch(0.708 0 0);
-    --accent: oklch(0.269 0 0);
-    --accent-foreground: oklch(0.985 0 0);
-    --destructive: oklch(0.704 0.191 22.216);
-    --border: oklch(1 0 0 / 10%);
-    --input: oklch(1 0 0 / 15%);
-    --ring: oklch(0.556 0 0);
-    --chart-1: oklch(0.87 0 0);
-    --chart-2: oklch(0.556 0 0);
-    --chart-3: oklch(0.439 0 0);
-    --chart-4: oklch(0.371 0 0);
-    --chart-5: oklch(0.269 0 0);
-    --sidebar: oklch(0.205 0 0);
-    --sidebar-foreground: oklch(0.985 0 0);
-    --sidebar-primary: oklch(0.488 0.243 264.376);
-    --sidebar-primary-foreground: oklch(0.985 0 0);
-    --sidebar-accent: oklch(0.269 0 0);
-    --sidebar-accent-foreground: oklch(0.985 0 0);
-    --sidebar-border: oklch(1 0 0 / 10%);
-    --sidebar-ring: oklch(0.556 0 0);
+    --background: #150a07;
+    --foreground: #f9f5ee;
+    --card: #21130e;
+    --card-foreground: #f9f5ee;
+    --popover: #21130e;
+    --popover-foreground: #f9f5ee;
+    --primary: #e6443a;
+    --primary-hover: #f0554b;
+    --primary-foreground: #f9f5ee;
+    --secondary: #c48a3a;
+    --secondary-foreground: #150a07;
+    --muted: #2a1812;
+    --muted-foreground: #c9b8a8;
+    --accent: #e6ac3d;
+    --accent-hover: #f0bc55;
+    --accent-foreground: #150a07;
+    --destructive: #f07167;
+    --border: #3d2a22;
+    --input: #3d2a22;
+    --ring: #e6443a;
+    --surface: #21130e;
+    --surface-muted: #2a1812;
+    --surface-elevated: #2f1c15;
+    --success: #6fbf7d;
+    --chart-1: #e6443a;
+    --chart-2: #e6ac3d;
+    --chart-3: #c48a3a;
+    --chart-4: #c9b8a8;
+    --chart-5: #5c4338;
+    --sidebar: #150a07;
+    --sidebar-foreground: #f9f5ee;
+    --sidebar-primary: #e6443a;
+    --sidebar-primary-foreground: #f9f5ee;
+    --sidebar-accent: #2a1812;
+    --sidebar-accent-foreground: #f9f5ee;
+    --sidebar-border: #3d2a22;
+    --sidebar-ring: #e6443a;
   }
 }
 
