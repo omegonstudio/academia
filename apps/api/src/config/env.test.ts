@@ -255,4 +255,45 @@ describe('evaluateConfiguration', () => {
       true,
     );
   });
+
+  it('requires Stripe webhook secret when secret key is set in production', () => {
+    const issues = evaluateConfiguration(
+      productionEnv({
+        S3_ACCESS_KEY: 'prod-spaces-access-key',
+        S3_SECRET_KEY: 'prod-spaces-secret-key-value',
+        STRIPE_SECRET_KEY: 'sk_live_production-example-key',
+        STRIPE_WEBHOOK_SECRET: '',
+      }),
+    );
+    expect(issues.some((issue) => /STRIPE_WEBHOOK_SECRET/.test(issue))).toBe(
+      true,
+    );
+  });
+
+  it('allows production Stripe when webhook secret is set', () => {
+    const issues = evaluateConfiguration(
+      productionEnv({
+        S3_ACCESS_KEY: 'prod-spaces-access-key',
+        S3_SECRET_KEY: 'prod-spaces-secret-key-value',
+        STRIPE_SECRET_KEY: 'sk_live_production-example-key',
+        STRIPE_WEBHOOK_SECRET: 'whsec_production-example',
+      }),
+    );
+    expect(issues.some((issue) => /STRIPE_WEBHOOK_SECRET/.test(issue))).toBe(
+      false,
+    );
+  });
+
+  it('does not require Stripe webhook secret outside production', () => {
+    const issues = evaluateConfiguration(
+      parseEnv({
+        ...baseEnv(),
+        STRIPE_SECRET_KEY: 'sk_test_local-example',
+        STRIPE_WEBHOOK_SECRET: '',
+      }),
+    );
+    expect(issues.some((issue) => /STRIPE_WEBHOOK_SECRET/.test(issue))).toBe(
+      false,
+    );
+  });
 });

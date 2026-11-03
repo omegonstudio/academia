@@ -585,6 +585,252 @@ describe('Finance HTTP API (Stage 6B-2)', () => {
       .set('Cookie', teaCookie!);
     expect(forbidden.status).toBe(403);
   });
+
+  it('FIN-DTO: STUDENT cannot read allocations (own or foreign); TEACHER cannot read another teacher allocation', async () => {
+    const directorCookie = await seedDirector();
+
+    const studentOwn = await fixture.studentRegistry.createWithNewUser({
+      email: 'fin-dto-student@academia.test',
+      passwordHash: await hashPassword('student-password-12'),
+      firstName: 'Stu',
+      lastName: 'Own',
+      level: 'A1',
+      isActive: true,
+    });
+    const studentOther = await fixture.studentRegistry.createWithNewUser({
+      email: 'fin-dto-other@academia.test',
+      passwordHash: await hashPassword('student-password-12'),
+      firstName: 'Stu',
+      lastName: 'Other',
+      level: 'A2',
+      isActive: true,
+    });
+    const teacherA = await fixture.teacherRegistry.createWithNewUser({
+      email: 'fin-dto-tea-a@academia.test',
+      passwordHash: await hashPassword('teacher-password-12'),
+      firstName: 'Tea',
+      lastName: 'A',
+      level: 'B1',
+      availability: 'AVAILABLE',
+      isActive: true,
+    });
+    const teacherB = await fixture.teacherRegistry.createWithNewUser({
+      email: 'fin-dto-tea-b@academia.test',
+      passwordHash: await hashPassword('teacher-password-12'),
+      firstName: 'Tea',
+      lastName: 'B',
+      level: 'B2',
+      availability: 'AVAILABLE',
+      isActive: true,
+    });
+
+    async function seedSucceededAllocation(input: {
+      emailPrefix: string;
+      studentId: string;
+      teacherId: string;
+    }): Promise<string> {
+      const classSessionId = randomUUID();
+      const groupId = randomUUID();
+      const courseId = randomUUID();
+      fixture.finance.seedClassSession({
+        classSessionId,
+        groupId,
+        courseId,
+        serviceType: 'ONE_TO_ONE_60',
+        teacherId: input.teacherId,
+        courseAmountMinor: 10000n,
+        courseCurrency: 'ARS',
+        studentEnrolled: true,
+        studentId: input.studentId,
+      });
+      const chargeRes = await request(fixture.app)
+        .post('/finance/charges')
+        .set('Cookie', directorCookie)
+        .send({
+          kind: 'CLASS_SESSION',
+          classSessionId,
+          studentId: input.studentId,
+        });
+      expect(chargeRes.status).toBe(201);
+      const pay = await request(fixture.app)
+        .post('/finance/payments')
+        .set('Cookie', directorCookie)
+        .send({
+          chargeId: chargeRes.body.charge.id,
+          provider: 'MANUAL',
+          idempotencyKey: `fin-dto-${input.emailPrefix}-${randomUUID()}`,
+        });
+      expect(pay.status).toBe(201);
+      const succeeded = await request(fixture.app)
+        .post(`/finance/payments/${pay.body.payment.id}/succeed`)
+        .set('Cookie', directorCookie);
+      expect(succeeded.status).toBe(200);
+      const allocs = await request(fixture.app)
+        .get('/finance/allocations')
+        .query({ paymentId: pay.body.payment.id })
+        .set('Cookie', directorCookie);
+      expect(allocs.status).toBe(200);
+      expect(allocs.body.allocations).toHaveLength(1);
+      return allocs.body.allocations[0].id as string;
+    }
+
+    const allocationOwnTeacherA = await seedSucceededAllocation({
+      emailPrefix: 'own',
+      studentId: studentOwn.id,
+      teacherId: teacherA.id,
+    });
+    const allocationTeacherB = await seedSucceededAllocation({
+      emailPrefix: 'b',
+      studentId: studentOther.id,
+      teacherId: teacherB.id,
+    });
+
+    const studentCookie = await loginAs(
+      'fin-dto-student@academia.test',
+      'student-password-12',
+    );
+    const listAsStudent = await request(fixture.app)
+      .get('/finance/allocations')
+      .set('Cookie', studentCookie!);
+    expect(listAsStudent.status).toBe(403);
+
+    const ownAsStudent = await request(fixture.app)
+      .get(`/finance/allocations/${allocationOwnTeacherA}`)
+      .set('Cookie', studentCookie!);
+    expect(ownAsStudent.status).toBe(403);
+
+    const foreignAsStudent = await request(fixture.app)
+      .get(`/finance/allocations/${allocationTeacherB}`)
+      .set('Cookie', studentCookie!);
+    expect(foreignAsStudent.status).toBe(403);
+
+    const chargesAsStudent = await request(fixture.app)
+      .get('/finance/charges')
+      .set('Cookie', studentCookie!);
+    expect(chargesAsStudent.status).toBe(200);
+    expect(JSON.stringify(chargesAsStudent.body)).not.toMatch(
+      /academyPercentage|academyAmountMinor|teacherAmountMinor/,
+    );
+
+    const teaACookie = await loginAs(
+      'fin-dto-tea-a@academia.test',
+      'teacher-password-12',
+    );
+    const listTeaA = await request(fixture.app)
+      .get('/finance/allocations')
+      .set('Cookie', teaACookie!);
+    expect(listTeaA.status).toBe(200);
+    const teaAIds = (listTeaA.body.allocations as { id: string }[]).map(
+      (row) => row.id,
+    );
+    expect(teaAIds).toContain(allocationOwnTeacherA);
+    expect(teaAIds).not.toContain(allocationTeacherB);
+
+    const foreignAllocAsTeaA = await request(fixture.app)
+      .get(`/finance/allocations/${allocationTeacherB}`)
+      .set('Cookie', teaACookie!);
+    expect(foreignAllocAsTeaA.status).toBe(403);
+
+    const manipulatedId = await request(fixture.app)
+      .get(`/finance/allocations/${allocationTeacherB}`)
+      .query({ teacherId: teacherA.id })
+      .set('Cookie', teaACookie!);
+    expect(manipulatedId.status).toBe(403);
+
+    const directorList = await request(fixture.app)
+      .get('/finance/allocations')
+      .set('Cookie', directorCookie);
+    expect(directorList.status).toBe(200);
+    expect(
+      (directorList.body.allocations as { academyPercentage: number }[]).some(
+        (row) => row.academyPercentage === 40,
+      ),
+    ).toBe(true);
+  });
+
+  it('FIN-DTO: ADMINISTRATIVE without finance.read cannot list allocations; with grant can', async () => {
+    const directorCookie = await seedDirector();
+    const student = await fixture.studentRegistry.createWithNewUser({
+      email: 'fin-dto-admin-stu@academia.test',
+      passwordHash: await hashPassword('student-password-12'),
+      firstName: 'Ad',
+      lastName: 'Stu',
+      level: 'A1',
+      isActive: true,
+    });
+    const teacher = await fixture.teacherRegistry.createWithNewUser({
+      email: 'fin-dto-admin-tea@academia.test',
+      passwordHash: await hashPassword('teacher-password-12'),
+      firstName: 'Ad',
+      lastName: 'Tea',
+      level: 'B1',
+      availability: 'AVAILABLE',
+      isActive: true,
+    });
+    const classSessionId = randomUUID();
+    fixture.finance.seedClassSession({
+      classSessionId,
+      groupId: randomUUID(),
+      courseId: randomUUID(),
+      serviceType: 'ONE_TO_ONE_60',
+      teacherId: teacher.id,
+      courseAmountMinor: 5000n,
+      courseCurrency: 'ARS',
+      studentEnrolled: true,
+      studentId: student.id,
+    });
+    const chargeRes = await request(fixture.app)
+      .post('/finance/charges')
+      .set('Cookie', directorCookie)
+      .send({
+        kind: 'CLASS_SESSION',
+        classSessionId,
+        studentId: student.id,
+      });
+    const pay = await request(fixture.app)
+      .post('/finance/payments')
+      .set('Cookie', directorCookie)
+      .send({
+        chargeId: chargeRes.body.charge.id,
+        provider: 'MANUAL',
+        idempotencyKey: `fin-dto-admin-${randomUUID()}`,
+      });
+    await request(fixture.app)
+      .post(`/finance/payments/${pay.body.payment.id}/succeed`)
+      .set('Cookie', directorCookie);
+
+    fixture.users.seed({
+      id: 'fin-dto-admin-1',
+      email: 'fin-dto-admin@academia.test',
+      name: 'Admin Fin',
+      role: 'ADMINISTRATIVE',
+      isActive: true,
+      passwordHash: await hashPassword('admin-password-12'),
+    });
+
+    const adminCookie = await loginAs(
+      'fin-dto-admin@academia.test',
+      'admin-password-12',
+    );
+    const withoutGrant = await request(fixture.app)
+      .get('/finance/allocations')
+      .set('Cookie', adminCookie!);
+    expect(withoutGrant.status).toBe(403);
+
+    fixture.administrativePermissions.grantRole(
+      'ADMINISTRATIVE',
+      'finance',
+      'read',
+    );
+    await fixture.administrativePermissions.grant('finance', 'read');
+
+    const withGrant = await request(fixture.app)
+      .get('/finance/allocations')
+      .set('Cookie', adminCookie!);
+    expect(withGrant.status).toBe(200);
+    expect(withGrant.body.allocations.length).toBeGreaterThanOrEqual(1);
+    expect(withGrant.body.allocations[0]).toHaveProperty('academyPercentage');
+  });
 });
 
 describe('Mercado Pago native webhook HTTP', () => {
