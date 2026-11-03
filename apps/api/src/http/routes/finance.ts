@@ -548,6 +548,8 @@ export function createFinanceRouter({
   );
 
   // --- Allocations (read-only; immutable) ---------------------------------
+  // STUDENT must use GET /students/me/finance (DECISIONS #45 / FIN-DTO):
+  // allocations expose academyPercentage and split amounts.
 
   router.get(
     '/finance/allocations',
@@ -562,6 +564,7 @@ export function createFinanceRouter({
             teachers,
           );
           if (!scope) throw new ForbiddenError();
+          if (scope.mode === 'student') throw new ForbiddenError();
 
           const parsed = allocationListQuerySchema.safeParse(req.query);
           if (!parsed.success) {
@@ -598,16 +601,11 @@ export function createFinanceRouter({
             teachers,
           );
           if (!scope) throw new ForbiddenError();
+          if (scope.mode === 'student') throw new ForbiddenError();
 
           const allocation = await finance.findAllocationById(id);
           if (!allocation) throw new NotFoundError('Allocation not found.');
 
-          if (
-            scope.mode === 'student' &&
-            allocation.studentId !== scope.studentId
-          ) {
-            throw new ForbiddenError();
-          }
           if (
             scope.mode === 'teacher' &&
             allocation.teacherId !== scope.teacherId

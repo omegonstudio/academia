@@ -331,6 +331,14 @@ export function evaluateConfiguration(env: Env): string[] {
         'MERCADOPAGO_WEBHOOK_SECRET is required when Mercado Pago is enabled in production',
       );
     }
+    if (
+      env.STRIPE_SECRET_KEY.length > 0 &&
+      env.STRIPE_WEBHOOK_SECRET.length === 0
+    ) {
+      issues.push(
+        'STRIPE_WEBHOOK_SECRET is required when Stripe is enabled in production',
+      );
+    }
   }
 
   if (
