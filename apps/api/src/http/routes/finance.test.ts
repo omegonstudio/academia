@@ -464,6 +464,83 @@ describe('Finance HTTP API (Stage 6B-2)', () => {
     expect(allocs.body.allocations).toHaveLength(1);
   });
 
+  it('rejects Stripe legacy inbox outside test environment without confirming payment', async () => {
+    fixture = await buildTestApp({
+      paymentCredentials: {
+        mercadopagoAccessToken: '',
+        mercadopagoWebhookSecret: '',
+        stripeSecretKey: '',
+        stripeWebhookSecret: '',
+        appPublicUrl: 'http://localhost:3000',
+        forceStubs: false,
+        nodeEnv: 'production',
+      },
+    });
+
+    const cookie = await seedDirector();
+    const student = await fixture.studentRegistry.createWithNewUser({
+      email: 'legacy-block@academia.test',
+      passwordHash: await hashPassword('student-password-12'),
+      firstName: 'Legacy',
+      lastName: 'Block',
+      level: 'A1',
+      isActive: true,
+    });
+    const teacher = await fixture.teacherRegistry.createWithNewUser({
+      email: 'legacy-block-t@academia.test',
+      passwordHash: await hashPassword('teacher-password-12'),
+      firstName: 'Legacy',
+      lastName: 'Teacher',
+      level: 'B2',
+      availability: 'AVAILABLE',
+      isActive: true,
+    });
+    const classSessionId = randomUUID();
+    fixture.finance.seedClassSession({
+      classSessionId,
+      groupId: randomUUID(),
+      courseId: randomUUID(),
+      serviceType: 'ONE_TO_ONE_60',
+      teacherId: teacher.id,
+      courseAmountMinor: 5000n,
+      courseCurrency: 'USD',
+      studentEnrolled: true,
+      studentId: student.id,
+    });
+    const chargeRes = await request(fixture.app)
+      .post('/finance/charges')
+      .set('Cookie', cookie)
+      .send({
+        kind: 'CLASS_SESSION',
+        classSessionId,
+        studentId: student.id,
+      });
+    const pay = await request(fixture.app)
+      .post('/finance/payments')
+      .set('Cookie', cookie)
+      .send({
+        chargeId: chargeRes.body.charge.id,
+        provider: 'STRIPE',
+        idempotencyKey: `legacy-block-${randomUUID()}`,
+      });
+    const paymentId = pay.body.payment.id as string;
+
+    const blocked = await request(fixture.app)
+      .post('/finance/webhooks/stripe')
+      .send({
+        providerEventId: `evt_blocked_${randomUUID()}`,
+        type: 'payment.succeeded',
+        paymentId,
+      });
+    expect(blocked.status).toBe(403);
+    expect(blocked.body.error.code).toBe('FORBIDDEN');
+
+    const got = await request(fixture.app)
+      .get(`/finance/payments/${paymentId}`)
+      .set('Cookie', cookie);
+    expect(got.body.payment.status).toBe('PENDING');
+  });
+
   it('forbids TEACHER from reading another teacher settlement', async () => {
     const cookie = await seedDirector();
     const teacherA = await fixture.teacherRegistry.createWithNewUser({
@@ -643,6 +720,29 @@ describe('Mercado Pago native webhook HTTP', () => {
         paymentId,
       });
     expect(res.status).toBe(400);
+  });
+
+  it('rejects legacy inbox when nodeEnv is not test (even without PSP tokens)', async () => {
+    fixture = await buildTestApp({
+      paymentCredentials: {
+        mercadopagoAccessToken: '',
+        mercadopagoWebhookSecret: '',
+        stripeSecretKey: '',
+        stripeWebhookSecret: '',
+        appPublicUrl: 'http://localhost:3000',
+        forceStubs: false,
+        nodeEnv: 'development',
+      },
+    });
+    const res = await request(fixture.app)
+      .post('/finance/webhooks/mercado-pago')
+      .send({
+        providerEventId: 'legacy-dev-blocked',
+        type: 'payment.succeeded',
+        paymentId: randomUUID(),
+      });
+    expect(res.status).toBe(403);
+    expect(res.body.error.code).toBe('FORBIDDEN');
   });
 
   it('approves after provider fetch with valid signature', async () => {
