@@ -18,9 +18,9 @@ describe('notifyPaymentSubmissionReceived', () => {
       reviewPath: 'http://localhost:3000/dashboard/finance/submissions',
     });
     expect(notifyMany).toHaveBeenCalledOnce();
-    const call = notifyMany.mock.calls[0];
-    expect(call).toBeDefined();
-    const inputs = call![0] as Array<{
+    const firstArg = notifyMany.mock.calls.at(0)?.at(0);
+    expect(firstArg).toBeDefined();
+    const inputs = firstArg as unknown as Array<{
       type: string;
       body: string;
       payload: Record<string, unknown>;
