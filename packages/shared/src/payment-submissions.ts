@@ -177,3 +177,14 @@ export const adminPaymentSubmissionListQuerySchema = z.object({
 export type AdminPaymentSubmissionListQuery = z.infer<
   typeof adminPaymentSubmissionListQuerySchema
 >;
+
+/**
+ * Explicit admin confirmation that money was received/verified before ledger write.
+ */
+export const approvePaymentSubmissionRequestSchema = z.object({
+  moneyReceivedConfirmed: z.literal(true),
+  adminNote: z.string().max(2000).optional(),
+});
+export type ApprovePaymentSubmissionRequest = z.infer<
+  typeof approvePaymentSubmissionRequestSchema
+>;

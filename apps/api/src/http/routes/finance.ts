@@ -1,5 +1,6 @@
 import {
   adminPaymentSubmissionListQuerySchema,
+  approvePaymentSubmissionRequestSchema,
   allocationListQuerySchema,
   chargeListQuerySchema,
   createChargeRequestSchema,
@@ -79,6 +80,7 @@ import {
   createPayment,
   succeedPayment,
 } from '../../domain/finance/payment-service.js';
+import { approvePaymentSubmission } from '../../domain/finance/payment-submission-approve-service.js';
 import {
   getAdminPaymentSubmission,
   listAdminPaymentSubmissions,
@@ -1187,6 +1189,45 @@ export function createFinanceRouter({
           const body: AdminPaymentSubmissionResponse = {
             submission: serializeAdminPaymentSubmission(updated, charge),
           };
+          res.status(200).json(body);
+        } catch (error) {
+          mapFinanceError(error);
+        }
+      })().catch(next);
+    },
+  );
+
+  router.post(
+    '/finance/submissions/:id/approve',
+    authenticate(authOptions),
+    requirePermission(permissionGrants, 'finance', 'update'),
+    (req, res, next) => {
+      void (async () => {
+        try {
+          if (!paymentSubmissions) {
+            throw new NotFoundError('Payment submissions are not available.');
+          }
+          const id = pathId(req.params.id);
+          if (!id) throw new BadRequestError('Valid id is required.');
+          const parsed = approvePaymentSubmissionRequestSchema.safeParse(
+            req.body,
+          );
+          if (!parsed.success) {
+            throw new BadRequestError(
+              parsed.error.issues[0]?.message ??
+                'moneyReceivedConfirmed must be true.',
+            );
+          }
+          const submission = await approvePaymentSubmission(
+            finance,
+            paymentSubmissions,
+            {
+              submissionId: id,
+              actorUserId: req.user!.id,
+              body: parsed.data,
+            },
+          );
+          const body: AdminPaymentSubmissionResponse = { submission };
           res.status(200).json(body);
         } catch (error) {
           mapFinanceError(error);

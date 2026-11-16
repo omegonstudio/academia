@@ -100,6 +100,7 @@ export {
   paymentSubmissionEventListResponseSchema,
   reviewPaymentSubmissionRequestSchema,
   adminPaymentSubmissionListQuerySchema,
+  approvePaymentSubmissionRequestSchema,
   type PaymentSubmissionStatus,
   type PaymentSubmission,
   type PaymentSubmissionListResponse,
@@ -116,6 +117,7 @@ export {
   type PaymentSubmissionEventListResponse,
   type ReviewPaymentSubmissionRequest,
   type AdminPaymentSubmissionListQuery,
+  type ApprovePaymentSubmissionRequest,
 } from './payment-submissions.js';
 export {
   teacherAttendanceListQuerySchema,

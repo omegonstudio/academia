@@ -375,8 +375,8 @@ Payment MANUAL still explicit).
 | `[x]` | `GET /finance/submissions/:id/events` | Append-only review audit (T5) |
 | `[x]` | `GET /finance/submissions/:id/receipt` | Staff signed receipt GET (T5) |
 | `[x]` | `POST /finance/submissions/:id/review` | take_under_review / request_correction / reject (`finance.update`) (T5) |
-| `[ ]` | `POST /finance/submissions/:id/approve` | Ledger approve (T6) |
-| `[x]` | `/dashboard/finance/submissions` | Admin bandeja UI (T5; approve CTA deferred to T6) |
+| `[x]` | `POST /finance/submissions/:id/approve` | Ledger approve: MANUAL SUCCEEDED + PAID + allocation (T6) |
+| `[x]` | `/dashboard/finance/submissions` | Admin bandeja UI (T5–T6) |
 | `[x]` | `GET /classes/calendar` | Reused; student scope by session |
 | `[x]` | `/students/me/online-courses*` | See **Online courses (async)** |
 
