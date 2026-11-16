@@ -179,6 +179,11 @@ export default function FinancePage() {
         title="Finanzas"
         description="Configuración de split, cargos, pagos, allocations congeladas y liquidaciones docentes."
       />
+      <p className="mb-4 text-sm">
+        <Link href="/dashboard/finance/submissions" className="underline">
+          Bandeja de comprobantes
+        </Link>
+      </p>
 
       {error ? <Alert tone="danger">{error}</Alert> : null}
       {success ? <Alert tone="success">{success}</Alert> : null}

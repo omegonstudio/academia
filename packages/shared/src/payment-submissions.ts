@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import {
+  chargeStatusSchema,
   financeCurrencySchema,
   nonNegativeMoneyMinorStringSchema,
 } from './finance.js';
@@ -103,4 +104,76 @@ export const receiptDownloadResponseSchema = z.object({
 });
 export type ReceiptDownloadResponse = z.infer<
   typeof receiptDownloadResponseSchema
+>;
+
+/** Admin review tray row — includes charge comparison fields. */
+export const adminPaymentSubmissionSchema = paymentSubmissionSchema.extend({
+  chargeAmountMinor: nonNegativeMoneyMinorStringSchema,
+  chargeCurrency: financeCurrencySchema,
+  chargeStatus: chargeStatusSchema,
+  amountDeltaMinor: z.string().regex(/^-?\d+$/),
+  amountMatchesCharge: z.boolean(),
+});
+export type AdminPaymentSubmission = z.infer<
+  typeof adminPaymentSubmissionSchema
+>;
+
+export const adminPaymentSubmissionListResponseSchema = z.object({
+  submissions: z.array(adminPaymentSubmissionSchema),
+  total: z.number().int().nonnegative(),
+  limit: z.number().int().positive(),
+  offset: z.number().int().nonnegative(),
+});
+export type AdminPaymentSubmissionListResponse = z.infer<
+  typeof adminPaymentSubmissionListResponseSchema
+>;
+
+export const adminPaymentSubmissionResponseSchema = z.object({
+  submission: adminPaymentSubmissionSchema,
+});
+export type AdminPaymentSubmissionResponse = z.infer<
+  typeof adminPaymentSubmissionResponseSchema
+>;
+
+export const paymentSubmissionEventSchema = z.object({
+  id: z.string().uuid(),
+  submissionId: z.string().uuid(),
+  fromStatus: paymentSubmissionStatusSchema.nullable(),
+  toStatus: paymentSubmissionStatusSchema,
+  actorUserId: z.string().uuid().nullable(),
+  note: z.string().nullable(),
+  createdAt: z.string().datetime(),
+});
+export type PaymentSubmissionEvent = z.infer<
+  typeof paymentSubmissionEventSchema
+>;
+
+export const paymentSubmissionEventListResponseSchema = z.object({
+  events: z.array(paymentSubmissionEventSchema),
+});
+export type PaymentSubmissionEventListResponse = z.infer<
+  typeof paymentSubmissionEventListResponseSchema
+>;
+
+export const reviewPaymentSubmissionRequestSchema = z.object({
+  action: z.enum([
+    'take_under_review',
+    'request_correction',
+    'reject',
+  ]),
+  adminNote: z.string().max(2000).optional(),
+});
+export type ReviewPaymentSubmissionRequest = z.infer<
+  typeof reviewPaymentSubmissionRequestSchema
+>;
+
+export const adminPaymentSubmissionListQuerySchema = z.object({
+  status: paymentSubmissionStatusSchema.optional(),
+  chargeId: z.string().uuid().optional(),
+  studentId: z.string().uuid().optional(),
+  limit: z.coerce.number().int().positive().max(100).default(20),
+  offset: z.coerce.number().int().nonnegative().default(0),
+});
+export type AdminPaymentSubmissionListQuery = z.infer<
+  typeof adminPaymentSubmissionListQuerySchema
 >;

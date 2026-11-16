@@ -370,6 +370,13 @@ Payment MANUAL still explicit).
 | `[x]` | `POST /students/me/finance/submissions/:id/receipt/upload` | Presigned PUT intent (`receipts/…`) (T4) |
 | `[x]` | `POST /students/me/finance/submissions/:id/receipt/complete` | Head + magic-byte complete (T4) |
 | `[x]` | `GET /students/me/finance/submissions/:id/receipt` | Short-lived signed GET for owner (T4) |
+| `[x]` | `GET /finance/submissions` | Admin tray list + filters/pagination (`finance.read`) (T5) |
+| `[x]` | `GET /finance/submissions/:id` | Admin submission detail (T5) |
+| `[x]` | `GET /finance/submissions/:id/events` | Append-only review audit (T5) |
+| `[x]` | `GET /finance/submissions/:id/receipt` | Staff signed receipt GET (T5) |
+| `[x]` | `POST /finance/submissions/:id/review` | take_under_review / request_correction / reject (`finance.update`) (T5) |
+| `[ ]` | `POST /finance/submissions/:id/approve` | Ledger approve (T6) |
+| `[x]` | `/dashboard/finance/submissions` | Admin bandeja UI (T5; approve CTA deferred to T6) |
 | `[x]` | `GET /classes/calendar` | Reused; student scope by session |
 | `[x]` | `/students/me/online-courses*` | See **Online courses (async)** |
 
