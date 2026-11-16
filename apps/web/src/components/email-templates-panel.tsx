@@ -12,6 +12,7 @@ const TYPE_LABELS: Record<NotificationType, string> = {
   USER_CREATED: 'Bienvenida (cuenta nueva)',
   TEACHER_ASSIGNED: 'Asignación de docente (alumno)',
   CLASS_MEETING_LINK: 'Link de clase / Google Meet',
+  PAYMENT_SUBMISSION_RECEIVED: 'Comprobante de pago recibido (staff)',
 }
 
 export function EmailTemplatesPanel() {
