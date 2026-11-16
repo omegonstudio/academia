@@ -19,7 +19,9 @@ import {
 import {
   chargeCheckoutUiState,
   chargeContextLabel,
+  checkoutCtaLabel,
   formatFinanceDate,
+  NO_CHECKOUT_URL_MESSAGE,
 } from '@/lib/student-finance'
 
 type LoadState =
@@ -64,19 +66,24 @@ export default function StudentFinancePage() {
   }, [user.role, router])
 
   async function handlePay(chargeId: string) {
+    if (payingId) return
     setActionError(null)
     setPayingId(chargeId)
-    const result = await payStudentMeFinanceChargeBrowser(chargeId)
-    setPayingId(null)
-    if (!result.ok) {
-      setActionError(result.message)
-      return
+    try {
+      const result = await payStudentMeFinanceChargeBrowser(chargeId)
+      if (!result.ok) {
+        setActionError(result.message)
+        return
+      }
+      if (result.data.checkoutUrl) {
+        window.location.assign(result.data.checkoutUrl)
+        return
+      }
+      setActionError(NO_CHECKOUT_URL_MESSAGE)
+      await reloadFinance()
+    } finally {
+      setPayingId(null)
     }
-    if (result.data.checkoutUrl) {
-      window.location.assign(result.data.checkoutUrl)
-      return
-    }
-    await reloadFinance()
   }
 
   const empty =
@@ -177,20 +184,26 @@ export default function StudentFinancePage() {
                           {chargeStatusLabel(charge.status)} ·{' '}
                           {formatFinanceDate(charge.createdAt)}
                         </p>
-                        {checkout === 'payable' ? (
-                          <Button
-                            type="button"
-                            size="sm"
-                            disabled={payingId === charge.id}
-                            onClick={() => void handlePay(charge.id)}
-                          >
-                            {payingId === charge.id ? 'Iniciando…' : 'Pagar'}
-                          </Button>
-                        ) : null}
-                        {checkout === 'pending' ? (
-                          <p className="text-sm font-medium text-muted-foreground">
-                            Pago pendiente
-                          </p>
+                        {checkout === 'payable' || checkout === 'pending' ? (
+                          <div className="flex flex-wrap items-center gap-2">
+                            {checkout === 'pending' ? (
+                              <p className="text-sm font-medium text-muted-foreground">
+                                Pago pendiente
+                              </p>
+                            ) : null}
+                            <Button
+                              type="button"
+                              size="sm"
+                              disabled={payingId !== null}
+                              onClick={() => void handlePay(charge.id)}
+                            >
+                              {payingId === charge.id
+                                ? checkout === 'pending'
+                                  ? 'Continuando…'
+                                  : 'Iniciando…'
+                                : checkoutCtaLabel(checkout)}
+                            </Button>
+                          </div>
                         ) : null}
                       </div>
                     </li>

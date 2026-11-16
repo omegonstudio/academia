@@ -480,6 +480,9 @@ describe('startStudentCheckout Mercado Pago', () => {
     const charges = await store.listCharges({ studentId });
     expect(charges).toHaveLength(1);
     expect(first.checkoutUrl).toContain('sandbox.mercadopago.com');
+    expect(second.checkoutUrl).toContain('sandbox.mercadopago.com');
+    const charge = await store.findChargeById(chargeId);
+    expect(charge!.status).toBe('OPEN');
   });
 
   it('resolvePaymentProvider stays stub without credentials', () => {

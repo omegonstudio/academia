@@ -6,8 +6,10 @@ import type {
 import {
   chargeCheckoutUiState,
   chargeContextLabel,
+  checkoutCtaLabel,
   formatFinanceDate,
   hasFinanceActivity,
+  NO_CHECKOUT_URL_MESSAGE,
 } from './student-finance'
 
 function charge(
@@ -74,9 +76,13 @@ describe('student-finance helpers', () => {
     ).toBe(true)
   })
 
-  it('derives checkout UI state for Pay vs pending', () => {
+  it('derives checkout UI state for Pay vs Continuar pago', () => {
     expect(chargeCheckoutUiState(charge(), [])).toBe('payable')
     expect(chargeCheckoutUiState(charge(), [payment()])).toBe('pending')
+    expect(checkoutCtaLabel('payable')).toBe('Pagar')
+    expect(checkoutCtaLabel('pending')).toBe('Continuar pago')
+    expect(checkoutCtaLabel('other')).toBeNull()
+    expect(NO_CHECKOUT_URL_MESSAGE.length).toBeGreaterThan(20)
     expect(
       chargeCheckoutUiState(charge({ status: 'PAID' }), [
         payment({ status: 'SUCCEEDED' }),
@@ -84,6 +90,9 @@ describe('student-finance helpers', () => {
     ).toBe('other')
     expect(
       chargeCheckoutUiState(charge({ status: 'CANCELLED' }), []),
+    ).toBe('other')
+    expect(
+      chargeCheckoutUiState(charge(), [payment({ status: 'FAILED' })]),
     ).toBe('other')
   })
 })

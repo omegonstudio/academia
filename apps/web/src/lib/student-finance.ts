@@ -37,8 +37,10 @@ export function hasFinanceActivity(data: {
 export type ChargeCheckoutUiState = 'payable' | 'pending' | 'other'
 
 /**
- * UX for the Pay button. Backend remains the authority.
- * OPEN + no payment → payable; OPEN + PENDING payment → pending (no second pay).
+ * UX for checkout CTAs. Backend remains the authority.
+ * OPEN + no payment → payable (Pagar).
+ * OPEN + PENDING payment → pending (Continuar pago; same Payment + idempotency).
+ * Other statuses → no CTA (FAILED/CANCELLED retry is T2).
  */
 export function chargeCheckoutUiState(
   charge: StudentFinanceCharge,
@@ -50,3 +52,13 @@ export function chargeCheckoutUiState(
   if (payment.status === 'PENDING') return 'pending'
   return 'other'
 }
+
+export function checkoutCtaLabel(state: ChargeCheckoutUiState): string | null {
+  if (state === 'payable') return 'Pagar'
+  if (state === 'pending') return 'Continuar pago'
+  return null
+}
+
+/** Shown when the API resumes/creates a Payment but returns no hosted URL. */
+export const NO_CHECKOUT_URL_MESSAGE =
+  'El pago quedó iniciado, pero no hay un enlace de checkout disponible ahora. Podés intentar Continuar pago de nuevo en unos minutos o contactar a la academia.'
