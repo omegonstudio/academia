@@ -60,6 +60,47 @@ export async function notifyTeacherAssigned(
   ]);
 }
 
+/** New student transfer receipt submitted for admin review (T7). */
+export async function notifyPaymentSubmissionReceived(
+  publisher: NotificationPublisher | undefined,
+  input: {
+    recipients: Array<{ userId: string; email: string; displayName?: string }>;
+    studentName: string;
+    chargeId: string;
+    submissionId: string;
+    reportedAmountLabel: string;
+    paidAtIso: string;
+    reviewPath: string;
+  },
+): Promise<void> {
+  if (!publisher || input.recipients.length === 0) return;
+  const when = new Date(input.paidAtIso).toLocaleString('es-AR', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  });
+  await publisher.notifyMany(
+    input.recipients.map((recipient) => ({
+      userId: recipient.userId,
+      email: recipient.email,
+      type: 'PAYMENT_SUBMISSION_RECEIVED' as const,
+      title: 'Nuevo comprobante de pago',
+      body: `${input.studentName} informó un pago de ${input.reportedAmountLabel} (fecha ${when}). Revisá en Academia: ${input.reviewPath}`,
+      payload: {
+        submissionId: input.submissionId,
+        chargeId: input.chargeId,
+        reviewPath: input.reviewPath,
+      },
+      templateVars: {
+        displayName: recipient.displayName?.trim() || recipient.email,
+        studentName: input.studentName,
+        amount: input.reportedAmountLabel,
+        when,
+        reviewPath: input.reviewPath,
+      },
+    })),
+  );
+}
+
 /** Class session received a meeting link. */
 export async function notifyClassMeetingLink(
   publisher: NotificationPublisher | undefined,

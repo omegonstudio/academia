@@ -241,6 +241,12 @@ export async function createRuntimeApp(): Promise<RuntimeApp> {
       finance,
       paymentSubmissions,
       objectStorage,
+      notifications: notificationPublisher,
+      notificationAudience,
+      appPublicUrl:
+        env.APP_PUBLIC_URL ||
+        process.env['NEXT_PUBLIC_APP_URL'] ||
+        'http://localhost:3000',
       paymentCredentials: {
         mercadopagoAccessToken: env.MERCADOPAGO_ACCESS_TOKEN,
         mercadopagoWebhookSecret: env.MERCADOPAGO_WEBHOOK_SECRET,
