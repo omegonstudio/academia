@@ -75,6 +75,7 @@ import {
   paymentSubmissionEventListResponseSchema,
   permissionListResponseSchema,
   receiptDownloadResponseSchema,
+  approvePaymentSubmissionRequestSchema,
   reviewPaymentSubmissionRequestSchema,
   permissionMutationResponseSchema,
   provisionAdministrativeRequestSchema,
@@ -123,6 +124,7 @@ import {
   type Charge,
   type PaymentSubmissionEvent,
   type ReceiptDownloadResponse,
+  type ApprovePaymentSubmissionRequest,
   type ReviewPaymentSubmissionRequest,
   type ChargeListQuery,
   type CivilDate,
@@ -3540,6 +3542,56 @@ export async function getFinanceSubmissionReceiptBrowser(
       }
     }
     return { ok: true, data: parsed.data }
+  } catch {
+    return {
+      ok: false,
+      status: 503,
+      message: 'No pudimos conectar con el servidor.',
+    }
+  }
+}
+
+export async function approveFinanceSubmissionBrowser(
+  submissionId: string,
+  body: ApprovePaymentSubmissionRequest,
+): Promise<BrowserApiResult<AdminPaymentSubmission>> {
+  const validated = approvePaymentSubmissionRequestSchema.safeParse(body)
+  if (!validated.success) {
+    return {
+      ok: false,
+      status: 400,
+      message: 'Debés confirmar explícitamente que recibiste el dinero.',
+    }
+  }
+  try {
+    const response = await browserFetch(
+      `/finance/submissions/${encodeURIComponent(submissionId)}/approve`,
+      {
+        method: 'POST',
+        body: JSON.stringify(validated.data),
+      },
+    )
+    if (!response.ok) {
+      return {
+        ok: false,
+        status: response.status,
+        message: genericError(
+          response.status,
+          'No pudimos aprobar el comprobante.',
+        ),
+      }
+    }
+    const parsed = adminPaymentSubmissionResponseSchema.safeParse(
+      await response.json(),
+    )
+    if (!parsed.success) {
+      return {
+        ok: false,
+        status: 500,
+        message: 'Respuesta inválida del servidor.',
+      }
+    }
+    return { ok: true, data: parsed.data.submission }
   } catch {
     return {
       ok: false,

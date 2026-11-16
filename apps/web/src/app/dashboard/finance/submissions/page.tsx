@@ -10,6 +10,7 @@ import { DashboardShell, PageHeader } from '@/components/dashboard-shell'
 import { useSessionUser } from '@/components/session-provider'
 import { Alert, Button, Skeleton } from '@/components/ui/primitives'
 import {
+  approveFinanceSubmissionBrowser,
   getFinanceSubmissionReceiptBrowser,
   listFinanceSubmissionsBrowser,
   reviewFinanceSubmissionBrowser,
@@ -95,7 +96,7 @@ export default function FinanceSubmissionsPage() {
       <PageHeader
         eyebrow="Finanzas"
         title="Bandeja de comprobantes"
-        description="Revisá transferencias informadas por estudiantes. La aprobación financiera (ledger) se completa en el flujo de confirmación."
+        description="Revisá transferencias informadas por estudiantes. Aprobar exige monto exacto, comprobante y confirmación explícita de recepción del dinero."
       />
       <p className="mt-2 text-sm">
         <Link href="/dashboard/finance" className="underline">
@@ -222,12 +223,38 @@ export default function FinanceSubmissionsPage() {
                       >
                         Rechazar
                       </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        disabled={
+                          busyId === row.id ||
+                          !row.amountMatchesCharge ||
+                          !row.hasReceipt
+                        }
+                        onClick={() => {
+                          void (async () => {
+                            setBusyId(row.id)
+                            setError('')
+                            const result =
+                              await approveFinanceSubmissionBrowser(row.id, {
+                                moneyReceivedConfirmed: true,
+                                ...(note.trim()
+                                  ? { adminNote: note.trim() }
+                                  : {}),
+                              })
+                            setBusyId('')
+                            if (!result.ok) {
+                              setError(result.message)
+                              return
+                            }
+                            setNote('')
+                            await load()
+                          })()
+                        }}
+                      >
+                        Aprobar (recibí el dinero)
+                      </Button>
                     </>
-                  ) : null}
-                  {row.status !== 'APPROVED' ? (
-                    <span className="text-xs text-muted-foreground">
-                      Aprobar (ledger) disponible tras T6
-                    </span>
                   ) : null}
                 </div>
               </li>
