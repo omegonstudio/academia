@@ -108,11 +108,11 @@ Este cierre documental **no** re-ejecuta suites, **no** toca bases de datos y **
 | A | Auth / authz | PARCIAL | P1 | Cookie HttpOnly + reload DB; scrypt; `requirePermission`; FIN-DTO **TESTEADO** (PROD-01); sin reset | Auth sólida; falta password reset |
 | B | Academia live | IMPLEMENTADO / TESTEADO | P2 | Course/Group/Session/Enrollment; max 15; timezone AR | Operable en MVP |
 | C | LMS asíncrono | IMPLEMENTADO / TESTEADO | P2 | LMS-01–05; gratis + publish gates; paid path pendiente | Listo para cursos gratis; cobro LMS no |
-| D | Finanzas | IMPLEMENTADO / TESTEADO | P1 | Freeze 40–90; webhooks nativos; legacy bloqueado; FIN-DTO **TESTEADO** | Ledger OK; refunds PSP / PAY-LIVE abiertos |
+| D | Finanzas | IMPLEMENTADO / TESTEADO | P1 | Freeze 40–90; retries #53; PaymentSubmission T1–T6 **TESTEADO** + **INTEGRADO EN DEV**; FIN-DTO **TESTEADO** | Ledger + comprobantes OK en tests; PAY-LIVE abierto |
 | E | MP / Stripe | PARCIAL | P1 | Adapters + firma + fetch-before-ledger; boot Stripe secret **TESTEADO** (PROD-01); mocks | Boot gate OK en tests; live **NO VERIFICADO** |
 | F | Meet / Zoom | PARCIAL | P1 | Lifecycle + XOR + huérfanos; mocks | No VERIFICADO con APIs reales |
 | G | Frontend / roles / Spanish2Go | PARCIAL | P1 | Dashboards por rol; oferta pública marketing; membership engañosa | Spanish2Go ≠ producto; membership P1 |
-| H | Notificaciones | PARCIAL | P1 | 3 eventos + Resend opcional; sin reset | Cableado mínimo |
+| H | Notificaciones | PARCIAL | P1 | 4 eventos (+ `PAYMENT_SUBMISSION_RECEIVED` T7) + Resend opcional; sin reset | Cableado mínimo ampliado; no VERIFICADO en prod |
 | I | Infra / seguridad | PARCIAL | P0 | Compose/health/docs; deploy PROD no corrido; sin CSP; OPS-02 **TESTEADO** | Base buena; ops PROD no verificada |
 | J | CI/CD | PARCIAL | P0 | CI completo; production.yml sin ejecución real; sin E2E | Gate de merge bueno; CD no ensayado |
 
@@ -329,6 +329,8 @@ Este cierre documental **no** re-ejecuta suites, **no** toca bases de datos y **
 | Curso asíncrono de pago | PENDIENTE | Sin checkout LMS |
 | Pago charge live (MP/Stripe) | PARCIAL | Código + mocks; live NO VERIFICADO |
 | Webhook → SUCCEEDED → allocation freeze | IMPLEMENTADO / TESTEADO | Remediación 01 legacy off |
+| Checkout resume / retry FAILED|CANCELLED | IMPLEMENTADO / TESTEADO / INTEGRADO EN DEV | T1–T2; DECISIONS #53; no VERIFICADO PSP live |
+| PaymentSubmission + receipts + admin approve | IMPLEMENTADO / TESTEADO / INTEGRADO EN DEV | T3–T6; approve = MANUAL ledger; no Spaces prod drill |
 | Refund | PARCIAL | Ledger admin; inbound MP; sin PSP outbound |
 | Liquidación teacher | IMPLEMENTADO / TESTEADO | Mark paid; sin payout bancario (MVP) |
 | Clase virtual Meet/Zoom | PARCIAL | Código + mocks; live NO VERIFICADO |
