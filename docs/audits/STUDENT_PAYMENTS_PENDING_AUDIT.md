@@ -2,10 +2,12 @@
 
 | Campo | Valor |
 | --- | --- |
-| Rama / commit base | `dev` @ `9e12aa2` (post–merge PROD-01) |
-| Tipo | Solo auditoría (sin cambios de código, schema, migraciones ni UI) |
-| Fecha | 2026-11-03 |
-| Relación | Tras integración PROD-01 (`a5a53b0` → merge `9e12aa2`) |
+| Rama / commit base (auditoría) | `dev` @ `9e12aa2` (post–merge PROD-01) |
+| Implementación T1–T9 | `dev` @ `566eef1` (post–T8; T9 docs) |
+| Tipo original | Solo auditoría |
+| Fecha auditoría | 2026-11-03 |
+| Fecha cierre implementación | 2026-11-16 |
+| Relación | Tras PROD-01; plan de pagos/comprobantes ejecutado en `origin/dev` |
 
 **Convención de evidencia**
 
@@ -259,34 +261,32 @@ docs/audits/PRODUCTION_READINESS_AUDIT.md (PROD-01)
 
 ---
 
-## 10. Plan de implementación (tickets pequeños — post-aprobación)
+## 10. Plan de implementación — estado de cierre
 
-Orden sugerido; **no ejecutar** hasta aprobación explícita.
-
-| # | Ticket | Alcance | Dependencias |
+| # | Ticket | Estado | Evidencia |
 | --- | --- | --- | --- |
-| T1 | UX: CTA “Continuar pago” cuando Charge OPEN + Payment PENDING | Solo web + copy; llama mismo `pay` endpoint | Ninguna |
-| T2 | Decisión de producto: FAILED/CANCELLED → ¿nuevo intento? | Doc DECISIONS; posible ticket schema | Negocio |
-| T3 | Modelo `PaymentSubmission` + migración | Prisma + API create/list student | T2 si afecta Payment |
-| T4 | Upload comprobante vía ObjectStoragePort | Presign + complete + authz | T3 |
-| T5 | Bandeja admin review + approve/reject/correction | HTTP + UI staff | T3–T4 |
-| T6 | Approve → succeed MANUAL transaccional idempotente | Dominio finance | T5 |
-| T7 | Notificación Resend + in-app a admin | Nuevo `NOTIFICATION_TYPE` | T5 |
-| T8 | Tests unit/HTTP + smoke sandbox MP/Stripe (si aplica) | | T1 / T6 |
-| T9 | Actualizar ROUTE-MAP / TODO / readiness | Docs | Tras merge |
+| T1 | Continuar pago PENDING | **IMPLEMENTADO + TESTEADO + INTEGRADO EN DEV** | `42a3aa9` / merge `23c6dfc` |
+| T2 | Reintentos FAILED/CANCELLED | **IMPLEMENTADO + TESTEADO + INTEGRADO EN DEV** | `2ea1cff` / merge `f9d4b10`; DECISIONS #53; migración `20261116190000_payment_retry_history` |
+| T3 | PaymentSubmission | **IMPLEMENTADO + TESTEADO + INTEGRADO EN DEV** | `0023e46` / merge `4f60e29`; migración `20261116200000_payment_submission` |
+| T4 | Upload receipts/ | **IMPLEMENTADO + TESTEADO + INTEGRADO EN DEV** | `844a8dc` / merge `70c7729`; AV pendiente documentado |
+| T5 | Bandeja admin | **IMPLEMENTADO + TESTEADO + INTEGRADO EN DEV** | `ea7adb0` / merge `3476de7` |
+| T6 | Approve ledger | **IMPLEMENTADO + TESTEADO + INTEGRADO EN DEV** | `b2b7ae0` / merge `28c659f` |
+| T7 | Notificaciones | **IMPLEMENTADO + TESTEADO + INTEGRADO EN DEV** | `fe520f9` / merge `d0e3df8` |
+| T8 | Regresión | **TESTEADO** (unit/lint/typecheck/build) | merge `566eef1`; API 634 unit; web 96; **NO** smoke PSP live |
+| T9 | Docs | **INTEGRADO EN DEV** (este cierre) | rama `docs/payments-t9-readiness` |
 
-**Fuera de estos tickets:** Telegram, QR Academia, transferencia como provider nativo, pagos parciales multi-Payment.
+**No VERIFICADO EN SANDBOX / PRODUCCIÓN:** PSP live, Spaces prod drill, deploy PROD.
+
+**Fuera de alcance (sigue):** Telegram, QR Academia, transferencia como provider nativo, pagos parciales.
 
 ---
 
-## Resumen ejecutivo
+## Resumen ejecutivo (actualizado)
 
 1. Deuda **no** desactiva alumnos; inactivo = no login.  
-2. Ciclo Charge→Payment→webhook→Allocation está implementado y testeado con mocks; live PSP **NO VERIFICADO**.  
-3. El botón falta sobre todo por **regla UI** (`OPEN`+`PENDING` → sin CTA), no porque el backend prohíba reanudar PENDING.  
-4. MP/Stripe/MANUAL existen; transferencia/QR propios **no**.  
-5. `@unique chargeId` bloquea reintentos/parciales/múltiples comprobantes como Payments.  
-6. Comprobantes → modelo submission separado + approve ≠ dinero hasta ledger.  
-7. Notificar por Resend/in-app; storage = patrón materials.  
-
-**Esperar aprobación antes de implementar.**
+2. Ciclo Charge→Payment→webhook→Allocation + retries (#53) **TESTEADO** con mocks; live PSP **NO VERIFICADO**.  
+3. CTA: Pagar / Continuar pago / Reintentar pago según OPEN + estado Payment.  
+4. MP/Stripe/MANUAL existen; comprobantes de transferencia vía `PaymentSubmission` (no provider nativo).  
+5. Historial de Payments por Charge permitido; como máximo un live PENDING|SUCCEEDED.  
+6. Comprobante ≠ pagado hasta approve admin con `moneyReceivedConfirmed` + monto exacto.  
+7. Notificar Resend/in-app a Director/SuperAdmin; storage `receipts/` privado.

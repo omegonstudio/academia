@@ -329,7 +329,7 @@ Track payments and settlements using the academy's **configurable** revenue spli
 - [x] **T6** Aprobación financiera — rama `feature/payments-t6-approve-submission`; MANUAL succeed + allocation; idempotente.
 - [x] **T7** Notificaciones comprobante — rama `feature/payments-t7-notifications`; Resend/in-app a Director/SuperAdmin; sin adjuntos.
 - [x] **T8** Regresión — rama `test/payments-t8-regression`; API unit 634 OK; web lint/typecheck/test/build OK (sin smoke PSP live).
-- [ ] **T9** Docs readiness / DECISIONS sync / cierre.
+- [x] **T9** Docs readiness — rama `docs/payments-t9-readiness`; audit + readiness + TODO/ROUTE-MAP sincronizados.
 
 ### Explicitly out of MVP (future)
 - Automated teacher payouts.
