@@ -465,10 +465,18 @@ export function createInMemoryFinanceStore(): InMemoryFinanceStore {
     },
 
     async findPaymentByChargeId(chargeId) {
-      for (const row of payments.values()) {
-        if (row.chargeId === chargeId) return clonePayment(row);
-      }
-      return null;
+      const rows = [...payments.values()].filter(
+        (row) => row.chargeId === chargeId,
+      );
+      if (rows.length === 0) return null;
+      const succeeded = rows.find((row) => row.status === 'SUCCEEDED');
+      if (succeeded) return clonePayment(succeeded);
+      const pending = rows
+        .filter((row) => row.status === 'PENDING')
+        .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())[0];
+      if (pending) return clonePayment(pending);
+      rows.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+      return clonePayment(rows[0]!);
     },
 
     async createPayment(input) {
@@ -476,7 +484,10 @@ export function createInMemoryFinanceStore(): InMemoryFinanceStore {
         if (row.idempotencyKey === input.idempotencyKey) {
           throw new FinanceConflictError('Payment unique constraint violated.');
         }
-        if (row.chargeId === input.chargeId) {
+        if (
+          row.chargeId === input.chargeId &&
+          (row.status === 'PENDING' || row.status === 'SUCCEEDED')
+        ) {
           throw new FinanceConflictError('Payment unique constraint violated.');
         }
         if (

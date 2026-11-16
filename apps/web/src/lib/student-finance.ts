@@ -34,28 +34,45 @@ export function hasFinanceActivity(data: {
   return data.charges.length > 0 || data.payments.length > 0
 }
 
-export type ChargeCheckoutUiState = 'payable' | 'pending' | 'other'
+export type ChargeCheckoutUiState =
+  | 'payable'
+  | 'pending'
+  | 'retryable'
+  | 'other'
 
 /**
  * UX for checkout CTAs. Backend remains the authority.
  * OPEN + no payment → payable (Pagar).
- * OPEN + PENDING payment → pending (Continuar pago; same Payment + idempotency).
- * Other statuses → no CTA (FAILED/CANCELLED retry is T2).
+ * OPEN + PENDING → pending (Continuar pago; same Payment).
+ * OPEN + FAILED → retryable (Reintentar pago; new Payment, history kept).
+ * OPEN + CANCELLED → retryable (Volver a pagar).
+ * Prefers the latest payment for the charge when several exist (#53).
  */
 export function chargeCheckoutUiState(
   charge: StudentFinanceCharge,
   payments: readonly StudentFinancePayment[],
 ): ChargeCheckoutUiState {
   if (charge.status !== 'OPEN') return 'other'
-  const payment = payments.find((row) => row.chargeId === charge.id)
+  const forCharge = payments
+    .filter((row) => row.chargeId === charge.id)
+    .slice()
+    .sort(
+      (a, b) =>
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+    )
+  const payment = forCharge[0]
   if (!payment) return 'payable'
   if (payment.status === 'PENDING') return 'pending'
+  if (payment.status === 'FAILED' || payment.status === 'CANCELLED') {
+    return 'retryable'
+  }
   return 'other'
 }
 
 export function checkoutCtaLabel(state: ChargeCheckoutUiState): string | null {
   if (state === 'payable') return 'Pagar'
   if (state === 'pending') return 'Continuar pago'
+  if (state === 'retryable') return 'Reintentar pago'
   return null
 }
 

@@ -1,7 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
-  FinanceConflictError,
   FinanceNotFoundError,
   FinanceValidationError,
 } from './finance-errors.js';
@@ -159,21 +158,80 @@ describe('startStudentCheckout', () => {
     ).rejects.toBeInstanceOf(FinanceValidationError);
   });
 
-  it('rejects restart when PENDING Payment was cancelled (non-PENDING exists)', async () => {
-    const payment = await createPayment(store, {
+  it('retries after FAILED with a new Payment and keeps history', async () => {
+    const first = await createPayment(store, {
       chargeId,
       provider: 'MERCADOPAGO',
       idempotencyKey: `mp-${chargeId}`,
       createdByUserId: actorUserId,
     });
-    await store.updatePaymentStatus(payment.id, 'FAILED');
-    await expect(
+    await store.updatePaymentStatus(first.id, 'FAILED');
+    const retry = await startStudentCheckout(store, {
+      studentId,
+      chargeId,
+      createdByUserId: actorUserId,
+    });
+    expect(retry.payment.id).not.toBe(first.id);
+    expect(retry.payment.status).toBe('PENDING');
+    expect(retry.payment.idempotencyKey).toContain(`retry:${first.id}`);
+    const all = await store.listPayments({ chargeId });
+    expect(all).toHaveLength(2);
+    expect(all.some((row) => row.id === first.id && row.status === 'FAILED')).toBe(
+      true,
+    );
+    const charge = await store.findChargeById(chargeId);
+    expect(charge!.status).toBe('OPEN');
+  });
+
+  it('retries after CANCELLED and collapses concurrent retries on same key', async () => {
+    const first = await createPayment(store, {
+      chargeId,
+      provider: 'MERCADOPAGO',
+      idempotencyKey: `mp-cancel-${chargeId}`,
+      createdByUserId: actorUserId,
+    });
+    await store.updatePaymentStatus(first.id, 'CANCELLED');
+    const [a, b] = await Promise.all([
       startStudentCheckout(store, {
         studentId,
         chargeId,
         createdByUserId: actorUserId,
       }),
-    ).rejects.toBeInstanceOf(FinanceConflictError);
+      startStudentCheckout(store, {
+        studentId,
+        chargeId,
+        createdByUserId: actorUserId,
+      }),
+    ]);
+    expect(a.payment.id).toBe(b.payment.id);
+    const live = (await store.listPayments({ chargeId })).filter(
+      (row) => row.status === 'PENDING' || row.status === 'SUCCEEDED',
+    );
+    expect(live).toHaveLength(1);
+  });
+
+  it('late succeed of older FAILED cancels newer PENDING and pays once', async () => {
+    const first = await createPayment(store, {
+      chargeId,
+      provider: 'MERCADOPAGO',
+      idempotencyKey: `mp-late-${chargeId}`,
+      providerPaymentId: 'pref_old',
+      createdByUserId: actorUserId,
+    });
+    await store.updatePaymentStatus(first.id, 'FAILED');
+    const retry = await startStudentCheckout(store, {
+      studentId,
+      chargeId,
+      createdByUserId: actorUserId,
+    });
+    expect(retry.payment.status).toBe('PENDING');
+    const result = await succeedPayment(store, first.id);
+    expect(result.payment.status).toBe('SUCCEEDED');
+    expect(result.charge.status).toBe('PAID');
+    const newer = await store.findPaymentById(retry.payment.id);
+    expect(newer!.status).toBe('CANCELLED');
+    const allocs = await store.listAllocations({ chargeId });
+    expect(allocs.filter((row) => row.kind === 'ORIGINAL')).toHaveLength(1);
   });
 
   it('webhook succeed after checkout creates allocation', async () => {

@@ -1178,3 +1178,38 @@ question/option `id` on upsert; `attemptCount` on admin DTO.
 **Consequence.** Admins can maintain live quizzes safely; structural shrink
 after first student attempt requires a future versioned-quiz design (new
 migration) if product demands it.
+
+---
+
+## 53. Payment retries after FAILED/CANCELLED (history-preserving)
+
+**Context.** `Payment.chargeId @unique` blocked a second attempt after a
+FAILED/CANCELLED checkout, leaving OPEN charges without a Pay CTA. Product
+requires retry while keeping every prior attempt, preventing double SUCCEEDED
+ledger rows, and handling late PSP webhooks when a newer retry is already
+PENDING. Partials remain out of scope.
+
+**Decision.**
+
+1. Drop the absolute unique on `payments.charge_id`. Add partial unique index
+   `payments_one_live_per_charge_uidx` on `charge_id` WHERE
+   `status IN ('PENDING','SUCCEEDED')` (migration
+   `20261116190000_payment_retry_history`).
+2. Domain still forbids partial amounts: one Charge → full-amount Payments only;
+   at most one live attempt.
+3. Checkout:
+   - PENDING → resume same Payment + same idempotency key (T1).
+   - FAILED/CANCELLED → new Payment with
+     `student-checkout:{studentId}:{chargeId}:retry:{priorPaymentId}`
+     (concurrent retries collapse on that key).
+4. `succeedPayment` recovery: a late SUCCEEDED webhook for a FAILED/CANCELLED
+   Payment may transition to SUCCEEDED only while Charge is OPEN and no sibling
+   SUCCEEDED exists; any newer PENDING sibling is CANCELLED in the same
+   transaction. Mercado Pago resolves Payment by `preference_id` when present.
+5. UI: OPEN+FAILED → «Reintentar pago»; OPEN+CANCELLED → same CTA family.
+
+**Consequence.** Attempt history is preserved; double ORIGINAL allocations are
+blocked by Charge PAID + unique live index + succeed guards. Partials and
+multi-SUCCEEDED remain forbidden. Operator risk if PSP captures money on an
+orphaned preference without a recoverable webhook is documented for ops, not
+solved by inventing a second Charge.

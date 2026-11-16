@@ -429,8 +429,20 @@ function createFinanceStoreForDb(
     },
 
     async findPaymentByChargeId(chargeId) {
-      const row = await db.payment.findUnique({ where: { chargeId } });
-      return row ? mapPayment(row) : null;
+      // Prefer live attempts (SUCCEEDED, then PENDING); else latest history row.
+      const live = await db.payment.findFirst({
+        where: {
+          chargeId,
+          status: { in: ['SUCCEEDED', 'PENDING'] },
+        },
+        orderBy: [{ status: 'desc' }, { createdAt: 'desc' }],
+      });
+      if (live) return mapPayment(live);
+      const latest = await db.payment.findFirst({
+        where: { chargeId },
+        orderBy: { createdAt: 'desc' },
+      });
+      return latest ? mapPayment(latest) : null;
     },
 
     async createPayment(input) {
