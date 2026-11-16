@@ -323,7 +323,8 @@ Track payments and settlements using the academy's **configurable** revenue spli
 - **Hallazgo medios:** MP/Stripe/MANUAL en dominio; transferencia/QR propios **inexistentes** (T3–T6 comprobantes).
 - [x] **T1** Continuar pago PENDING — rama `feature/payments-t1-resume-checkout`; CTA + mensaje sin URL; reusa Payment/idempotency.
 - [x] **T2** Reintentos FAILED/CANCELLED — rama `feature/payments-t2-retry-policy`; migración parcial unique; DECISIONS #53; late webhook recovery.
-- [ ] **T3–T9** submissions / storage / bandeja / approve / notificaciones / regresión / docs.
+- [x] **T3** PaymentSubmission + eventos + API student create/list — rama `feature/payments-t3-submissions`; migración `20261116200000_payment_submission`.
+- [ ] **T4–T9** storage / bandeja / approve / notificaciones / regresión / docs.
 
 ### Explicitly out of MVP (future)
 - Automated teacher payouts.

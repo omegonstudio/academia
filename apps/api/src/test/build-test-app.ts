@@ -41,6 +41,7 @@ import type { InMemoryMaterialStore } from '../domain/materials/in-memory-materi
 import { createInMemoryOnlineCourseStore } from '../domain/online-courses/in-memory-online-course-store.js';
 import type { InMemoryOnlineCourseStore } from '../domain/online-courses/in-memory-online-course-store.js';
 import { createInMemoryFinanceStore } from '../domain/finance/in-memory-finance-store.js';
+import { createInMemoryPaymentSubmissionStore } from '../domain/finance/in-memory-payment-submission-store.js';
 import type { InMemoryFinanceStore } from '../domain/finance/in-memory-finance-store.js';
 import type { PaymentProviderCredentials } from '../domain/finance/payment-provider.js';
 import { createInMemoryNotificationStore } from '../domain/notifications/in-memory-notification-store.js';
@@ -527,6 +528,7 @@ export async function buildTestApp({
   const materials = createInMemoryMaterialStore();
   const onlineCourses = createInMemoryOnlineCourseStore();
   const finance = createInMemoryFinanceStore();
+  const paymentSubmissions = createInMemoryPaymentSubmissionStore();
   const notificationStore = createInMemoryNotificationStore();
   const emailTemplateStore = createInMemoryEmailTemplateStore();
   const storage = createInMemoryObjectStorage();
@@ -595,6 +597,7 @@ export async function buildTestApp({
       attendances,
       academy: { businessTimezone: DEFAULT_ACADEMY_TIMEZONE },
       finance,
+      paymentSubmissions,
       paymentCredentials,
     },
     studentOnlineCourses: {

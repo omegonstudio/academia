@@ -29,6 +29,7 @@ import { createClassNoteStore } from './domain/class-notes/class-note-store.js';
 import { createMaterialStore } from './domain/materials/material-store.js';
 import { createOnlineCourseStore } from './domain/online-courses/online-course-store.js';
 import { createFinanceStore } from './domain/finance/prisma-finance-store.js';
+import { createPrismaPaymentSubmissionStore } from './domain/finance/prisma-payment-submission-store.js';
 import { createSessionCodec } from './domain/identity/session.js';
 import { createUserRepository } from './domain/identity/user-repository.js';
 import { createApp } from './http/app.js';
@@ -150,6 +151,7 @@ export async function createRuntimeApp(): Promise<RuntimeApp> {
   const materials = createMaterialStore(database);
   const onlineCourses = createOnlineCourseStore(database);
   const finance = createFinanceStore(database);
+  const paymentSubmissions = createPrismaPaymentSubmissionStore(database);
   const objectStorage = createObjectStorage(env);
   const notificationStore = createNotificationStore(database);
   const emailTemplates = createEmailTemplateStore(database);
@@ -237,6 +239,7 @@ export async function createRuntimeApp(): Promise<RuntimeApp> {
       attendances,
       academy: getAcademyBusinessConfig(env),
       finance,
+      paymentSubmissions,
       paymentCredentials: {
         mercadopagoAccessToken: env.MERCADOPAGO_ACCESS_TOKEN,
         mercadopagoWebhookSecret: env.MERCADOPAGO_WEBHOOK_SECRET,
