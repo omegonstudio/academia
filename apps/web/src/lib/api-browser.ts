@@ -68,9 +68,14 @@ import {
   onlineQuizAttemptResultSchema,
   onlineQuizPublicSchema,
   upsertOnlineQuizRequestSchema,
+  adminPaymentSubmissionListResponseSchema,
+  adminPaymentSubmissionResponseSchema,
   paymentListResponseSchema,
   paymentResponseSchema,
+  paymentSubmissionEventListResponseSchema,
   permissionListResponseSchema,
+  receiptDownloadResponseSchema,
+  reviewPaymentSubmissionRequestSchema,
   permissionMutationResponseSchema,
   provisionAdministrativeRequestSchema,
   publicOnlineCourseListResponseSchema,
@@ -111,9 +116,14 @@ import {
   updateStudentRequestSchema,
   updateTeacherRequestSchema,
   type AcademyPercentage,
+  type AdminPaymentSubmission,
+  type AdminPaymentSubmissionListQuery,
   type AllocationListQuery,
   type Attendance,
   type Charge,
+  type PaymentSubmissionEvent,
+  type ReceiptDownloadResponse,
+  type ReviewPaymentSubmissionRequest,
   type ChargeListQuery,
   type CivilDate,
   type ClassNote,
@@ -3398,6 +3408,181 @@ export async function markSettlementPaidBrowser(
       status: 503,
       message: 'No pudimos conectar con el servidor.',
     };
+  }
+}
+
+export async function listFinanceSubmissionsBrowser(
+  query: Partial<AdminPaymentSubmissionListQuery> = {},
+): Promise<
+  BrowserApiResult<{
+    submissions: AdminPaymentSubmission[]
+    total: number
+    limit: number
+    offset: number
+  }>
+> {
+  try {
+    const params = new URLSearchParams()
+    if (query.status) params.set('status', query.status)
+    if (query.chargeId) params.set('chargeId', query.chargeId)
+    if (query.studentId) params.set('studentId', query.studentId)
+    if (query.limit !== undefined) params.set('limit', String(query.limit))
+    if (query.offset !== undefined) params.set('offset', String(query.offset))
+    const qs = params.toString()
+    const response = await browserFetch(
+      `/finance/submissions${qs ? `?${qs}` : ''}`,
+    )
+    if (!response.ok) {
+      return {
+        ok: false,
+        status: response.status,
+        message: genericError(
+          response.status,
+          'No pudimos cargar los comprobantes.',
+        ),
+      }
+    }
+    const parsed = adminPaymentSubmissionListResponseSchema.safeParse(
+      await response.json(),
+    )
+    if (!parsed.success) {
+      return {
+        ok: false,
+        status: 500,
+        message: 'Respuesta inválida del servidor.',
+      }
+    }
+    return { ok: true, data: parsed.data }
+  } catch {
+    return {
+      ok: false,
+      status: 503,
+      message: 'No pudimos conectar con el servidor.',
+    }
+  }
+}
+
+export async function reviewFinanceSubmissionBrowser(
+  submissionId: string,
+  body: ReviewPaymentSubmissionRequest,
+): Promise<BrowserApiResult<AdminPaymentSubmission>> {
+  const validated = reviewPaymentSubmissionRequestSchema.safeParse(body)
+  if (!validated.success) {
+    return {
+      ok: false,
+      status: 400,
+      message: 'Revisá la acción y la nota administrativa.',
+    }
+  }
+  try {
+    const response = await browserFetch(
+      `/finance/submissions/${encodeURIComponent(submissionId)}/review`,
+      {
+        method: 'POST',
+        body: JSON.stringify(validated.data),
+      },
+    )
+    if (!response.ok) {
+      return {
+        ok: false,
+        status: response.status,
+        message: genericError(
+          response.status,
+          'No pudimos actualizar el comprobante.',
+        ),
+      }
+    }
+    const parsed = adminPaymentSubmissionResponseSchema.safeParse(
+      await response.json(),
+    )
+    if (!parsed.success) {
+      return {
+        ok: false,
+        status: 500,
+        message: 'Respuesta inválida del servidor.',
+      }
+    }
+    return { ok: true, data: parsed.data.submission }
+  } catch {
+    return {
+      ok: false,
+      status: 503,
+      message: 'No pudimos conectar con el servidor.',
+    }
+  }
+}
+
+export async function getFinanceSubmissionReceiptBrowser(
+  submissionId: string,
+): Promise<BrowserApiResult<ReceiptDownloadResponse>> {
+  try {
+    const response = await browserFetch(
+      `/finance/submissions/${encodeURIComponent(submissionId)}/receipt`,
+    )
+    if (!response.ok) {
+      return {
+        ok: false,
+        status: response.status,
+        message: genericError(
+          response.status,
+          'No pudimos obtener el comprobante.',
+        ),
+      }
+    }
+    const parsed = receiptDownloadResponseSchema.safeParse(
+      await response.json(),
+    )
+    if (!parsed.success) {
+      return {
+        ok: false,
+        status: 500,
+        message: 'Respuesta inválida del servidor.',
+      }
+    }
+    return { ok: true, data: parsed.data }
+  } catch {
+    return {
+      ok: false,
+      status: 503,
+      message: 'No pudimos conectar con el servidor.',
+    }
+  }
+}
+
+export async function listFinanceSubmissionEventsBrowser(
+  submissionId: string,
+): Promise<BrowserApiResult<PaymentSubmissionEvent[]>> {
+  try {
+    const response = await browserFetch(
+      `/finance/submissions/${encodeURIComponent(submissionId)}/events`,
+    )
+    if (!response.ok) {
+      return {
+        ok: false,
+        status: response.status,
+        message: genericError(
+          response.status,
+          'No pudimos cargar el historial.',
+        ),
+      }
+    }
+    const parsed = paymentSubmissionEventListResponseSchema.safeParse(
+      await response.json(),
+    )
+    if (!parsed.success) {
+      return {
+        ok: false,
+        status: 500,
+        message: 'Respuesta inválida del servidor.',
+      }
+    }
+    return { ok: true, data: parsed.data.events }
+  } catch {
+    return {
+      ok: false,
+      status: 503,
+      message: 'No pudimos conectar con el servidor.',
+    }
   }
 }
 

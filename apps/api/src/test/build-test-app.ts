@@ -687,6 +687,8 @@ export async function buildTestApp({
       students: studentRegistry,
       teachers: teacherRegistry,
       paymentCredentials,
+      paymentSubmissions,
+      objectStorage: storage,
     },
     administrativePermissions: {
       authenticate: authOptions,

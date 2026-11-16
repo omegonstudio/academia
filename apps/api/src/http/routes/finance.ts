@@ -1,4 +1,5 @@
 import {
+  adminPaymentSubmissionListQuerySchema,
   allocationListQuerySchema,
   chargeListQuerySchema,
   createChargeRequestSchema,
@@ -8,8 +9,11 @@ import {
   financeWebhookRequestSchema,
   markTeacherSettlementPaidRequestSchema,
   paymentListQuerySchema,
+  reviewPaymentSubmissionRequestSchema,
   settlementListQuerySchema,
   updateFinanceSettingsRequestSchema,
+  type AdminPaymentSubmissionListResponse,
+  type AdminPaymentSubmissionResponse,
   type AllocationListQuery,
   type ChargeListQuery,
   type ChargeListResponse,
@@ -19,6 +23,8 @@ import {
   type PaymentListQuery,
   type PaymentListResponse,
   type PaymentResponse,
+  type PaymentSubmissionEventListResponse,
+  type ReceiptDownloadResponse,
   type RefundResponse,
   type RevenueAllocationListResponse,
   type RevenueAllocationResponse,
@@ -73,6 +79,15 @@ import {
   createPayment,
   succeedPayment,
 } from '../../domain/finance/payment-service.js';
+import {
+  getAdminPaymentSubmission,
+  listAdminPaymentSubmissions,
+  reviewPaymentSubmission,
+  serializeAdminPaymentSubmission,
+  serializePaymentSubmissionEvent,
+} from '../../domain/finance/payment-submission-review-service.js';
+import type { PaymentSubmissionStore } from '../../domain/finance/payment-submission-types.js';
+import { getStaffReceiptDownloadUrl } from '../../domain/finance/receipt-storage-service.js';
 import { confirmTotalRefund } from '../../domain/finance/refund-service.js';
 import {
   createTeacherSettlement,
@@ -81,6 +96,7 @@ import {
 import { processProviderWebhook } from '../../domain/finance/webhook-service.js';
 import type { StudentStore } from '../../domain/students/student-service.js';
 import type { TeacherStore } from '../../domain/teachers/teacher-service.js';
+import type { ObjectStoragePort } from '../../storage/object-storage.js';
 import {
   BadRequestError,
   ConflictError,
@@ -101,6 +117,8 @@ export interface FinanceDependencies {
   students: StudentStore;
   teachers: TeacherStore;
   paymentCredentials?: PaymentProviderCredentials;
+  paymentSubmissions?: PaymentSubmissionStore;
+  objectStorage?: ObjectStoragePort;
 }
 
 function pathId(raw: string | string[] | undefined): string | undefined {
@@ -206,6 +224,8 @@ export function createFinanceRouter({
   students,
   teachers,
   paymentCredentials,
+  paymentSubmissions,
+  objectStorage,
 }: FinanceDependencies): Router {
   const router = Router();
 
@@ -1018,6 +1038,162 @@ export function createFinanceRouter({
       }
     })().catch(next);
   });
+
+  // --- PaymentSubmission admin review tray (T5) ---------------------------
+
+  router.get(
+    '/finance/submissions',
+    authenticate(authOptions),
+    requirePermission(permissionGrants, 'finance', 'read'),
+    (req, res, next) => {
+      void (async () => {
+        try {
+          if (!paymentSubmissions) {
+            throw new NotFoundError('Payment submissions are not available.');
+          }
+          const parsed = adminPaymentSubmissionListQuerySchema.safeParse(
+            req.query,
+          );
+          if (!parsed.success) {
+            throw new BadRequestError(
+              parsed.error.issues[0]?.message ?? 'Invalid query.',
+            );
+          }
+          const result = await listAdminPaymentSubmissions(
+            finance,
+            paymentSubmissions,
+            parsed.data,
+          );
+          const body: AdminPaymentSubmissionListResponse = {
+            submissions: result.submissions,
+            total: result.total,
+            limit: parsed.data.limit,
+            offset: parsed.data.offset,
+          };
+          res.status(200).json(body);
+        } catch (error) {
+          mapFinanceError(error);
+        }
+      })().catch(next);
+    },
+  );
+
+  router.get(
+    '/finance/submissions/:id',
+    authenticate(authOptions),
+    requirePermission(permissionGrants, 'finance', 'read'),
+    (req, res, next) => {
+      void (async () => {
+        try {
+          if (!paymentSubmissions) {
+            throw new NotFoundError('Payment submissions are not available.');
+          }
+          const id = pathId(req.params.id);
+          if (!id) throw new BadRequestError('Valid id is required.');
+          const submission = await getAdminPaymentSubmission(
+            finance,
+            paymentSubmissions,
+            id,
+          );
+          const body: AdminPaymentSubmissionResponse = { submission };
+          res.status(200).json(body);
+        } catch (error) {
+          mapFinanceError(error);
+        }
+      })().catch(next);
+    },
+  );
+
+  router.get(
+    '/finance/submissions/:id/events',
+    authenticate(authOptions),
+    requirePermission(permissionGrants, 'finance', 'read'),
+    (req, res, next) => {
+      void (async () => {
+        try {
+          if (!paymentSubmissions) {
+            throw new NotFoundError('Payment submissions are not available.');
+          }
+          const id = pathId(req.params.id);
+          if (!id) throw new BadRequestError('Valid id is required.');
+          const existing = await paymentSubmissions.findById(id);
+          if (!existing) {
+            throw new NotFoundError('PaymentSubmission not found.');
+          }
+          const events = await paymentSubmissions.listEvents(id);
+          const body: PaymentSubmissionEventListResponse = {
+            events: events.map(serializePaymentSubmissionEvent),
+          };
+          res.status(200).json(body);
+        } catch (error) {
+          mapFinanceError(error);
+        }
+      })().catch(next);
+    },
+  );
+
+  router.get(
+    '/finance/submissions/:id/receipt',
+    authenticate(authOptions),
+    requirePermission(permissionGrants, 'finance', 'read'),
+    (req, res, next) => {
+      void (async () => {
+        try {
+          if (!paymentSubmissions || !objectStorage) {
+            throw new NotFoundError('Receipt storage is not available.');
+          }
+          const id = pathId(req.params.id);
+          if (!id) throw new BadRequestError('Valid id is required.');
+          const body: ReceiptDownloadResponse = await getStaffReceiptDownloadUrl(
+            paymentSubmissions,
+            objectStorage,
+            { submissionId: id },
+          );
+          res.status(200).json(body);
+        } catch (error) {
+          mapFinanceError(error);
+        }
+      })().catch(next);
+    },
+  );
+
+  router.post(
+    '/finance/submissions/:id/review',
+    authenticate(authOptions),
+    requirePermission(permissionGrants, 'finance', 'update'),
+    (req, res, next) => {
+      void (async () => {
+        try {
+          if (!paymentSubmissions) {
+            throw new NotFoundError('Payment submissions are not available.');
+          }
+          const id = pathId(req.params.id);
+          if (!id) throw new BadRequestError('Valid id is required.');
+          const parsed = reviewPaymentSubmissionRequestSchema.safeParse(
+            req.body,
+          );
+          if (!parsed.success) {
+            throw new BadRequestError(
+              parsed.error.issues[0]?.message ?? 'Invalid body.',
+            );
+          }
+          const updated = await reviewPaymentSubmission(paymentSubmissions, {
+            submissionId: id,
+            actorUserId: req.user!.id,
+            body: parsed.data,
+          });
+          const charge = await finance.findChargeById(updated.chargeId);
+          if (!charge) throw new NotFoundError('Charge not found.');
+          const body: AdminPaymentSubmissionResponse = {
+            submission: serializeAdminPaymentSubmission(updated, charge),
+          };
+          res.status(200).json(body);
+        } catch (error) {
+          mapFinanceError(error);
+        }
+      })().catch(next);
+    },
+  );
 
   return router;
 }

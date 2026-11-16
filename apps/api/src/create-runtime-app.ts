@@ -370,6 +370,8 @@ export async function createRuntimeApp(): Promise<RuntimeApp> {
       permissionGrants,
       students: studentProfiles,
       teachers: teacherProfiles,
+      paymentSubmissions,
+      objectStorage,
       paymentCredentials: {
         mercadopagoAccessToken: env.MERCADOPAGO_ACCESS_TOKEN,
         mercadopagoWebhookSecret: env.MERCADOPAGO_WEBHOOK_SECRET,
