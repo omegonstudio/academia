@@ -81,6 +81,19 @@ export {
   type StudentFinanceCheckoutResponse,
 } from './student-finance.js';
 export {
+  PAYMENT_SUBMISSION_STATUSES,
+  paymentSubmissionStatusSchema,
+  paymentSubmissionSchema,
+  paymentSubmissionListResponseSchema,
+  paymentSubmissionResponseSchema,
+  createPaymentSubmissionRequestSchema,
+  type PaymentSubmissionStatus,
+  type PaymentSubmission,
+  type PaymentSubmissionListResponse,
+  type PaymentSubmissionResponse,
+  type CreatePaymentSubmissionRequest,
+} from './payment-submissions.js';
+export {
   teacherAttendanceListQuerySchema,
   teacherHubStudentSchema,
   teacherHubStudentGroupSchema,

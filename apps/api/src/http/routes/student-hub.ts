@@ -1,9 +1,12 @@
 import {
   addCivilDays,
+  createPaymentSubmissionRequestSchema,
   isCourseServiceType,
   studentAttendanceListQuerySchema,
   zonedLocalDateTimeToUtc,
   type MaterialListResponse,
+  type PaymentSubmissionListResponse,
+  type PaymentSubmissionResponse,
   type StudentAttendanceListResponse,
   type StudentFinanceCheckoutResponse,
   type StudentFinanceResponse,
@@ -18,6 +21,12 @@ import {
   FinanceNotFoundError,
   FinanceValidationError,
 } from '../../domain/finance/finance-errors.js';
+import {
+  createPaymentSubmission,
+  listStudentPaymentSubmissions,
+  serializePaymentSubmission,
+} from '../../domain/finance/payment-submission-service.js';
+import type { PaymentSubmissionStore } from '../../domain/finance/payment-submission-types.js';
 import { startStudentCheckout } from '../../domain/finance/student-checkout.js';
 import {
   getStudentFinancePortal,
@@ -96,6 +105,8 @@ export interface StudentHubDependencies {
   /** Optional until wired — required for student finance portal + checkout. */
   finance?: FinanceStore;
   paymentCredentials?: import('../../domain/finance/payment-provider.js').PaymentProviderCredentials;
+  /** Transfer receipt submissions (T3+). */
+  paymentSubmissions?: PaymentSubmissionStore;
 }
 
 /**
@@ -110,6 +121,7 @@ export function createStudentHubRouter({
   academy,
   finance,
   paymentCredentials,
+  paymentSubmissions,
 }: StudentHubDependencies): Router {
   const router = Router();
 
@@ -304,6 +316,86 @@ export function createStudentHubRouter({
           const body: StudentFinanceCheckoutResponse = {
             payment: serializeStudentFinancePayment(checkout.payment),
             checkoutUrl: checkout.checkoutUrl,
+          };
+          res.status(201).json(body);
+        } catch (error) {
+          mapStudentFinanceError(error);
+        }
+      })().catch(next);
+    },
+  );
+
+  router.get(
+    '/students/me/finance/submissions',
+    authenticate(authOptions),
+    (req, res, next) => {
+      void (async () => {
+        try {
+          if (!paymentSubmissions) {
+            throw new NotFoundError('Payment submissions are not available.');
+          }
+          const user = req.user!;
+          if (user.role !== 'STUDENT') {
+            throw new ForbiddenError('Only students can access this resource.');
+          }
+          const record = await students.findByUserId(user.id);
+          if (!record) {
+            throw new NotFoundError('Student profile not found.');
+          }
+          const chargeIdRaw = req.query['chargeId'];
+          const chargeId =
+            typeof chargeIdRaw === 'string' && UUID_RE.test(chargeIdRaw)
+              ? chargeIdRaw
+              : undefined;
+          const rows = await listStudentPaymentSubmissions(paymentSubmissions, {
+            studentId: record.id,
+            chargeId,
+          });
+          const body: PaymentSubmissionListResponse = {
+            submissions: rows.map(serializePaymentSubmission),
+          };
+          res.status(200).json(body);
+        } catch (error) {
+          next(error);
+        }
+      })();
+    },
+  );
+
+  router.post(
+    '/students/me/finance/submissions',
+    authenticate(authOptions),
+    (req, res, next) => {
+      void (async () => {
+        try {
+          if (!finance || !paymentSubmissions) {
+            throw new NotFoundError('Payment submissions are not available.');
+          }
+          const user = req.user!;
+          if (user.role !== 'STUDENT') {
+            throw new ForbiddenError('Only students can access this resource.');
+          }
+          const record = await students.findByUserId(user.id);
+          if (!record) {
+            throw new NotFoundError('Student profile not found.');
+          }
+          const parsed = createPaymentSubmissionRequestSchema.safeParse(
+            req.body,
+          );
+          if (!parsed.success) {
+            throw new BadRequestError(parsed.error.issues[0]?.message ?? 'Invalid body.');
+          }
+          const created = await createPaymentSubmission(
+            finance,
+            paymentSubmissions,
+            {
+              studentId: record.id,
+              actorUserId: user.id,
+              body: parsed.data,
+            },
+          );
+          const body: PaymentSubmissionResponse = {
+            submission: serializePaymentSubmission(created),
           };
           res.status(201).json(body);
         } catch (error) {

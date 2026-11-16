@@ -111,6 +111,17 @@ enum TeacherSettlementStatus {
   @@map("teacher_settlement_status")
 }
 
+/// Transfer receipt review lifecycle (independent of Payment ledger — T3).
+enum PaymentSubmissionStatus {
+  SUBMITTED
+  UNDER_REVIEW
+  NEEDS_CORRECTION
+  APPROVED
+  REJECTED
+
+  @@map("payment_submission_status")
+}
+
 model User {
   id String @id @default(uuid()) @db.Uuid
 
@@ -139,6 +150,8 @@ model User {
   emailTemplatesUpdated  NotificationEmailTemplate[] @relation("EmailTemplateUpdatedBy")
   onlineCourseAccessesGranted OnlineCourseAccess[] @relation("OnlineCourseAccessGrantedBy")
   onlineLessonAssetsCreated   OnlineLessonAsset[]
+  paymentSubmissionsReviewed  PaymentSubmission[] @relation("PaymentSubmissionReviewedBy")
+  paymentSubmissionEvents     PaymentSubmissionEvent[] @relation("PaymentSubmissionEventActor")
 
   @@index([role])
   @@map("users")
@@ -222,6 +235,7 @@ model Student {
   charges           Charge[]
   payments          Payment[]
   revenueAllocations RevenueAllocation[]
+  paymentSubmissions PaymentSubmission[]
   onlineCourseAccesses OnlineCourseAccess[]
   onlineLessonProgress OnlineLessonProgress[]
   onlineQuizAttempts   OnlineQuizAttempt[]
@@ -610,6 +624,7 @@ model Charge {
 
   payments           Payment[]
   revenueAllocations RevenueAllocation[]
+  paymentSubmissions PaymentSubmission[]
 
   /// Partial unique indexes (NULLs excluded) live in migration
   /// `20260925230000_charge_commercial_unique` — one Charge per ClassSession
@@ -623,6 +638,69 @@ model Charge {
   @@index([onlineCourseAccessId])
   @@index([status])
   @@map("charges")
+}
+
+/// Student-reported transfer receipt. Presenting ≠ Payment SUCCEEDED (T3–T6).
+/// Receipt binary lives in ObjectStorage (T4); storageKey never exposed via API.
+model PaymentSubmission {
+  id String @id @default(uuid()) @db.Uuid
+
+  chargeId String @map("charge_id") @db.Uuid
+  charge   Charge @relation(fields: [chargeId], references: [id], onDelete: Restrict)
+
+  studentId String  @map("student_id") @db.Uuid
+  student   Student @relation(fields: [studentId], references: [id], onDelete: Restrict)
+
+  reportedAmountMinor BigInt          @map("reported_amount_minor")
+  reportedCurrency    FinanceCurrency @map("reported_currency")
+  paidAt              DateTime        @map("paid_at") @db.Timestamptz(3)
+
+  receiptStorageKey String? @unique @map("receipt_storage_key") @db.VarChar(512)
+  receiptFilename   String? @map("receipt_filename") @db.VarChar(255)
+  receiptMimeType   String? @map("receipt_mime_type") @db.VarChar(100)
+  receiptSizeBytes  Int?    @map("receipt_size_bytes")
+
+  status PaymentSubmissionStatus @default(SUBMITTED)
+
+  studentNote String? @map("student_note") @db.VarChar(1000)
+  adminNote   String? @map("admin_note") @db.VarChar(2000)
+
+  reviewedByUserId String?   @map("reviewed_by_user_id") @db.Uuid
+  reviewedBy       User?     @relation("PaymentSubmissionReviewedBy", fields: [reviewedByUserId], references: [id], onDelete: Restrict)
+  reviewedAt       DateTime? @map("reviewed_at") @db.Timestamptz(3)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  events PaymentSubmissionEvent[]
+
+  /// At most one APPROVED per Charge — partial unique in migration
+  /// `20261116200000_payment_submission`.
+  @@index([studentId, status])
+  @@index([chargeId])
+  @@index([status, createdAt])
+  @@map("payment_submissions")
+}
+
+/// Append-only status audit for PaymentSubmission reviews.
+model PaymentSubmissionEvent {
+  id String @id @default(uuid()) @db.Uuid
+
+  submissionId String            @map("submission_id") @db.Uuid
+  submission   PaymentSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+
+  fromStatus PaymentSubmissionStatus? @map("from_status")
+  toStatus   PaymentSubmissionStatus  @map("to_status")
+
+  actorUserId String? @map("actor_user_id") @db.Uuid
+  actor       User?   @relation("PaymentSubmissionEventActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  note String? @db.VarChar(2000)
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([submissionId])
+  @@map("payment_submission_events")
 }
 
 /// Money movement for a Charge. Snapshot amount/currency.
