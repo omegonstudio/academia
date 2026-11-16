@@ -71,18 +71,51 @@ describe('startStudentCheckout', () => {
   });
 
   it('is idempotent on double checkout (same PENDING Payment)', async () => {
-    const { payment: first } = await startStudentCheckout(store, {
-      studentId,
-      chargeId,
-      createdByUserId: actorUserId,
-    });
-    const { payment: second } = await startStudentCheckout(store, {
-      studentId,
-      chargeId,
-      createdByUserId: actorUserId,
-    });
+    const { payment: first, checkoutUrl: firstUrl } = await startStudentCheckout(
+      store,
+      {
+        studentId,
+        chargeId,
+        createdByUserId: actorUserId,
+      },
+    );
+    const { payment: second, checkoutUrl: secondUrl } =
+      await startStudentCheckout(store, {
+        studentId,
+        chargeId,
+        createdByUserId: actorUserId,
+      });
     expect(second.id).toBe(first.id);
     expect(second.status).toBe('PENDING');
+    // Stub adapters have no hosted URL — resume must still be safe.
+    expect(firstUrl).toBeNull();
+    expect(secondUrl).toBeNull();
+    const all = await store.listPayments({ studentId });
+    expect(all).toHaveLength(1);
+    const charge = await store.findChargeById(chargeId);
+    expect(charge!.status).toBe('OPEN');
+  });
+
+  it('resumes PENDING without creating a second Payment (repeated request)', async () => {
+    const first = await startStudentCheckout(store, {
+      studentId,
+      chargeId,
+      createdByUserId: actorUserId,
+    });
+    const parallel = await Promise.all([
+      startStudentCheckout(store, {
+        studentId,
+        chargeId,
+        createdByUserId: actorUserId,
+      }),
+      startStudentCheckout(store, {
+        studentId,
+        chargeId,
+        createdByUserId: actorUserId,
+      }),
+    ]);
+    expect(parallel[0]!.payment.id).toBe(first.payment.id);
+    expect(parallel[1]!.payment.id).toBe(first.payment.id);
     const all = await store.listPayments({ studentId });
     expect(all).toHaveLength(1);
   });

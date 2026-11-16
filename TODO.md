@@ -317,13 +317,13 @@ Track payments and settlements using the academy's **configurable** revenue spli
   can create Charge via `POST /finance/charges` (`ENROLLMENT_PERIOD` /
   `CLASS_SESSION`). ARS → MP; USD/EUR → Stripe (Debate is USD today).
 
-### Discovered (2026-11-03) — student payments / comprobantes (audit only)
-- [x] Informe `docs/audits/STUDENT_PAYMENTS_PENDING_AUDIT.md` (post–PROD-01 en `dev` @ `9e12aa2`).
-- **Hallazgo UI:** CTA Pagar solo si Charge `OPEN` sin Payment; `PENDING` = texto sin botón aunque el API reanude URL; FAILED/CANCELLED + `Payment.chargeId @unique` = sin segundo intento.
-- **Hallazgo medios:** MP/Stripe/MANUAL en dominio; transferencia/QR propios **inexistentes**.
-- **Propuesta (no implementar sin aprobación):** `PaymentSubmission` + ObjectStorage receipts + bandeja admin + notificaciones finance (Resend/in-app). Tickets T1–T9 en el informe.
-- [ ] T1 UX Continuar pago (PENDING) — post-aprobación.
-- [ ] T2–T9 submissions/comprobantes/notificaciones — post-aprobación (ver informe).
+### Discovered (2026-11-03) — student payments / comprobantes
+- [x] Informe `docs/audits/STUDENT_PAYMENTS_PENDING_AUDIT.md` (post–PROD-01; versionado en `99caae4`).
+- **Hallazgo UI:** CTA Pagar solo si Charge `OPEN` sin Payment; `PENDING` sin botón (cerrado en T1); FAILED/CANCELLED + `Payment.chargeId @unique` = sin segundo intento (T2).
+- **Hallazgo medios:** MP/Stripe/MANUAL en dominio; transferencia/QR propios **inexistentes** (T3–T6 comprobantes).
+- [x] **T1** Continuar pago PENDING — rama `feature/payments-t1-resume-checkout`; CTA + mensaje sin URL; reusa Payment/idempotency.
+- [ ] **T2** Reintentos FAILED/CANCELLED + DECISIONS.
+- [ ] **T3–T9** submissions / storage / bandeja / approve / notificaciones / regresión / docs.
 
 ### Explicitly out of MVP (future)
 - Automated teacher payouts.
