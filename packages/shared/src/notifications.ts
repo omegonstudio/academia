@@ -4,6 +4,7 @@ export const NOTIFICATION_TYPES = [
   'USER_CREATED',
   'TEACHER_ASSIGNED',
   'CLASS_MEETING_LINK',
+  'PAYMENT_SUBMISSION_RECEIVED',
 ] as const;
 
 export const notificationTypeSchema = z.enum(NOTIFICATION_TYPES);

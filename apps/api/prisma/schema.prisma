@@ -164,7 +164,7 @@ model Notification {
   userId String @map("user_id") @db.Uuid
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  /// Stable event kind: USER_CREATED | TEACHER_ASSIGNED | CLASS_MEETING_LINK
+  /// Stable event kind: USER_CREATED | TEACHER_ASSIGNED | CLASS_MEETING_LINK | PAYMENT_SUBMISSION_RECEIVED
   type    String  @db.VarChar(64)
   title   String  @db.VarChar(200)
   body    String  @db.VarChar(2000)

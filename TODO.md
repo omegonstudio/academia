@@ -327,7 +327,8 @@ Track payments and settlements using the academy's **configurable** revenue spli
 - [x] **T4** Upload privado receipts/ — rama `feature/payments-t4-receipt-storage`; MIME/magic/size; AV pendiente.
 - [x] **T5** Bandeja admin review — rama `feature/payments-t5-admin-review`; under_review/correction/reject + UI; approve ledger en T6.
 - [x] **T6** Aprobación financiera — rama `feature/payments-t6-approve-submission`; MANUAL succeed + allocation; idempotente.
-- [ ] **T7–T9** notificaciones / regresión / docs.
+- [x] **T7** Notificaciones comprobante — rama `feature/payments-t7-notifications`; Resend/in-app a Director/SuperAdmin; sin adjuntos.
+- [ ] **T8–T9** regresión / docs.
 
 ### Explicitly out of MVP (future)
 - Automated teacher payouts.

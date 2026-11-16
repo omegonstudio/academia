@@ -3,6 +3,7 @@ import {
   createPaymentSubmissionRequestSchema,
   createReceiptUploadRequestSchema,
   isCourseServiceType,
+  moneyMinorToString,
   studentAttendanceListQuerySchema,
   zonedLocalDateTimeToUtc,
   type MaterialListResponse,
@@ -50,6 +51,9 @@ import {
   toStudentDto,
   type StudentStore,
 } from '../../domain/students/student-service.js';
+import type { NotificationAudienceResolver } from '../../domain/notifications/notification-audience.js';
+import { notifyPaymentSubmissionReceived } from '../../domain/notifications/notification-hooks.js';
+import type { NotificationPublisher } from '../../domain/notifications/notification-types.js';
 import type { ObjectStoragePort } from '../../storage/object-storage.js';
 import {
   BadRequestError,
@@ -118,6 +122,9 @@ export interface StudentHubDependencies {
   paymentSubmissions?: PaymentSubmissionStore;
   /** Private object storage for receipt binaries (T4+). */
   objectStorage?: ObjectStoragePort;
+  notifications?: NotificationPublisher;
+  notificationAudience?: NotificationAudienceResolver;
+  appPublicUrl?: string;
 }
 
 /**
@@ -134,6 +141,9 @@ export function createStudentHubRouter({
   paymentCredentials,
   paymentSubmissions,
   objectStorage,
+  notifications,
+  notificationAudience,
+  appPublicUrl,
 }: StudentHubDependencies): Router {
   const router = Router();
 
@@ -406,6 +416,23 @@ export function createStudentHubRouter({
               body: parsed.data,
             },
           );
+          // Best-effort staff alert — never blocks saving the submission (T7).
+          try {
+            const recipients =
+              (await notificationAudience?.financeStaff()) ?? [];
+            const base = (appPublicUrl ?? '').replace(/\/$/, '');
+            await notifyPaymentSubmissionReceived(notifications, {
+              recipients,
+              studentName: `${record.firstName} ${record.lastName}`.trim(),
+              chargeId: created.chargeId,
+              submissionId: created.id,
+              reportedAmountLabel: `${moneyMinorToString(created.reportedAmountMinor)} ${created.reportedCurrency}`,
+              paidAtIso: created.paidAt.toISOString(),
+              reviewPath: `${base}/dashboard/finance/submissions`,
+            });
+          } catch {
+            // Swallow — persistence already succeeded.
+          }
           const body: PaymentSubmissionResponse = {
             submission: serializePaymentSubmission(created),
           };

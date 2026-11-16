@@ -135,6 +135,22 @@ export function createNotificationAudience(database: Database) {
         return true;
       });
     },
+
+    /** Directors and SuperAdmins for finance operations alerts (T7). */
+    async financeStaff(): Promise<NotificationAudience[]> {
+      const rows = await database.user.findMany({
+        where: {
+          isActive: true,
+          role: { in: ['SUPER_ADMIN', 'DIRECTOR'] },
+        },
+        select: { id: true, email: true, name: true },
+      });
+      return rows.map((row) => ({
+        userId: row.id,
+        email: row.email,
+        displayName: row.name?.trim() || row.email,
+      }));
+    },
   };
 }
 
