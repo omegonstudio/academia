@@ -598,6 +598,7 @@ export async function buildTestApp({
       academy: { businessTimezone: DEFAULT_ACADEMY_TIMEZONE },
       finance,
       paymentSubmissions,
+      objectStorage: storage,
       paymentCredentials,
     },
     studentOnlineCourses: {

@@ -366,7 +366,10 @@ Payment MANUAL still explicit).
 | `[x]` | `GET /students/me/finance` | Curated charges/payments/refunds + summary; no split |
 | `[x]` | `POST /students/me/finance/charges/:chargeId/pay` | Owned OPEN → Payment PENDING (currency→provider stub) |
 | `[x]` | `GET /students/me/finance/submissions` | Own PaymentSubmission history (T3) |
-| `[x]` | `POST /students/me/finance/submissions` | Report transfer receipt metadata; no ledger mutation (T3; file upload T4) |
+| `[x]` | `POST /students/me/finance/submissions` | Report transfer receipt metadata; no ledger mutation (T3) |
+| `[x]` | `POST /students/me/finance/submissions/:id/receipt/upload` | Presigned PUT intent (`receipts/…`) (T4) |
+| `[x]` | `POST /students/me/finance/submissions/:id/receipt/complete` | Head + magic-byte complete (T4) |
+| `[x]` | `GET /students/me/finance/submissions/:id/receipt` | Short-lived signed GET for owner (T4) |
 | `[x]` | `GET /classes/calendar` | Reused; student scope by session |
 | `[x]` | `/students/me/online-courses*` | See **Online courses (async)** |
 

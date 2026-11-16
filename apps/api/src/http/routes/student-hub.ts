@@ -1,12 +1,15 @@
 import {
   addCivilDays,
   createPaymentSubmissionRequestSchema,
+  createReceiptUploadRequestSchema,
   isCourseServiceType,
   studentAttendanceListQuerySchema,
   zonedLocalDateTimeToUtc,
   type MaterialListResponse,
   type PaymentSubmissionListResponse,
   type PaymentSubmissionResponse,
+  type ReceiptDownloadResponse,
+  type ReceiptUploadResponse,
   type StudentAttendanceListResponse,
   type StudentFinanceCheckoutResponse,
   type StudentFinanceResponse,
@@ -27,6 +30,11 @@ import {
   serializePaymentSubmission,
 } from '../../domain/finance/payment-submission-service.js';
 import type { PaymentSubmissionStore } from '../../domain/finance/payment-submission-types.js';
+import {
+  completeReceiptUpload,
+  getOwnedReceiptDownloadUrl,
+  startReceiptUpload,
+} from '../../domain/finance/receipt-storage-service.js';
 import { startStudentCheckout } from '../../domain/finance/student-checkout.js';
 import {
   getStudentFinancePortal,
@@ -42,6 +50,7 @@ import {
   toStudentDto,
   type StudentStore,
 } from '../../domain/students/student-service.js';
+import type { ObjectStoragePort } from '../../storage/object-storage.js';
 import {
   BadRequestError,
   ConflictError,
@@ -107,6 +116,8 @@ export interface StudentHubDependencies {
   paymentCredentials?: import('../../domain/finance/payment-provider.js').PaymentProviderCredentials;
   /** Transfer receipt submissions (T3+). */
   paymentSubmissions?: PaymentSubmissionStore;
+  /** Private object storage for receipt binaries (T4+). */
+  objectStorage?: ObjectStoragePort;
 }
 
 /**
@@ -122,6 +133,7 @@ export function createStudentHubRouter({
   finance,
   paymentCredentials,
   paymentSubmissions,
+  objectStorage,
 }: StudentHubDependencies): Router {
   const router = Router();
 
@@ -398,6 +410,119 @@ export function createStudentHubRouter({
             submission: serializePaymentSubmission(created),
           };
           res.status(201).json(body);
+        } catch (error) {
+          mapStudentFinanceError(error);
+        }
+      })().catch(next);
+    },
+  );
+
+  router.post(
+    '/students/me/finance/submissions/:submissionId/receipt/upload',
+    authenticate(authOptions),
+    (req, res, next) => {
+      void (async () => {
+        try {
+          if (!paymentSubmissions || !objectStorage) {
+            throw new NotFoundError('Receipt storage is not available.');
+          }
+          const user = req.user!;
+          if (user.role !== 'STUDENT') {
+            throw new ForbiddenError('Only students can access this resource.');
+          }
+          const record = await students.findByUserId(user.id);
+          if (!record) {
+            throw new NotFoundError('Student profile not found.');
+          }
+          const submissionId = pathId(req.params.submissionId);
+          if (!submissionId || !UUID_RE.test(submissionId)) {
+            throw new BadRequestError('Valid submissionId is required.');
+          }
+          const parsed = createReceiptUploadRequestSchema.safeParse(req.body);
+          if (!parsed.success) {
+            throw new BadRequestError(
+              parsed.error.issues[0]?.message ?? 'Invalid body.',
+            );
+          }
+          const body: ReceiptUploadResponse = await startReceiptUpload(
+            paymentSubmissions,
+            objectStorage,
+            {
+              studentId: record.id,
+              submissionId,
+              body: parsed.data,
+            },
+          );
+          res.status(201).json(body);
+        } catch (error) {
+          mapStudentFinanceError(error);
+        }
+      })().catch(next);
+    },
+  );
+
+  router.post(
+    '/students/me/finance/submissions/:submissionId/receipt/complete',
+    authenticate(authOptions),
+    (req, res, next) => {
+      void (async () => {
+        try {
+          if (!paymentSubmissions || !objectStorage) {
+            throw new NotFoundError('Receipt storage is not available.');
+          }
+          const user = req.user!;
+          if (user.role !== 'STUDENT') {
+            throw new ForbiddenError('Only students can access this resource.');
+          }
+          const record = await students.findByUserId(user.id);
+          if (!record) {
+            throw new NotFoundError('Student profile not found.');
+          }
+          const submissionId = pathId(req.params.submissionId);
+          if (!submissionId || !UUID_RE.test(submissionId)) {
+            throw new BadRequestError('Valid submissionId is required.');
+          }
+          const submission = await completeReceiptUpload(
+            paymentSubmissions,
+            objectStorage,
+            { studentId: record.id, submissionId },
+          );
+          const body: PaymentSubmissionResponse = { submission };
+          res.status(200).json(body);
+        } catch (error) {
+          mapStudentFinanceError(error);
+        }
+      })().catch(next);
+    },
+  );
+
+  router.get(
+    '/students/me/finance/submissions/:submissionId/receipt',
+    authenticate(authOptions),
+    (req, res, next) => {
+      void (async () => {
+        try {
+          if (!paymentSubmissions || !objectStorage) {
+            throw new NotFoundError('Receipt storage is not available.');
+          }
+          const user = req.user!;
+          if (user.role !== 'STUDENT') {
+            throw new ForbiddenError('Only students can access this resource.');
+          }
+          const record = await students.findByUserId(user.id);
+          if (!record) {
+            throw new NotFoundError('Student profile not found.');
+          }
+          const submissionId = pathId(req.params.submissionId);
+          if (!submissionId || !UUID_RE.test(submissionId)) {
+            throw new BadRequestError('Valid submissionId is required.');
+          }
+          const body: ReceiptDownloadResponse = await getOwnedReceiptDownloadUrl(
+            paymentSubmissions,
+            objectStorage,
+            { studentId: record.id, submissionId },
+          );
+          res.status(200).json(body);
         } catch (error) {
           mapStudentFinanceError(error);
         }
