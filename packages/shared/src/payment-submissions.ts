@@ -62,3 +62,45 @@ export const createPaymentSubmissionRequestSchema = z.object({
 export type CreatePaymentSubmissionRequest = z.infer<
   typeof createPaymentSubmissionRequestSchema
 >;
+
+export const RECEIPT_ALLOWED_MIME_TYPES = [
+  'application/pdf',
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+] as const;
+export type ReceiptAllowedMimeType =
+  (typeof RECEIPT_ALLOWED_MIME_TYPES)[number];
+export const receiptAllowedMimeTypeSchema = z.enum(RECEIPT_ALLOWED_MIME_TYPES);
+
+export function isReceiptAllowedMimeType(
+  value: string,
+): value is ReceiptAllowedMimeType {
+  return (RECEIPT_ALLOWED_MIME_TYPES as readonly string[]).includes(value);
+}
+
+export const createReceiptUploadRequestSchema = z.object({
+  mimeType: receiptAllowedMimeTypeSchema,
+  sizeBytes: z.number().int().positive().max(10 * 1024 * 1024),
+  originalFilename: z.string().min(1).max(255),
+});
+export type CreateReceiptUploadRequest = z.infer<
+  typeof createReceiptUploadRequestSchema
+>;
+
+export const receiptUploadResponseSchema = z.object({
+  submission: paymentSubmissionSchema,
+  uploadUrl: z.string().url(),
+  expiresInSeconds: z.number().int().positive(),
+});
+export type ReceiptUploadResponse = z.infer<typeof receiptUploadResponseSchema>;
+
+export const receiptDownloadResponseSchema = z.object({
+  downloadUrl: z.string().url(),
+  expiresInSeconds: z.number().int().positive(),
+  filename: z.string().nullable(),
+  mimeType: z.string().nullable(),
+});
+export type ReceiptDownloadResponse = z.infer<
+  typeof receiptDownloadResponseSchema
+>;
