@@ -23,11 +23,13 @@ export interface StudentCheckoutResult {
  * Provider is derived from currency (ARS→MP, USD/EUR→Stripe). MANUAL is never
  * used here — that path remains admin-only.
  *
- * Idempotency: deterministic key `student-checkout:{studentId}:{chargeId}` plus
- * re-entry when a PENDING Payment already exists for the Charge.
- *
- * On PENDING re-entry, the hosted checkout URL is re-resolved from the provider
- * (preference / session) so the student can resume without creating a second Charge.
+ * Idempotency:
+ * - First attempt: `student-checkout:{studentId}:{chargeId}`
+ * - PENDING re-entry: same Payment + same key; URL re-resolved
+ * - Retry after FAILED/CANCELLED: new Payment with
+ *   `student-checkout:{studentId}:{chargeId}:retry:{priorPaymentId}`
+ *   so history is preserved and concurrent retries collapse on the same key
+ *   (DECISIONS #53).
  */
 export async function startStudentCheckout(
   store: FinanceStore,
@@ -48,23 +50,32 @@ export async function startStudentCheckout(
     );
   }
 
-  const existing = await store.findPaymentByChargeId(charge.id);
-  if (existing) {
-    if (existing.status === 'PENDING') {
-      const checkoutUrl = await resolveCheckoutUrlForPending(
-        existing,
-        charge,
-        input.credentials,
-      );
-      return { payment: existing, checkoutUrl };
-    }
+  const paymentsForCharge = await store.listPayments({ chargeId: charge.id });
+  const live = paymentsForCharge.find(
+    (row) => row.status === 'PENDING' || row.status === 'SUCCEEDED',
+  );
+  if (live?.status === 'SUCCEEDED') {
     throw new FinanceConflictError(
-      'Charge already has a Payment that cannot be restarted.',
+      'Charge already has a succeeded Payment.',
     );
   }
+  if (live?.status === 'PENDING') {
+    const checkoutUrl = await resolveCheckoutUrlForPending(
+      live,
+      charge,
+      input.credentials,
+    );
+    return { payment: live, checkoutUrl };
+  }
+
+  const latestTerminal = paymentsForCharge
+    .filter((row) => row.status === 'FAILED' || row.status === 'CANCELLED')
+    .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())[0];
 
   const provider = providerForCurrency(charge.currency);
-  const idempotencyKey = `student-checkout:${input.studentId}:${charge.id}`;
+  const idempotencyKey = latestTerminal
+    ? `student-checkout:${input.studentId}:${charge.id}:retry:${latestTerminal.id}`
+    : `student-checkout:${input.studentId}:${charge.id}`;
   const adapter = resolvePaymentProvider(provider, input.credentials);
   const notificationUrl =
     provider === 'MERCADOPAGO'
@@ -104,7 +115,12 @@ function buildMercadoPagoNotificationUrl(
 
 async function resolveCheckoutUrlForPending(
   payment: PaymentRecord,
-  charge: { amountMinor: bigint; currency: PaymentRecord['currency']; id: string; studentId: string },
+  charge: {
+    amountMinor: bigint;
+    currency: PaymentRecord['currency'];
+    id: string;
+    studentId: string;
+  },
   credentials?: PaymentProviderCredentials,
 ): Promise<string | null> {
   if (!payment.providerPaymentId) return null;

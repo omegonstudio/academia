@@ -625,14 +625,18 @@ model Charge {
   @@map("charges")
 }
 
-/// Money movement for exactly one Charge (MVP 1:1). Snapshot amount/currency.
+/// Money movement for a Charge. Snapshot amount/currency.
+/// Multiple rows per Charge are allowed for FAILED/CANCELLED history (T2 / #53).
+/// At most one live attempt (PENDING|SUCCEEDED) is enforced by partial unique
+/// index `payments_one_live_per_charge_uidx` in migration
+/// `20261116190000_payment_retry_history`. Partials remain forbidden in domain.
 model Payment {
   id String @id @default(uuid()) @db.Uuid
 
   studentId String  @map("student_id") @db.Uuid
   student   Student @relation(fields: [studentId], references: [id], onDelete: Restrict)
 
-  chargeId String @unique @map("charge_id") @db.Uuid
+  chargeId String @map("charge_id") @db.Uuid
   charge   Charge @relation(fields: [chargeId], references: [id], onDelete: Restrict)
 
   amountMinor BigInt          @map("amount_minor")
@@ -652,6 +656,7 @@ model Payment {
   refunds            Refund[]
   revenueAllocations RevenueAllocation[]
 
+  @@index([chargeId])
   @@index([studentId, status])
   @@index([status])
   @@index([provider])

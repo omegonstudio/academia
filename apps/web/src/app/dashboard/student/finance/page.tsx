@@ -184,11 +184,18 @@ export default function StudentFinancePage() {
                           {chargeStatusLabel(charge.status)} ·{' '}
                           {formatFinanceDate(charge.createdAt)}
                         </p>
-                        {checkout === 'payable' || checkout === 'pending' ? (
+                        {checkout === 'payable' ||
+                        checkout === 'pending' ||
+                        checkout === 'retryable' ? (
                           <div className="flex flex-wrap items-center gap-2">
                             {checkout === 'pending' ? (
                               <p className="text-sm font-medium text-muted-foreground">
                                 Pago pendiente
+                              </p>
+                            ) : null}
+                            {checkout === 'retryable' ? (
+                              <p className="text-sm font-medium text-muted-foreground">
+                                Intento anterior no completado
                               </p>
                             ) : null}
                             <Button
@@ -200,7 +207,9 @@ export default function StudentFinancePage() {
                               {payingId === charge.id
                                 ? checkout === 'pending'
                                   ? 'Continuando…'
-                                  : 'Iniciando…'
+                                  : checkout === 'retryable'
+                                    ? 'Reintentando…'
+                                    : 'Iniciando…'
                                 : checkoutCtaLabel(checkout)}
                             </Button>
                           </div>

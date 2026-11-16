@@ -219,6 +219,8 @@ export interface MercadoPagoPaymentResource {
   transaction_amount: number;
   currency_id: string;
   external_reference?: string | null;
+  /** Preference that originated the payment — matches Payment.providerPaymentId. */
+  preference_id?: string | null;
   metadata?: Record<string, unknown> | null;
 }
 

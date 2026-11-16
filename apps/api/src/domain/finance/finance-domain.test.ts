@@ -132,7 +132,7 @@ describe('finance domain', () => {
       expect(canTransitionPayment('CANCELLED', 'SUCCEEDED')).toBe(false);
     });
 
-    it('rejects invalid transitions in domain', async () => {
+    it('rejects FAILED→CANCELLED but allows late SUCCEEDED recovery (#53)', async () => {
       const charge = await createChargeForClassSession(store, {
         classSessionId,
         studentId,
@@ -144,12 +144,12 @@ describe('finance domain', () => {
         idempotencyKey: 'pay-1',
       });
       await markPaymentFailed(store, payment.id);
-      await expect(succeedPayment(store, payment.id)).rejects.toBeInstanceOf(
-        FinanceInvalidTransitionError,
-      );
       await expect(markPaymentCancelled(store, payment.id)).rejects.toBeInstanceOf(
         FinanceInvalidTransitionError,
       );
+      const recovered = await succeedPayment(store, payment.id);
+      expect(recovered.payment.status).toBe('SUCCEEDED');
+      expect(recovered.charge.status).toBe('PAID');
     });
   });
 
@@ -301,8 +301,9 @@ describe('finance domain', () => {
         idempotencyKey: 'dup-alloc',
       });
       await succeedPayment(store, payment.id);
+      // Charge is PAID — second succeed is blocked before transition check.
       await expect(succeedPayment(store, payment.id)).rejects.toBeInstanceOf(
-        FinanceInvalidTransitionError,
+        FinanceValidationError,
       );
     });
   });

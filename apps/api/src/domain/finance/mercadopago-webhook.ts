@@ -168,7 +168,19 @@ export async function processMercadoPagoNativeWebhook(
     };
   }
 
-  const payment = await store.findPaymentByChargeId(chargeId);
+  // Prefer preference_id → Payment.providerPaymentId so a late webhook for an
+  // older attempt does not mutate a newer retry (#53).
+  const preferenceId =
+    typeof resource.preference_id === 'string' ||
+    typeof resource.preference_id === 'number'
+      ? String(resource.preference_id)
+      : null;
+  let payment = preferenceId
+    ? await store.findPaymentByProviderReference('MERCADOPAGO', preferenceId)
+    : null;
+  if (!payment) {
+    payment = await store.findPaymentByChargeId(chargeId);
+  }
   if (!payment) {
     return {
       duplicate: false,
@@ -287,10 +299,12 @@ async function applyMercadoPagoStatus(
     try {
       await succeedPayment(store, paymentId);
     } catch (error) {
-      // Concurrent / replay: allocation unique or transition already applied.
+      // Concurrent / replay / late webhook after retry: allocation unique,
+      // terminal transition, or Charge already PAID by another Payment (#53).
       if (
         error instanceof FinanceConflictError ||
-        error instanceof FinanceInvalidTransitionError
+        error instanceof FinanceInvalidTransitionError ||
+        error instanceof FinanceValidationError
       ) {
         return;
       }

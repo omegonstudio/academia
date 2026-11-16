@@ -76,11 +76,12 @@ describe('student-finance helpers', () => {
     ).toBe(true)
   })
 
-  it('derives checkout UI state for Pay vs Continuar pago', () => {
+  it('derives checkout UI state for Pay / Continuar / Reintentar', () => {
     expect(chargeCheckoutUiState(charge(), [])).toBe('payable')
     expect(chargeCheckoutUiState(charge(), [payment()])).toBe('pending')
     expect(checkoutCtaLabel('payable')).toBe('Pagar')
     expect(checkoutCtaLabel('pending')).toBe('Continuar pago')
+    expect(checkoutCtaLabel('retryable')).toBe('Reintentar pago')
     expect(checkoutCtaLabel('other')).toBeNull()
     expect(NO_CHECKOUT_URL_MESSAGE.length).toBeGreaterThan(20)
     expect(
@@ -93,6 +94,23 @@ describe('student-finance helpers', () => {
     ).toBe('other')
     expect(
       chargeCheckoutUiState(charge(), [payment({ status: 'FAILED' })]),
-    ).toBe('other')
+    ).toBe('retryable')
+    expect(
+      chargeCheckoutUiState(charge(), [payment({ status: 'CANCELLED' })]),
+    ).toBe('retryable')
+    expect(
+      chargeCheckoutUiState(charge(), [
+        payment({
+          id: 'old-failed',
+          status: 'FAILED',
+          createdAt: '2026-09-20T14:00:00.000Z',
+        }),
+        payment({
+          id: 'new-pending',
+          status: 'PENDING',
+          createdAt: '2026-09-20T16:00:00.000Z',
+        }),
+      ]),
+    ).toBe('pending')
   })
 })

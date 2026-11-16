@@ -298,9 +298,11 @@ async function applyStripeStatus(
     try {
       await succeedPayment(store, paymentId);
     } catch (error) {
+      // Concurrent / replay / late webhook after retry (#53).
       if (
         error instanceof FinanceConflictError ||
-        error instanceof FinanceInvalidTransitionError
+        error instanceof FinanceInvalidTransitionError ||
+        error instanceof FinanceValidationError
       ) {
         return;
       }
